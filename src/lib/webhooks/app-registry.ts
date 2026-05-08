@@ -11,7 +11,7 @@ export type AppRegistryEntry = {
   appName: string;
   platform: SupportedPlatform;
   platformAppId?: string;
-  status: "published" | "draft_or_unknown" | "planned";
+  status: "published" | "planned";
   distributionChannel: "marketplace" | "direct" | "website" | "partner" | "agency" | "manual" | "import" | "unknown";
   acquisitionSource: string;
   billingProvider: "wix" | "stripe" | "paddle" | "manual" | "none" | "unknown";
@@ -22,7 +22,7 @@ export const EXISTING_WIX_APPS: AppRegistryEntry[] = [
     appKey: "store_content_suite",
     appName: "Store Content Suite",
     platform: "wix",
-    status: "draft_or_unknown",
+    status: "published",
     distributionChannel: "marketplace",
     acquisitionSource: "wix_app_market",
     billingProvider: "wix",
@@ -85,7 +85,7 @@ export const EXISTING_WIX_APPS: AppRegistryEntry[] = [
     appKey: "smart_login_button",
     appName: "Smart Login Button",
     platform: "wix",
-    status: "draft_or_unknown",
+    status: "published",
     distributionChannel: "marketplace",
     acquisitionSource: "wix_app_market",
     billingProvider: "wix",
