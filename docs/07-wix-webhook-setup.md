@@ -23,20 +23,20 @@ These are the first analytics events. Other plan events can be added later:
 Use this callback URL pattern:
 
 ```text
-https://api.zider.ink/events/wix/:app_key
+https://app.zider.ink/events/wix/:app_key
 ```
 
 Current draft app keys:
 
 ```text
-https://api.zider.ink/events/wix/store_content_suite
-https://api.zider.ink/events/wix/zider_copy_button_clipboard
-https://api.zider.ink/events/wix/zider_product_detail_enhancer
-https://api.zider.ink/events/wix/before_and_after_slider
-https://api.zider.ink/events/wix/beforeafter_slider_x
-https://api.zider.ink/events/wix/zider_countup
-https://api.zider.ink/events/wix/zider_loop_logo
-https://api.zider.ink/events/wix/smart_login_button
+https://app.zider.ink/events/wix/store_content_suite
+https://app.zider.ink/events/wix/zider_copy_button_clipboard
+https://app.zider.ink/events/wix/zider_product_detail_enhancer
+https://app.zider.ink/events/wix/before_and_after_slider
+https://app.zider.ink/events/wix/beforeafter_slider_x
+https://app.zider.ink/events/wix/zider_countup
+https://app.zider.ink/events/wix/zider_loop_logo
+https://app.zider.ink/events/wix/smart_login_button
 ```
 
 The app inventory currently has one counting question: the user confirmed 8 apps, while screenshots show 9 visible or partially visible rows. Confirm the final 8 before production setup.

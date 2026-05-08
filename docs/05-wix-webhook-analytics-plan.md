@@ -69,7 +69,7 @@ Platform Events
 ├─ Self-hosted Install Events
 └─ Other Marketplace Events
 ↓
-api.zider.ink/events/:platform/:app_key
+app.zider.ink/events/:platform/:app_key
 ↓
 Event Receiver
 ↓
