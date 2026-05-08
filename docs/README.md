@@ -11,6 +11,7 @@ This folder splits the original Cursor Studio PRD into smaller planning document
 - [04 PrintSlip Product Note](./04-printslip-product-note.md)
 - [05 Wix Webhook Analytics Plan](./05-wix-webhook-analytics-plan.md)
 - [06 Existing Wix Apps Inventory](./06-existing-wix-apps-inventory.md)
+- [07 Wix Webhook Setup](./07-wix-webhook-setup.md)
 
 ## Current Decision
 

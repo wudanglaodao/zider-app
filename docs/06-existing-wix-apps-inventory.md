@@ -16,15 +16,14 @@ The screenshots show more visible rows than the stated count because at least on
 
 | app_key | app_name | platform | platform_app_id | listing_url | status | pricing | distribution_channel | acquisition_source | billing_provider | webhook_events_needed | notes |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| store_content_suite | Store Content Suite | wix | TBD | TBD | draft_or_unknown | TBD | marketplace | wix_app_market | wix | install, uninstall, plan_changed | Existing app only; removed from future roadmap planning. |
-| zider_copy_button_clipboard | Zider Copy Button / Clipboard | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, plan_changed | Confirmed from screenshot. |
-| unknown_app_1 | TBD | wix | TBD | TBD | draft_or_unknown | TBD | marketplace | wix_app_market | wix | install, uninstall, plan_changed | Blurred row in screenshot; needs exact name. |
-| zider_product_detail_enhancer | Zider Product Detail Enhancer | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, plan_changed | Confirmed from screenshot. |
-| before_and_after_slider | Before And After Slider | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, plan_changed | Confirmed from screenshot. |
-| beforeafter_slider_x | BeforeAfter Slider X | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, plan_changed | Confirmed from screenshot. |
-| zider_countup | Zider CountUp | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, plan_changed | Confirmed from screenshot. |
-| zider_loop_logo | Zider Loop Logo | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, plan_changed | Confirmed from screenshot. |
-| smart_login_button | Smart Login Button | wix | TBD | TBD | draft_or_unknown | TBD | marketplace | wix_app_market | wix | install, uninstall, plan_changed | Visible in screenshot; confirm whether it is included in the 8-app count. |
+| store_content_suite | Store Content Suite | wix | TBD | TBD | draft_or_unknown | TBD | marketplace | wix_app_market | wix | install, uninstall, paid_plan_purchase | Existing app only; removed from future roadmap planning. |
+| zider_copy_button_clipboard | Zider Copy Button / Clipboard | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, paid_plan_purchase | Confirmed from screenshot. |
+| zider_product_detail_enhancer | Zider Product Detail Enhancer | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, paid_plan_purchase | Confirmed from screenshot. |
+| before_and_after_slider | Before And After Slider | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, paid_plan_purchase | Confirmed from screenshot. |
+| beforeafter_slider_x | BeforeAfter Slider X | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, paid_plan_purchase | Confirmed from screenshot. |
+| zider_countup | Zider CountUp | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, paid_plan_purchase | Confirmed from screenshot. |
+| zider_loop_logo | Zider Loop Logo | wix | TBD | TBD | published | TBD | marketplace | wix_app_market | wix | install, uninstall, paid_plan_purchase | Confirmed from screenshot. |
+| smart_login_button | Smart Login Button | wix | TBD | TBD | draft_or_unknown | TBD | marketplace | wix_app_market | wix | install, uninstall, paid_plan_purchase | Visible in screenshot. |
 
 ## Fields To Fill Before Implementation
 
@@ -61,4 +60,4 @@ Smart Login Button
 
 This appears to be 9 visible rows if the blurred app and Smart Login Button are both in scope.
 
-Before implementation, confirm which one is not part of the 8-app analytics scope, or provide the exact list exported from Wix Developers.
+For implementation, the readable 8 apps above are treated as the current scope. Confirm the blurred app separately before adding it as a ninth endpoint.

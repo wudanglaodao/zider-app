@@ -40,8 +40,9 @@ Early tracking gives every future product a better foundation:
 - App lifecycle events
 - Install tracking
 - Uninstall tracking
-- Paid plan change tracking
-- Trial / billing event tracking if supported by each app
+- Paid plan purchase tracking
+- Paid plan change tracking later if needed
+- Trial / billing event tracking later if supported by each app
 - Raw webhook payload storage
 - Deduplication
 - Platform and channel attribution
@@ -185,13 +186,13 @@ unknown
 
 ## Required Wix Events
 
-Start with app management events:
+Start with the three Wix-recommended app management and billing events:
 
 - App Instance Installed
 - App Instance Removed
-- Paid Plan Changed
+- Paid Plan Purchased
 
-Then add product-specific events only when needed.
+Then add product-specific or additional billing events only when needed.
 
 For future PrintSlip, possible later events may include order-related events.
 
@@ -449,9 +450,9 @@ Set status = removed
 Set uninstalled_at
 ```
 
-### Paid Plan Changed Event
+### Paid Plan Purchased Event
 
-On Paid Plan Changed:
+On Paid Plan Purchased:
 
 ```text
 Verify JWT
@@ -625,7 +626,7 @@ Process:
 
 - App Instance Installed
 - App Instance Removed
-- Paid Plan Changed
+- Paid Plan Purchased
 
 Acceptance:
 
