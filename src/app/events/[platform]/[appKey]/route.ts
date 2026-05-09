@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { waitUntil } from "@vercel/functions";
 import { getAppRegistryEntry, isSupportedPlatform } from "@/lib/webhooks/app-registry";
 import { persistWixWebhook } from "@/lib/webhooks/persistence";
 import { verifyWixWebhook, WixWebhookVerificationError } from "@/lib/webhooks/wix";
@@ -35,22 +36,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   try {
     const wix = await verifyWixWebhook(rawBody, appKey);
-    const result = await persistWixWebhook({
+    const persistence = persistWixWebhook({
       app,
       platform,
       appKey,
       rawBody,
       rawHeaders,
       wix,
+    }).catch((error) => {
+      console.error("Failed to persist verified webhook", {
+        platform,
+        appKey,
+        eventType: wix.eventType,
+        rawEventType: wix.rawEventType,
+        instanceId: wix.instanceId,
+        error,
+      });
     });
 
-    return NextResponse.json({
-      ok: true,
-      status: result.status,
-      eventType: wix.eventType,
-      rawEventType: wix.rawEventType,
-      eventId: result.eventId,
-    });
+    waitUntil(persistence);
+
+    return new Response(null, { status: 200 });
   } catch (error) {
     console.error("Failed to process webhook", {
       platform,
