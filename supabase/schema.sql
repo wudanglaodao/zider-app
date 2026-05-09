@@ -49,6 +49,9 @@ create table if not exists public.app_installations (
   external_account_id text,
   app_version text,
   status text not null default 'active',
+  event_source text not null default 'live',
+  is_test_install boolean not null default false,
+  test_reason text,
   is_free boolean,
   billing_provider text not null default 'unknown',
   current_plan_id text,
@@ -99,6 +102,9 @@ create table if not exists public.platform_event_logs (
   raw_jwt text,
   raw_headers jsonb,
   decoded_payload jsonb,
+  event_source text not null default 'live',
+  is_test_event boolean not null default false,
+  test_reason text,
   verification_status text not null default 'unverified',
   processing_status text not null default 'received',
   processing_error text,
@@ -115,6 +121,9 @@ create table if not exists public.app_billing_events (
   installation_id uuid references public.app_installations(id) on delete set null,
   instance_id text,
   event_type text not null,
+  event_source text not null default 'live',
+  is_test_event boolean not null default false,
+  test_reason text,
   billing_provider text not null default 'unknown',
   vendor_product_id text,
   previous_vendor_product_id text,
@@ -153,6 +162,9 @@ create index if not exists idx_platform_event_logs_received_at
 
 create index if not exists idx_platform_event_logs_app_type
   on public.platform_event_logs(app_key, platform, event_type);
+
+create index if not exists idx_platform_event_logs_test_events
+  on public.platform_event_logs(app_key, platform, is_test_event, received_at desc);
 
 create index if not exists idx_app_billing_events_app_created
   on public.app_billing_events(app_key, platform, created_at desc);

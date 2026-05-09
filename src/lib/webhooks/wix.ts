@@ -13,6 +13,12 @@ export type WixDecodedWebhook = {
   dedupeKey: string;
 };
 
+export type WixEventClassification = {
+  eventSource: "live" | "wix_test";
+  isTestEvent: boolean;
+  testReason: string | null;
+};
+
 export class WixWebhookVerificationError extends Error {
   constructor(
     message: string,
@@ -109,6 +115,34 @@ export async function verifyWixWebhook(rawBody: string, appKey: string): Promise
     instanceId,
     eventData: nestedEventData,
     dedupeKey: createDedupeKey([appKey, instanceId, eventId, eventType, rawBody]),
+  };
+}
+
+export function classifyWixEvent(wix: WixDecodedWebhook): WixEventClassification {
+  const sampleIndicators = [
+    wix.eventData.operationTimeStamp === "2019-12-09T07:44:53.659Z" && "sample_operation_timestamp",
+    wix.eventData.expiresOn === "2020-01-09T07:44:53Z" && "sample_expiration_timestamp",
+    wix.eventData.vendorProductId === "e8f429d5-0a6a-468f-8044-87f519a53202" && "sample_vendor_product_id",
+    wix.eventData.originInstanceId === "07864c16-3a6f-4dd2-9973-028705762b2c" && "sample_origin_instance_id",
+    wix.eventData.appId === "5bc2062d-010b-448c-a62a-d6bb269c5a4c" && "sample_app_id",
+    wix.eventType === "plan_converted_to_paid" &&
+      wix.eventData.operationTimeStamp === "2025-05-06T21:50:23.963Z" &&
+      wix.eventData.vendorProductId === "basic" &&
+      "sample_plan_converted_to_paid",
+  ].filter(Boolean) as string[];
+
+  if (sampleIndicators.length > 0) {
+    return {
+      eventSource: "wix_test",
+      isTestEvent: true,
+      testReason: `wix_sample_payload:${sampleIndicators.join(",")}`,
+    };
+  }
+
+  return {
+    eventSource: "live",
+    isTestEvent: false,
+    testReason: null,
   };
 }
 

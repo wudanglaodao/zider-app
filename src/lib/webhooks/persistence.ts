@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import type { AppRegistryEntry } from "./app-registry";
-import type { WixDecodedWebhook } from "./wix";
+import { classifyWixEvent, type WixDecodedWebhook } from "./wix";
 
 export type PersistWebhookInput = {
   app: AppRegistryEntry;
@@ -13,9 +13,10 @@ export type PersistWebhookInput = {
 
 export async function persistWixWebhook(input: PersistWebhookInput) {
   const supabase = getSupabaseAdmin();
+  const classification = classifyWixEvent(input.wix);
   const app = await upsertApp(input.app);
   const appPlatform = await upsertAppPlatform(input.app, app.id);
-  const eventLog = await insertEventLog(input, app.id, appPlatform.id);
+  const eventLog = await insertEventLog(input, app.id, appPlatform.id, classification);
 
   if (eventLog.duplicate) {
     return {
@@ -25,10 +26,10 @@ export async function persistWixWebhook(input: PersistWebhookInput) {
   }
 
   try {
-    const installation = await upsertInstallation(input, app.id, appPlatform.id);
+    const installation = await upsertInstallation(input, app.id, appPlatform.id, classification);
 
     if (input.wix.eventType.startsWith("paid_plan") || input.wix.eventType.startsWith("plan_")) {
-      await insertBillingEvent(input, app.id, appPlatform.id, installation?.id ?? null, eventLog.id);
+      await insertBillingEvent(input, app.id, appPlatform.id, installation?.id ?? null, eventLog.id, classification);
     }
 
     await markEventProcessed(eventLog.id);
@@ -92,35 +93,60 @@ async function upsertAppPlatform(app: AppRegistryEntry, appId: string) {
   return data;
 }
 
-async function insertEventLog(input: PersistWebhookInput, appId: string, appPlatformId: string) {
+type EventClassification = ReturnType<typeof classifyWixEvent>;
+
+async function insertEventLog(
+  input: PersistWebhookInput,
+  appId: string,
+  appPlatformId: string,
+  classification: EventClassification,
+) {
   const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
+  const payload = {
+    app_id: appId,
+    app_key: input.appKey,
+    app_platform_id: appPlatformId,
+    platform: input.platform,
+    instance_id: input.wix.instanceId,
+    event_type: input.wix.eventType,
+    event_id: input.wix.eventId,
+    event_time: input.wix.eventTime,
+    dedupe_key: input.wix.dedupeKey,
+    raw_body: input.rawBody,
+    raw_jwt: input.wix.token,
+    raw_headers: input.rawHeaders,
+    decoded_payload: input.wix.decodedPayload,
+    event_source: classification.eventSource,
+    is_test_event: classification.isTestEvent,
+    test_reason: classification.testReason,
+    verification_status: "verified",
+    processing_status: "processing",
+  };
+  let { data, error } = await supabase
     .from("platform_event_logs")
-    .insert({
-      app_id: appId,
-      app_key: input.appKey,
-      app_platform_id: appPlatformId,
-      platform: input.platform,
-      instance_id: input.wix.instanceId,
-      event_type: input.wix.eventType,
-      event_id: input.wix.eventId,
-      event_time: input.wix.eventTime,
-      dedupe_key: input.wix.dedupeKey,
-      raw_body: input.rawBody,
-      raw_jwt: input.wix.token,
-      raw_headers: input.rawHeaders,
-      decoded_payload: input.wix.decodedPayload,
-      verification_status: "verified",
-      processing_status: "processing",
-    })
+    .insert(payload)
     .select("id")
     .single();
 
-  if (!error) {
+  if (error && isMissingTestMetadataColumnError(error)) {
+    const retry = await supabase
+      .from("platform_event_logs")
+      .insert(omitTestEventMetadata(payload))
+      .select("id")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
+
+  if (!error && data) {
     return {
       id: data.id as string,
       duplicate: false,
     };
+  }
+
+  if (!error) {
+    throw new Error("Inserted webhook event did not return an id");
   }
 
   if (isDuplicateError(error)) {
@@ -162,7 +188,12 @@ async function insertEventLog(input: PersistWebhookInput, appId: string, appPlat
   throw error;
 }
 
-async function upsertInstallation(input: PersistWebhookInput, appId: string, appPlatformId: string) {
+async function upsertInstallation(
+  input: PersistWebhookInput,
+  appId: string,
+  appPlatformId: string,
+  classification: EventClassification,
+) {
   if (!input.wix.instanceId) {
     return null;
   }
@@ -191,6 +222,9 @@ async function upsertInstallation(input: PersistWebhookInput, appId: string, app
     const updatePayload: Record<string, unknown> = {
       status,
       billing_provider: input.app.billingProvider,
+      event_source: classification.eventSource,
+      is_test_install: classification.isTestEvent,
+      test_reason: classification.testReason,
       last_event_at: input.wix.eventTime ?? now,
       last_seen_at: now,
       updated_at: now,
@@ -209,12 +243,23 @@ async function upsertInstallation(input: PersistWebhookInput, appId: string, app
       updatePayload.uninstalled_at = uninstalledAt;
     }
 
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("app_installations")
       .update(updatePayload)
       .eq("id", existing.id)
       .select("id")
       .single();
+
+    if (error && isMissingTestMetadataColumnError(error)) {
+      const retry = await supabase
+        .from("app_installations")
+        .update(omitTestInstallMetadata(updatePayload))
+        .eq("id", existing.id)
+        .select("id")
+        .single();
+      data = retry.data;
+      error = retry.error;
+    }
 
     if (error) {
       throw error;
@@ -223,29 +268,43 @@ async function upsertInstallation(input: PersistWebhookInput, appId: string, app
     return data;
   }
 
-  const { data, error } = await supabase
+  const payload = {
+    app_id: appId,
+    app_key: input.appKey,
+    app_platform_id: appPlatformId,
+    platform: input.platform,
+    distribution_channel: input.app.distributionChannel,
+    acquisition_source: input.app.acquisitionSource,
+    instance_id: input.wix.instanceId,
+    external_install_id: getString(eventData.appId),
+    status,
+    billing_provider: input.app.billingProvider,
+    event_source: classification.eventSource,
+    is_test_install: classification.isTestEvent,
+    test_reason: classification.testReason,
+    current_plan_id: planId,
+    current_plan_name: planId,
+    installed_at: installedAt,
+    uninstalled_at: uninstalledAt,
+    last_event_at: input.wix.eventTime ?? now,
+    first_seen_at: now,
+    last_seen_at: now,
+  };
+  let { data, error } = await supabase
     .from("app_installations")
-    .insert({
-      app_id: appId,
-      app_key: input.appKey,
-      app_platform_id: appPlatformId,
-      platform: input.platform,
-      distribution_channel: input.app.distributionChannel,
-      acquisition_source: input.app.acquisitionSource,
-      instance_id: input.wix.instanceId,
-      external_install_id: getString(eventData.appId),
-      status,
-      billing_provider: input.app.billingProvider,
-      current_plan_id: planId,
-      current_plan_name: planId,
-      installed_at: installedAt,
-      uninstalled_at: uninstalledAt,
-      last_event_at: input.wix.eventTime ?? now,
-      first_seen_at: now,
-      last_seen_at: now,
-    })
+    .insert(payload)
     .select("id")
     .single();
+
+  if (error && isMissingTestMetadataColumnError(error)) {
+    const retry = await supabase
+      .from("app_installations")
+      .insert(omitTestInstallMetadata(payload))
+      .select("id")
+      .single();
+    data = retry.data;
+    error = retry.error;
+  }
 
   if (error) {
     throw error;
@@ -260,32 +319,41 @@ async function insertBillingEvent(
   appPlatformId: string,
   installationId: string | null,
   eventLogId: string,
+  classification: EventClassification,
 ) {
   const supabase = getSupabaseAdmin();
   const eventData = input.wix.eventData;
-  const { error } = await supabase
+  const payload = {
+    app_id: appId,
+    app_key: input.appKey,
+    platform: input.platform,
+    app_platform_id: appPlatformId,
+    installation_id: installationId,
+    instance_id: input.wix.instanceId,
+    event_type: input.wix.eventType,
+    event_source: classification.eventSource,
+    is_test_event: classification.isTestEvent,
+    test_reason: classification.testReason,
+    billing_provider: input.app.billingProvider,
+    vendor_product_id: getString(eventData.vendorProductId),
+    previous_vendor_product_id: getString(eventData.previousVendorProductId),
+    cycle: getString(eventData.cycle),
+    previous_cycle: getString(eventData.previousCycle),
+    invoice_id: getString(eventData.invoiceId),
+    coupon_name: getString(eventData.couponName),
+    operation_timestamp: getTimestampString(eventData.operationTimeStamp) ?? input.wix.eventTime,
+    raw_event_id: eventLogId,
+  };
+  let { error } = await supabase
     .from("app_billing_events")
-    .upsert(
-      {
-        app_id: appId,
-        app_key: input.appKey,
-        platform: input.platform,
-        app_platform_id: appPlatformId,
-        installation_id: installationId,
-        instance_id: input.wix.instanceId,
-        event_type: input.wix.eventType,
-        billing_provider: input.app.billingProvider,
-        vendor_product_id: getString(eventData.vendorProductId),
-        previous_vendor_product_id: getString(eventData.previousVendorProductId),
-        cycle: getString(eventData.cycle),
-        previous_cycle: getString(eventData.previousCycle),
-        invoice_id: getString(eventData.invoiceId),
-        coupon_name: getString(eventData.couponName),
-        operation_timestamp: getTimestampString(eventData.operationTimeStamp) ?? input.wix.eventTime,
-        raw_event_id: eventLogId,
-      },
-      { onConflict: "raw_event_id" },
-    );
+    .upsert(payload, { onConflict: "raw_event_id" });
+
+  if (error && isMissingTestMetadataColumnError(error)) {
+    const retry = await supabase
+      .from("app_billing_events")
+      .upsert(omitTestEventMetadata(payload), { onConflict: "raw_event_id" });
+    error = retry.error;
+  }
 
   if (error) {
     throw error;
@@ -321,6 +389,28 @@ export async function markEventFailed(eventLogId: string, message: string) {
 
 function isDuplicateError(error: { code?: string; message?: string }) {
   return error.code === "23505" || Boolean(error.message?.toLowerCase().includes("duplicate"));
+}
+
+function isMissingTestMetadataColumnError(error: { code?: string; message?: string }) {
+  const message = error.message?.toLowerCase() ?? "";
+
+  return (
+    error.code === "42703" ||
+    message.includes("event_source") ||
+    message.includes("is_test_event") ||
+    message.includes("is_test_install") ||
+    message.includes("test_reason")
+  );
+}
+
+function omitTestEventMetadata<T extends Record<string, unknown>>(payload: T) {
+  const { event_source: _eventSource, is_test_event: _isTestEvent, test_reason: _testReason, ...rest } = payload;
+  return rest;
+}
+
+function omitTestInstallMetadata<T extends Record<string, unknown>>(payload: T) {
+  const { event_source: _eventSource, is_test_install: _isTestInstall, test_reason: _testReason, ...rest } = payload;
+  return rest;
 }
 
 function getString(value: unknown) {
