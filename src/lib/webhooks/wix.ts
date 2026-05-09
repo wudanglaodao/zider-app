@@ -4,6 +4,7 @@ import { createDedupeKey } from "./dedupe";
 export type WixDecodedWebhook = {
   token: string;
   decodedPayload: Record<string, unknown>;
+  rawEventType: string | null;
   eventType: string;
   eventId: string | null;
   eventTime: string | null;
@@ -11,6 +12,16 @@ export type WixDecodedWebhook = {
   eventData: Record<string, unknown>;
   dedupeKey: string;
 };
+
+export class WixWebhookVerificationError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode = 400,
+  ) {
+    super(message);
+    this.name = "WixWebhookVerificationError";
+  }
+}
 
 type WixWebhookName =
   | "app_instance_installed"
@@ -58,7 +69,7 @@ export function getWixPublicKey(appKey: string) {
         return normalizePem(key);
       }
     } catch {
-      throw new Error("Invalid WIX_WEBHOOK_PUBLIC_KEYS JSON");
+      throw new WixWebhookVerificationError("Invalid WIX_WEBHOOK_PUBLIC_KEYS JSON", 500);
     }
   }
 
@@ -68,19 +79,21 @@ export function getWixPublicKey(appKey: string) {
     return normalizePem(singleKey);
   }
 
-  throw new Error(`Missing Wix webhook public key for app_key=${appKey}`);
+  throw new WixWebhookVerificationError(`Missing Wix webhook public key for app_key=${appKey}`, 500);
 }
 
 export async function verifyWixWebhook(rawBody: string, appKey: string): Promise<WixDecodedWebhook> {
   const token = extractJwt(rawBody);
   const publicKey = await importSPKI(getWixPublicKey(appKey), "RS256");
-  const verified = await jwtVerify(token, publicKey, {
-    algorithms: ["RS256"],
-  });
+  const verified = await verifyJwt(token, publicKey);
   const decodedPayload = verified.payload as Record<string, unknown>;
+
+  // Wix sends a JWT whose `data` field is a JSON string. That parsed event
+  // has its own `data` field containing the event-specific JSON string.
   const dataEnvelope = getRecord(decodedPayload.data) ?? decodedPayload;
   const nestedEventData = getRecord(dataEnvelope.data) ?? getRecord(decodedPayload.eventData) ?? {};
   const eventTypeRaw = dataEnvelope.eventType ?? decodedPayload.eventType ?? dataEnvelope.eventName ?? decodedPayload.eventName;
+  const rawEventType = getString(eventTypeRaw);
   const eventType = normalizeWixEventType(eventTypeRaw);
   const instanceId = getString(dataEnvelope.instanceId ?? decodedPayload.instanceId ?? nestedEventData.instanceId);
   const eventId = getString(dataEnvelope.id ?? dataEnvelope.eventId ?? decodedPayload.id ?? decodedPayload.eventId);
@@ -89,6 +102,7 @@ export async function verifyWixWebhook(rawBody: string, appKey: string): Promise
   return {
     token,
     decodedPayload,
+    rawEventType,
     eventType,
     eventId,
     eventTime,
@@ -116,7 +130,17 @@ function extractJwt(rawBody: string) {
     // The body is not JSON. Fall through to the consistent error below.
   }
 
-  throw new Error("Wix webhook body did not contain a JWT");
+  throw new WixWebhookVerificationError("Wix webhook body did not contain a JWT");
+}
+
+async function verifyJwt(token: string, publicKey: Awaited<ReturnType<typeof importSPKI>>) {
+  try {
+    return await jwtVerify(token, publicKey, {
+      algorithms: ["RS256"],
+    });
+  } catch (error) {
+    throw new WixWebhookVerificationError(error instanceof Error ? error.message : "Wix JWT verification failed");
+  }
 }
 
 function looksLikeJwt(value: string) {

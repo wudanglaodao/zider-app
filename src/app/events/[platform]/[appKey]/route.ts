@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAppRegistryEntry, isSupportedPlatform } from "@/lib/webhooks/app-registry";
 import { persistWixWebhook } from "@/lib/webhooks/persistence";
-import { verifyWixWebhook } from "@/lib/webhooks/wix";
+import { verifyWixWebhook, WixWebhookVerificationError } from "@/lib/webhooks/wix";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +48,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       ok: true,
       status: result.status,
       eventType: wix.eventType,
+      rawEventType: wix.rawEventType,
       eventId: result.eventId,
     });
   } catch (error) {
@@ -57,13 +58,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
       error,
     });
 
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "Webhook processing failed",
-      },
-      { status: 500 },
-    );
+    if (error instanceof WixWebhookVerificationError) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: error.message,
+        },
+        { status: error.statusCode },
+      );
+    }
+
+    return NextResponse.json({ ok: false, error: "Webhook processing failed" }, { status: 500 });
   }
 }
 
