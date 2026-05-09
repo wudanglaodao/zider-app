@@ -47,7 +47,7 @@ create table if not exists public.app_revenue_transactions (
   raw_row jsonb,
   imported_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (app_key, platform, invoice_id)
+  unique (invoice_id)
 );
 
 create index if not exists idx_app_pricing_plans_lookup

@@ -37,18 +37,35 @@ const rowsWithIds = records.map((record) => ({
   app_id: app.id,
   app_platform_id: appPlatform?.id ?? null,
 }));
+const duplicateInvoiceIdsInFile = findDuplicateValues(rowsWithIds.map((record) => record.invoice_id));
+const uniqueRowsWithIds = uniqueBy(rowsWithIds, (record) => record.invoice_id);
+const existingInvoiceIds = await readExistingInvoiceIds(
+  supabase,
+  uniqueRowsWithIds.map((record) => record.invoice_id),
+);
+const rowsToInsert = uniqueRowsWithIds.filter((record) => !existingInvoiceIds.has(record.invoice_id));
 
-const { error } = await supabase
-  .from("app_revenue_transactions")
-  .upsert(rowsWithIds, { onConflict: "app_key,platform,invoice_id" });
+let insertedInvoiceIds = [];
+let error = null;
 
-if (error) {
-  throw new Error(
-    [
-      `Failed to import Wix payout CSV: ${error.message}`,
-      "If this says the table is missing from the schema cache, run supabase/migrations/20260509_add_wix_revenue_imports.sql in Supabase SQL Editor first.",
-    ].join("\n"),
-  );
+if (rowsToInsert.length > 0) {
+  const insertResult = await supabase
+    .from("app_revenue_transactions")
+    .insert(rowsToInsert)
+    .select("invoice_id");
+
+  error = insertResult.error;
+  insertedInvoiceIds = insertResult.data?.map((row) => row.invoice_id) ?? [];
+
+  if (error) {
+    throw new Error(
+      [
+        `Failed to import Wix payout CSV: ${error.message}`,
+        "If this says the table is missing from the schema cache, run supabase/migrations/20260509_add_wix_revenue_imports.sql in Supabase SQL Editor first.",
+        "If this says duplicate key, run supabase/migrations/20260509_make_revenue_invoice_id_unique.sql and re-run the import.",
+      ].join("\n"),
+    );
+  }
 }
 
 const monthlyActuals = await readMonthlyActuals(supabase, appKey, platform);
@@ -56,11 +73,14 @@ const monthlyActuals = await readMonthlyActuals(supabase, appKey, platform);
 console.log(
   JSON.stringify(
     {
-      imported: rowsWithIds.length,
+      inserted: insertedInvoiceIds.length,
+      skippedExistingInvoices: existingInvoiceIds.size,
+      skippedDuplicateInvoicesInFile: duplicateInvoiceIdsInFile.length,
       appKey,
       platform,
       sourceFile,
       summary,
+      duplicateInvoiceIdsInFile,
       monthlyActuals,
     },
     null,
@@ -217,6 +237,34 @@ async function findAppPlatform(supabase, appKey, platform) {
   return data;
 }
 
+async function readExistingInvoiceIds(supabase, invoiceIds) {
+  const existing = new Set();
+  const chunkSize = 200;
+
+  for (let index = 0; index < invoiceIds.length; index += chunkSize) {
+    const chunk = invoiceIds.slice(index, index + chunkSize);
+
+    if (chunk.length === 0) {
+      continue;
+    }
+
+    const { data, error } = await supabase
+      .from("app_revenue_transactions")
+      .select("invoice_id")
+      .in("invoice_id", chunk);
+
+    if (error) {
+      throw new Error(`Could not check existing invoice IDs: ${error.message}`);
+    }
+
+    for (const row of data ?? []) {
+      existing.add(row.invoice_id);
+    }
+  }
+
+  return existing;
+}
+
 async function readMonthlyActuals(supabase, appKey, platform) {
   const { data, error } = await supabase
     .from("app_revenue_monthly_actuals")
@@ -313,6 +361,40 @@ function summarize(records) {
     ...roundMoneyObject(totals),
     byMonth: [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month)).map(roundMoneyObject),
   };
+}
+
+function uniqueBy(values, getKey) {
+  const seen = new Set();
+  const result = [];
+
+  for (const value of values) {
+    const key = getKey(value);
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(value);
+  }
+
+  return result;
+}
+
+function findDuplicateValues(values) {
+  const seen = new Set();
+  const duplicates = new Set();
+
+  for (const value of values) {
+    if (seen.has(value)) {
+      duplicates.add(value);
+      continue;
+    }
+
+    seen.add(value);
+  }
+
+  return [...duplicates];
 }
 
 function roundMoneyObject(value) {
