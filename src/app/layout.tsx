@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Zider App Analytics",
-  description: "Shared webhook analytics foundation for Zider apps.",
+  title: "Zider",
+  description: "Small apps. Sharper websites.",
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body style={{ margin: 0, backgroundColor: "#090b0f" }}>{children}</body>
     </html>
   );
 }

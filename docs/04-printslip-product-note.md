@@ -14,7 +14,7 @@ Print custom invoices and packing slips for your store orders.
 
 PrintSlip is a future Wix Stores operations app.
 
-It is separate from Cursor Studio and should not be included in Cursor Studio MVP.
+It is separate from Interactive Custom Cursor and should not be included in Interactive Custom Cursor MVP.
 
 ## Product Positioning
 
@@ -93,13 +93,13 @@ PrintSlip likely needs:
 - Print preview
 - Optional PDF/export later
 
-Unlike Cursor Studio, PrintSlip probably does not need:
+Unlike Interactive Custom Cursor, PrintSlip probably does not need:
 
 - Front-site embedded script
 - Cursor runtime
 - Hover/click effects
 
-## Relationship to Cursor Studio
+## Relationship to Interactive Custom Cursor
 
 Shared later:
 
@@ -127,4 +127,4 @@ printslip
 
 PrintSlip is reserved for later.
 
-Cursor Studio remains the active product planning target.
+Interactive Custom Cursor remains the active product planning target.

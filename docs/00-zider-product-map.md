@@ -15,7 +15,7 @@ Zider
 │  ├─ Plan change tracking
 │  └─ Basic analytics dashboard
 │
-├─ App 1: Cursor Studio
+├─ App 1: Interactive Custom Cursor
 │  ├─ Wix App Market Listing
 │  ├─ Dashboard Settings
 │  ├─ Embedded Script
@@ -42,9 +42,9 @@ Reason:
 
 This foundation should stay focused on app lifecycle statistics first, not product feature development.
 
-## App 1: Cursor Studio
+## App 1: Interactive Custom Cursor
 
-Cursor Studio is the first app and the current priority.
+Interactive Custom Cursor is the first app and the current priority.
 
 Positioning:
 
@@ -80,7 +80,7 @@ It focuses on store operations:
 - Order print preview
 - Batch printing
 
-PrintSlip should not share runtime logic with Cursor Studio. It may share brand, dashboard layout patterns, billing, and analytics later.
+PrintSlip should not share runtime logic with Interactive Custom Cursor. It may share brand, dashboard layout patterns, billing, and analytics later.
 
 ## Shared Platform Principle
 
@@ -100,7 +100,7 @@ runtime_type
 Recommended app keys:
 
 ```text
-cursor_studio
+interactive_custom_cursor
 printslip
 ```
 
@@ -108,6 +108,6 @@ printslip
 
 Wix Webhook Analytics is the first infrastructure planning target.
 
-Cursor Studio is the first product app to plan in detail after the analytics foundation is defined.
+Interactive Custom Cursor is the first product app to plan in detail after the analytics foundation is defined.
 
-PrintSlip is only documented as a future product note until Cursor Studio has a validated MVP.
+PrintSlip is only documented as a future product note until Interactive Custom Cursor has a validated MVP.

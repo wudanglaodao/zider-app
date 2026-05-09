@@ -1,8 +1,8 @@
-# Cursor Studio MVP Plan
+# Interactive Custom Cursor MVP Plan
 
 ## MVP Goal
 
-Build the smallest version of Cursor Studio that can validate whether Wix users want full-site cursor and hover interaction enhancement.
+Build the smallest version of Interactive Custom Cursor that can validate whether Wix users want full-site cursor and hover interaction enhancement.
 
 The MVP should feel polished, but it should avoid platform complexity.
 
@@ -86,7 +86,7 @@ Do not build in MVP:
 ## Suggested MVP User Flow
 
 ```text
-User installs Cursor Studio
+User installs Interactive Custom Cursor
 ↓
 User opens Cursor Settings
 ↓
@@ -107,7 +107,7 @@ Suggested config object:
 
 ```json
 {
-  "appKey": "cursor_studio",
+  "appKey": "interactive_custom_cursor",
   "enabled": true,
   "cursorType": "dot-ring",
   "cursorSize": 28,

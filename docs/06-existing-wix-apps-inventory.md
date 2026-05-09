@@ -4,7 +4,7 @@
 
 This document tracks the existing Wix apps that should be connected to the shared analytics and webhook foundation.
 
-This inventory is for analytics onboarding only. It does not change the future product roadmap, where Cursor Studio and PrintSlip are planned separately.
+This inventory is for analytics onboarding only. It does not change the future product roadmap, where Interactive Custom Cursor and PrintSlip are planned separately.
 
 ## Current Count
 

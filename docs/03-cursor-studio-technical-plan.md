@@ -1,8 +1,8 @@
-# Cursor Studio Technical Plan
+# Interactive Custom Cursor Technical Plan
 
 ## Recommended Technical Approach
 
-Cursor Studio should use:
+Interactive Custom Cursor should use:
 
 - Wix Embedded Script
 - Wix Dashboard Page
@@ -24,7 +24,7 @@ Published Wix Site
 
 ## Why Embedded Script
 
-Cursor Studio needs to affect the whole site.
+Interactive Custom Cursor needs to affect the whole site.
 
 Embedded Script is preferred because the user should not need to:
 
@@ -174,10 +174,10 @@ app_usage_events
 app_templates
 ```
 
-Recommended Cursor Studio app key:
+Recommended Interactive Custom Cursor app key:
 
 ```text
-cursor_studio
+interactive_custom_cursor
 ```
 
 ## Deployment Direction

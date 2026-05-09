@@ -24,7 +24,7 @@ Webhook and install tracking should be added now because event data is forward-l
 
 Early tracking gives every future product a better foundation:
 
-- Cursor Studio
+- Interactive Custom Cursor
 - PrintSlip
 - Existing 8 Wix apps
 - Future Zider apps
@@ -52,7 +52,7 @@ Early tracking gives every future product a better foundation:
 
 ### Out of Scope
 
-- Cursor Studio feature development
+- Interactive Custom Cursor feature development
 - PrintSlip feature development
 - Full product analytics SDK
 - Complex BI dashboard
@@ -95,10 +95,10 @@ POST /events/:platform/:app_key
 Examples:
 
 ```text
-/events/wix/cursor_studio
+/events/wix/interactive_custom_cursor
 /events/wix/printslip
-/events/webflow/cursor_studio
-/events/direct/cursor_studio
+/events/webflow/interactive_custom_cursor
+/events/direct/interactive_custom_cursor
 /events/shopify/future_app
 ```
 
@@ -116,7 +116,7 @@ These concepts should stay separate:
 
 ```text
 App
-The Zider product, such as Cursor Studio or PrintSlip.
+The Zider product, such as Interactive Custom Cursor or PrintSlip.
 
 Platform
 Where the app is installed or used, such as Wix, Webflow, direct, Shopify, WordPress, or other.
@@ -196,7 +196,7 @@ Then add product-specific or additional billing events only when needed.
 
 For future PrintSlip, possible later events may include order-related events.
 
-For Cursor Studio, product-specific events may be internal dashboard usage events rather than Wix webhooks.
+For Interactive Custom Cursor, product-specific events may be internal dashboard usage events rather than Wix webhooks.
 
 ## Important Wix Webhook Rules
 
@@ -253,9 +253,9 @@ updated_at
 Examples:
 
 ```text
-cursor_studio | wix | <wix_app_id>
-cursor_studio | webflow | null
-cursor_studio | direct | null
+interactive_custom_cursor | wix | <wix_app_id>
+interactive_custom_cursor | webflow | null
+interactive_custom_cursor | direct | null
 printslip | wix | <wix_app_id>
 ```
 

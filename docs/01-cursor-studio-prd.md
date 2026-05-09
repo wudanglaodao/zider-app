@@ -1,8 +1,8 @@
-# Cursor Studio PRD
+# Interactive Custom Cursor PRD
 
 ## Product Name
 
-Zider Cursor Studio
+Interactive Custom Cursor
 
 ## Subtitle
 
@@ -12,7 +12,7 @@ Interactive Cursor Experience for Wix
 
 ## Product Positioning
 
-Cursor Studio is a Wix app that improves the interactive feel of a website through custom cursor behavior, hover motion, and click feedback.
+Interactive Custom Cursor is a Wix app that improves the interactive feel of a website through custom cursor behavior, hover motion, and click feedback.
 
 It is not just a cursor replacement tool. The product goal is to make Wix sites feel more polished, branded, and interactive with minimal setup.
 
@@ -85,7 +85,7 @@ Cursor works globally
 
 ## Cursor States
 
-Cursor Studio should support these states conceptually:
+Interactive Custom Cursor should support these states conceptually:
 
 ```text
 Default
@@ -244,7 +244,7 @@ Pricing can be revisited after MVP validation.
 App title:
 
 ```text
-Zider Cursor Studio
+Interactive Custom Cursor
 ```
 
 Subtitle:
@@ -265,7 +265,7 @@ Keywords:
 
 ## Success Criteria
 
-Cursor Studio is successful if:
+Interactive Custom Cursor is successful if:
 
 - Users can install it without custom code
 - Cursor effects work globally
