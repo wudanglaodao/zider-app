@@ -69,20 +69,55 @@ async function upsertApp(app: AppRegistryEntry) {
 
 async function upsertAppPlatform(app: AppRegistryEntry, appId: string) {
   const supabase = getSupabaseAdmin();
+  const { data: existing, error: lookupError } = await supabase
+    .from("app_platforms")
+    .select("id")
+    .eq("app_key", app.appKey)
+    .eq("platform", app.platform)
+    .maybeSingle();
+
+  if (lookupError) {
+    throw lookupError;
+  }
+
+  if (existing) {
+    const updatePayload: Record<string, unknown> = {
+      app_id: appId,
+      platform_app_name: app.appName,
+      status: app.status,
+      default_billing_provider: app.billingProvider,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (app.platformAppId) {
+      updatePayload.platform_app_id = app.platformAppId;
+    }
+
+    const { data, error } = await supabase
+      .from("app_platforms")
+      .update(updatePayload)
+      .eq("id", existing.id)
+      .select("id")
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    return data;
+  }
+
   const { data, error } = await supabase
     .from("app_platforms")
-    .upsert(
-      {
-        app_id: appId,
-        app_key: app.appKey,
-        platform: app.platform,
-        platform_app_id: app.platformAppId ?? null,
-        platform_app_name: app.appName,
-        status: app.status,
-        default_billing_provider: app.billingProvider,
-      },
-      { onConflict: "app_key,platform" },
-    )
+    .insert({
+      app_id: appId,
+      app_key: app.appKey,
+      platform: app.platform,
+      platform_app_id: app.platformAppId ?? null,
+      platform_app_name: app.appName,
+      status: app.status,
+      default_billing_provider: app.billingProvider,
+    })
     .select("id")
     .single();
 
