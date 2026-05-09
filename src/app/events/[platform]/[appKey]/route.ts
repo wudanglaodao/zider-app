@@ -1,8 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { waitUntil } from "@vercel/functions";
+import { CURSOR_APP_KEY } from "@/cursor/core";
 import { getAppRegistryEntry, isSupportedPlatform } from "@/lib/webhooks/app-registry";
 import { persistWixWebhook } from "@/lib/webhooks/persistence";
 import { verifyWixWebhook, WixWebhookVerificationError } from "@/lib/webhooks/wix";
+import { installInteractiveCustomCursorEmbedScript } from "@/lib/wix/embedded-script";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,22 +33,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ ok: false, error: "Platform receiver is not implemented yet" }, { status: 501 });
   }
 
+  const canonicalAppKey = app.appKey;
   const rawBody = await request.text();
   const rawHeaders = Object.fromEntries(request.headers.entries());
 
   try {
-    const wix = await verifyWixWebhook(rawBody, appKey);
+    const wix = await verifyWixWebhook(rawBody, canonicalAppKey);
     const persistence = persistWixWebhook({
       app,
       platform,
-      appKey,
+      appKey: canonicalAppKey,
       rawBody,
       rawHeaders,
       wix,
     }).catch((error) => {
       console.error("Failed to persist verified webhook", {
         platform,
-        appKey,
+        appKey: canonicalAppKey,
         eventType: wix.eventType,
         rawEventType: wix.rawEventType,
         instanceId: wix.instanceId,
@@ -56,11 +59,22 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     waitUntil(persistence);
 
+    if (canonicalAppKey === CURSOR_APP_KEY && wix.eventType === "app_instance_installed" && wix.instanceId) {
+      waitUntil(
+        installInteractiveCustomCursorEmbedScript(wix.instanceId).catch((error) => {
+          console.warn("Interactive Custom Cursor embed script setup skipped or failed", {
+            instanceId: wix.instanceId,
+            error: error instanceof Error ? error.message : error,
+          });
+        }),
+      );
+    }
+
     return new Response(null, { status: 200 });
   } catch (error) {
     console.error("Failed to process webhook", {
       platform,
-      appKey,
+      appKey: app?.appKey ?? appKey,
       error,
     });
 

@@ -1,4 +1,5 @@
 import { importSPKI, jwtVerify } from "jose";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { createDedupeKey } from "./dedupe";
 
 export type WixDecodedWebhook = {
@@ -28,6 +29,17 @@ export class WixWebhookVerificationError extends Error {
     this.name = "WixWebhookVerificationError";
   }
 }
+
+export type WixPublicKeySource = "database" | "database_env_ref" | "env_json" | "env_fallback" | "missing";
+
+export type WixPublicKeyResolution = {
+  appKey: string;
+  publicKey: string | null;
+  source: WixPublicKeySource;
+  databaseRef: string | null;
+  envRef: string | null;
+  error: string | null;
+};
 
 type WixWebhookName =
   | "app_instance_installed"
@@ -63,34 +75,95 @@ export function normalizeWixEventType(value: unknown): WixWebhookName {
   return "unknown";
 }
 
-export function getWixPublicKey(appKey: string) {
+export async function resolveWixPublicKey(appKey: string): Promise<WixPublicKeyResolution> {
+  const databaseRef = await getDatabaseWixPublicKeyRef(appKey);
+  const databaseResolved = resolvePublicKeyRef(databaseRef);
+
+  if (databaseResolved.publicKey) {
+    return {
+      appKey,
+      publicKey: databaseResolved.publicKey,
+      source: databaseResolved.source,
+      databaseRef,
+      envRef: databaseResolved.envRef,
+      error: null,
+    };
+  }
+
+  const envResolved = resolveEnvWixPublicKey(appKey);
+
+  return {
+    appKey,
+    ...envResolved,
+    databaseRef,
+  };
+}
+
+export async function getWixPublicKey(appKey: string) {
+  const resolved = await resolveWixPublicKey(appKey);
+
+  if (resolved.publicKey) {
+    return resolved.publicKey;
+  }
+
+  if (resolved.error) {
+    throw new WixWebhookVerificationError(resolved.error, 500);
+  }
+
+  throw new WixWebhookVerificationError(`Missing Wix webhook public key for app_key=${appKey}`, 500);
+}
+
+export function resolveEnvWixPublicKey(
+  appKey: string,
+): Omit<WixPublicKeyResolution, "appKey" | "databaseRef"> {
   const byAppJson = process.env.WIX_WEBHOOK_PUBLIC_KEYS;
 
   if (byAppJson) {
-    try {
-      const parsed = JSON.parse(byAppJson) as Record<string, string>;
-      const key = parsed[appKey];
+    const parsed = parseWixPublicKeysJson(byAppJson);
 
-      if (key) {
-        return normalizePem(key);
-      }
-    } catch {
-      throw new WixWebhookVerificationError("Invalid WIX_WEBHOOK_PUBLIC_KEYS JSON", 500);
+    if (!parsed.ok) {
+      return {
+        publicKey: null,
+        source: "missing",
+        envRef: null,
+        error: parsed.error,
+      };
+    }
+
+    const key = parsed.value[appKey];
+
+    if (key) {
+      return {
+        publicKey: normalizePem(key),
+        source: "env_json",
+        envRef: "WIX_WEBHOOK_PUBLIC_KEYS",
+        error: null,
+      };
     }
   }
 
   const singleKey = process.env.WIX_WEBHOOK_PUBLIC_KEY;
 
   if (singleKey) {
-    return normalizePem(singleKey);
+    return {
+      publicKey: normalizePem(singleKey),
+      source: "env_fallback",
+      envRef: "WIX_WEBHOOK_PUBLIC_KEY",
+      error: null,
+    };
   }
 
-  throw new WixWebhookVerificationError(`Missing Wix webhook public key for app_key=${appKey}`, 500);
+  return {
+    publicKey: null,
+    source: "missing",
+    envRef: null,
+    error: null,
+  };
 }
 
 export async function verifyWixWebhook(rawBody: string, appKey: string): Promise<WixDecodedWebhook> {
   const token = extractJwt(rawBody);
-  const publicKey = await importSPKI(getWixPublicKey(appKey), "RS256");
+  const publicKey = await importSPKI(await getWixPublicKey(appKey), "RS256");
   const verified = await verifyJwt(token, publicKey);
   const decodedPayload = verified.payload as Record<string, unknown>;
 
@@ -189,6 +262,138 @@ function normalizePem(value: string) {
   }
 
   return `-----BEGIN PUBLIC KEY-----\n${normalized}\n-----END PUBLIC KEY-----`;
+}
+
+function resolvePublicKeyRef(value: string | null): Pick<WixPublicKeyResolution, "publicKey" | "source" | "envRef"> {
+  if (!value) {
+    return {
+      publicKey: null,
+      source: "missing",
+      envRef: null,
+    };
+  }
+
+  const normalized = value.replace(/\\n/g, "\n").trim();
+
+  if (normalized.includes("BEGIN PUBLIC KEY")) {
+    return {
+      publicKey: normalizePem(normalized),
+      source: "database",
+      envRef: null,
+    };
+  }
+
+  const envRef = normalized.startsWith("env:") ? normalized.slice(4).trim() : normalized;
+  const mappedEnvValue = resolveMappedEnvPublicKey(envRef);
+
+  if (mappedEnvValue) {
+    return {
+      publicKey: normalizePem(mappedEnvValue),
+      source: "database_env_ref",
+      envRef,
+    };
+  }
+
+  const envValue = process.env[envRef];
+
+  if (!envValue) {
+    return {
+      publicKey: null,
+      source: "missing",
+      envRef,
+    };
+  }
+
+  return {
+    publicKey: normalizePem(envValue),
+    source: "database_env_ref",
+    envRef,
+  };
+}
+
+function resolveMappedEnvPublicKey(envRef: string) {
+  const separatorIndex = envRef.indexOf(".");
+
+  if (separatorIndex <= 0 || separatorIndex === envRef.length - 1) {
+    return null;
+  }
+
+  const envName = envRef.slice(0, separatorIndex);
+  const mapKey = envRef.slice(separatorIndex + 1);
+  const rawMap = process.env[envName];
+
+  if (!rawMap) {
+    return null;
+  }
+
+  const parsed = parseWixPublicKeysJson(rawMap);
+
+  if (!parsed.ok) {
+    console.warn("Failed to parse Wix webhook public key map ref", {
+      envName,
+      mapKey,
+      error: parsed.error,
+    });
+    return null;
+  }
+
+  return parsed.value[mapKey] ?? null;
+}
+
+async function getDatabaseWixPublicKeyRef(appKey: string) {
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+
+  try {
+    const supabase = getSupabaseAdmin();
+    const { data, error } = await supabase
+      .from("app_platforms")
+      .select("webhook_public_key_ref")
+      .eq("platform", "wix")
+      .eq("app_key", appKey)
+      .maybeSingle();
+
+    if (error) {
+      console.warn("Failed to load Wix webhook public key ref", {
+        appKey,
+        error: error.message,
+      });
+      return null;
+    }
+
+    return typeof data?.webhook_public_key_ref === "string" && data.webhook_public_key_ref.trim()
+      ? data.webhook_public_key_ref.trim()
+      : null;
+  } catch (error) {
+    console.warn("Wix webhook public key DB lookup skipped", {
+      appKey,
+      error: error instanceof Error ? error.message : error,
+    });
+    return null;
+  }
+}
+
+function parseWixPublicKeysJson(raw: string):
+  | {
+      ok: true;
+      value: Record<string, string>;
+    }
+  | {
+      ok: false;
+      error: string;
+    } {
+  try {
+    return {
+      ok: true,
+      value: JSON.parse(raw) as Record<string, string>,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Invalid WIX_WEBHOOK_PUBLIC_KEYS JSON",
+    };
+  }
 }
 
 function getString(value: unknown) {

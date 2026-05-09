@@ -48,10 +48,11 @@ Required:
 ```text
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
-WIX_WEBHOOK_PUBLIC_KEYS
 ```
 
-Preferred public key format:
+Preferred public key storage is `app_platforms.webhook_public_key_ref`, one row per Wix app. Store either the full PEM public key, a single env var reference, or a legacy JSON-map reference such as `WIX_WEBHOOK_PUBLIC_KEYS.zider_countup`.
+
+Legacy fallback public key format:
 
 ```json
 {

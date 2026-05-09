@@ -19,6 +19,15 @@ export type AppRegistryEntry = {
 
 export const EXISTING_WIX_APPS: AppRegistryEntry[] = [
   {
+    appKey: "interactive_custom_cursor",
+    appName: "Interactive Custom Cursor",
+    platform: "wix",
+    status: "planned",
+    distributionChannel: "marketplace",
+    acquisitionSource: "wix_app_market",
+    billingProvider: "none",
+  },
+  {
     appKey: "store_content_suite",
     appName: "Store Content Suite",
     platform: "wix",
@@ -95,9 +104,17 @@ export const EXISTING_WIX_APPS: AppRegistryEntry[] = [
 const registry = new Map(EXISTING_WIX_APPS.map((app) => [`${app.platform}:${app.appKey}`, app]));
 
 export function getAppRegistryEntry(platform: string, appKey: string) {
-  return registry.get(`${platform}:${appKey}`);
+  return registry.get(`${platform}:${appKey}`) ?? registry.get(`${platform}:${normalizeAppKeyAlias(appKey)}`);
 }
 
 export function isSupportedPlatform(platform: string): platform is SupportedPlatform {
   return ["wix", "webflow", "direct", "wordpress", "shopify", "other"].includes(platform);
+}
+
+function normalizeAppKeyAlias(appKey: string) {
+  if (appKey === "interactive-custom-cursor") {
+    return "interactive_custom_cursor";
+  }
+
+  return appKey;
 }

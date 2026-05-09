@@ -12,6 +12,8 @@ This folder splits the original Interactive Custom Cursor PRD into smaller plann
 - [05 Wix Webhook Analytics Plan](./05-wix-webhook-analytics-plan.md)
 - [06 Existing Wix Apps Inventory](./06-existing-wix-apps-inventory.md)
 - [07 Wix Webhook Setup](./07-wix-webhook-setup.md)
+- [08 Interactive Custom Cursor Platform Harness](./08-interactive-custom-cursor-harness.md)
+- [09 Interactive Custom Cursor Wix App Harness](./09-wix-interactive-custom-cursor-app.md)
 
 ## Current Decision
 

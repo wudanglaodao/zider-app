@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Zider",
-  description: "Small apps. Sharper websites.",
+  title: "Zider Workspace",
+  description: "Interactive Custom Cursor workspace.",
 };
 
 export default function RootLayout({
@@ -12,7 +12,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, backgroundColor: "#090b0f" }}>{children}</body>
+      <body style={{ margin: 0, overflowX: "hidden", backgroundColor: "#f7f7f9" }}>{children}</body>
     </html>
   );
 }

@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { EXISTING_WIX_APPS } from "@/lib/webhooks/app-registry";
+import { resolveWixPublicKey } from "@/lib/webhooks/wix";
 
 export const runtime = "nodejs";
 
-export function GET(request: Request) {
+export async function GET(request: Request) {
   const url = new URL(request.url);
   const includeChecks = url.searchParams.get("checks") === "1";
 
@@ -18,6 +19,27 @@ export function GET(request: Request) {
   const appKey = url.searchParams.get("app_key");
   const appKeys = appKey ? [appKey] : EXISTING_WIX_APPS.map((app) => app.appKey);
   const wixKeyStatus = Object.fromEntries(
+    await Promise.all(
+      appKeys.map(async (key) => {
+        const resolution = await resolveWixPublicKey(key);
+        const value = resolution.publicKey ?? "";
+
+        return [
+          key,
+          {
+            present: Boolean(value),
+            source: resolution.source,
+            databaseRefPresent: Boolean(resolution.databaseRef),
+            envRef: resolution.envRef,
+            looksLikePem: value.includes("BEGIN PUBLIC KEY") && value.includes("END PUBLIC KEY"),
+            error: resolution.error,
+          },
+        ];
+      }),
+    ),
+  );
+
+  const legacyWixKeyStatus = Object.fromEntries(
     appKeys.map((key) => {
       const value = wixPublicKeys.value?.[key] ?? "";
       return [
@@ -36,11 +58,15 @@ export function GET(request: Request) {
     env: {
       supabaseUrl: Boolean(process.env.SUPABASE_URL),
       supabaseServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      ziderAppUrl: Boolean(process.env.NEXT_PUBLIC_ZIDER_APP_URL ?? process.env.ZIDER_APP_URL),
+      wixInteractiveCustomCursorAppId: Boolean(process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_ID),
+      wixInteractiveCustomCursorAppSecret: Boolean(process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET),
       wixWebhookPublicKeyFallback: Boolean(process.env.WIX_WEBHOOK_PUBLIC_KEY),
       wixWebhookPublicKeysJson: wixPublicKeys.valid,
       wixWebhookPublicKeysError: wixPublicKeys.error,
     },
     wixKeyStatus,
+    legacyWixKeyStatus,
   });
 }
 
