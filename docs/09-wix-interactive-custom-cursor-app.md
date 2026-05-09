@@ -82,7 +82,7 @@ create table if not exists widget_configs (
 2. Wix sends `app_instance_installed` to `/events/wix/interactive_custom_cursor`.
 3. The webhook persists the installation.
 4. The app exchanges `instanceId` for an OAuth access token.
-5. The app calls Wix Embedded Script API and passes `scriptUrl`.
+5. The app calls Wix Embedded Script API and passes `scriptUrl` as `properties.parameters.scriptUrl`.
 6. Wix injects the script into the site.
 7. The script fetches the published cursor config and mounts the DOM runtime.
 

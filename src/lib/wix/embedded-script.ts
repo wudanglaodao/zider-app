@@ -16,9 +16,10 @@ export async function installInteractiveCustomCursorEmbedScript(instanceId: stri
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      parameters: {
-        instanceId,
-        scriptUrl: `${appUrl.replace(/\/$/, "")}/api/widgets/interactive-custom-cursor/embed.js?platform=wix&instanceId=${encodeURIComponent(instanceId)}`,
+      properties: {
+        parameters: {
+          scriptUrl: `${appUrl.replace(/\/$/, "")}/api/widgets/interactive-custom-cursor/embed.js?platform=wix&instanceId=${encodeURIComponent(instanceId)}`,
+        },
       },
     }),
   });
