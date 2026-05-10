@@ -91,6 +91,14 @@ const iconOptions: { iconName: CursorIconName; label: string; Icon: LucideIcon; 
 const hoverTexts = ["CLICK", "OPEN", "VIEW"] as const;
 const ziderLogoUrl = "https://zider.ink/wp-content/uploads/2024/07/zider-def.png";
 type PanelId = "preset" | "default" | "link" | "asset" | "interaction" | "guards";
+type PreviewThemeId = "light" | "dark" | "brand" | "shop";
+
+const previewThemes: { id: PreviewThemeId; label: string }[] = [
+  { id: "light", label: "Light" },
+  { id: "dark", label: "Dark" },
+  { id: "brand", label: "Brand" },
+  { id: "shop", label: "Shop" },
+];
 
 export type CursorLabProps = {
   shell?: "workbench" | "embedded";
@@ -107,14 +115,18 @@ export type CursorLabProps = {
 export function CursorLab({ shell = "workbench", initialConfig, installContext }: CursorLabProps = {}) {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
   const runtimeRef = useRef<CursorRuntime | null>(null);
-  const [activePreset, setActivePreset] = useState<CursorPresetId>("studio-cursor");
+  const [activePreset, setActivePreset] = useState<CursorPresetId>("light-site");
+  const [previewTheme, setPreviewTheme] = useState<PreviewThemeId>("light");
   const [isPresetModalOpen, setIsPresetModalOpen] = useState(false);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "published" | "error">("idle");
+  const [lastPersistedAt, setLastPersistedAt] = useState<Date | null>(null);
+  const [lastPersistedMode, setLastPersistedMode] = useState<"draft" | "publish" | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [collapsedPanels, setCollapsedPanels] = useState<PanelId[]>(["guards"]);
   const [config, setConfig] = useState<CursorConfig>(() =>
     normalizeCursorConfig({
       ...DEFAULT_CURSOR_CONFIG,
-      ...CURSOR_PRESETS.find((preset) => preset.id === "studio-cursor")?.config,
+      ...CURSOR_PRESETS.find((preset) => preset.id === "light-site")?.config,
       ...initialConfig,
     }),
   );
@@ -150,6 +162,7 @@ export function CursorLab({ shell = "workbench", initialConfig, installContext }
   }
 
   function updateConfig(nextConfig: CursorConfigInput) {
+    setHasUnsavedChanges(true);
     setConfig((current) =>
       normalizeCursorConfig({
         ...current,
@@ -172,6 +185,12 @@ export function CursorLab({ shell = "workbench", initialConfig, installContext }
         },
       }),
     );
+  }
+
+  function markConfigPersisted(mode: "draft" | "publish") {
+    setLastPersistedAt(new Date());
+    setLastPersistedMode(mode);
+    setHasUnsavedChanges(false);
   }
 
   function togglePanel(panelId: PanelId) {
@@ -202,7 +221,8 @@ export function CursorLab({ shell = "workbench", initialConfig, installContext }
 
   async function persistConfig(mode: "draft" | "publish") {
     if (!installContext?.configEndpoint || !installContext.instanceId) {
-      setSaveState("saved");
+      markConfigPersisted(mode);
+      setSaveState(mode === "publish" ? "published" : "saved");
       window.setTimeout(() => setSaveState("idle"), 1800);
       return;
     }
@@ -229,6 +249,7 @@ export function CursorLab({ shell = "workbench", initialConfig, installContext }
         throw new Error(`Save failed with ${response.status}`);
       }
 
+      markConfigPersisted(mode);
       setSaveState(mode === "publish" ? "published" : "saved");
       window.setTimeout(() => setSaveState("idle"), 2200);
     } catch (error) {
@@ -242,6 +263,16 @@ export function CursorLab({ shell = "workbench", initialConfig, installContext }
   const previewPresets = CURSOR_PRESETS.slice(0, 2);
   const isHiddenPresetActive = !previewPresets.some((preset) => preset.id === activePreset);
   const previewHoverColor = config.linkStyle.enabled ? config.linkStyle.hoverColor : config.hoverColor;
+  const persistedStatusText =
+    saveState === "saving"
+      ? "Saving..."
+      : saveState === "error"
+        ? "Save failed"
+        : lastPersistedAt
+          ? `${lastPersistedMode === "publish" ? "Published" : "Saved"} ${formatPersistTime(lastPersistedAt)}${
+              hasUnsavedChanges ? " · edited" : ""
+            }`
+          : "Not saved yet";
 
   const content = (
       <div className="cursor-builder">
@@ -260,15 +291,7 @@ export function CursorLab({ shell = "workbench", initialConfig, installContext }
 
         <div className="cursor-builder__toolbar" aria-label="Builder actions">
           <span aria-live="polite" className="cursor-builder__save-state" data-state={saveState}>
-            {saveState === "saving"
-              ? "Saving..."
-              : saveState === "saved"
-                ? "Saved"
-                : saveState === "published"
-                  ? "Published"
-                  : saveState === "error"
-                    ? "Save failed"
-                    : null}
+            {persistedStatusText}
           </span>
           <button
             className="cursor-builder__save-button cursor-builder__save-button--secondary"
@@ -564,7 +587,6 @@ export function CursorLab({ shell = "workbench", initialConfig, installContext }
                 <>
                   <ToggleRow checked={config.enabled} label="Enable cursor" onChange={(enabled) => updateConfig({ enabled })} />
                   <ToggleRow checked={config.disableMobile} label="Disable on mobile" onChange={(disableMobile) => updateConfig({ disableMobile })} />
-                  <ToggleRow checked={config.disableEditor} label="Disable in editor" onChange={(disableEditor) => updateConfig({ disableEditor })} />
                 </>
               ) : null}
             </section>
@@ -572,8 +594,17 @@ export function CursorLab({ shell = "workbench", initialConfig, installContext }
 
           <section className="cursor-builder__stage" aria-label="Cursor preview">
             <div className="cursor-builder__stage-head">
-              <p>Preview</p>
-              <span>{config.customAsset.mode === "none" ? "Scoped DOM runtime" : `${config.customAsset.mode} asset`}</span>
+              <div>
+                <p>Preview</p>
+                <span>{config.customAsset.mode === "none" ? "Theme test surface" : `${config.customAsset.mode} asset`}</span>
+              </div>
+              <div className="cursor-builder__theme-switcher" aria-label="Preview theme">
+                {previewThemes.map((theme) => (
+                  <button data-active={previewTheme === theme.id} key={theme.id} onClick={() => setPreviewTheme(theme.id)} type="button">
+                    {theme.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="cursor-builder__preview-shell">
@@ -584,7 +615,12 @@ export function CursorLab({ shell = "workbench", initialConfig, installContext }
                 <strong>zider-preview.site</strong>
               </div>
 
-              <div className="cursor-builder__surface" ref={surfaceRef} style={{ "--zider-hover-color": previewHoverColor } as CSSProperties}>
+              <div
+                className="cursor-builder__surface"
+                data-theme={previewTheme}
+                ref={surfaceRef}
+                style={{ "--zider-hover-color": previewHoverColor } as CSSProperties}
+              >
                 <nav className="cursor-builder__surface-nav">
                   <a data-zider-cursor-label="OPEN" href="#work">
                     Work
@@ -680,9 +716,33 @@ function PanelHeader({
 function PresetButton({ active, onClick, preset }: { active: boolean; onClick: () => void; preset: CursorPreset }) {
   return (
     <button className="cursor-builder__preset" data-active={active} onClick={onClick} type="button">
-      <span className="cursor-builder__preset-swatch" style={presetSwatchStyle(preset.config)} />
+      <PresetPreviewPair config={preset.config} />
       <strong>{preset.name}</strong>
     </button>
+  );
+}
+
+function PresetPreviewPair({ config, showLabels = false }: { config: CursorConfigInput; showLabels?: boolean }) {
+  return (
+    <span className="cursor-builder__preset-previews" aria-hidden="true">
+      <span className="cursor-builder__preset-preview-item">
+        <span
+          className="cursor-builder__preset-preview"
+          data-cursor-type={getPresetPreviewCursorType(config, "default")}
+          style={presetPreviewStyle(config, "default")}
+        />
+        {showLabels ? <span>Default</span> : null}
+      </span>
+      <span className="cursor-builder__preset-preview-item">
+        <span
+          className="cursor-builder__preset-preview"
+          data-cursor-type={getPresetPreviewCursorType(config, "link")}
+          data-muted={config.linkStyle?.enabled === false}
+          style={presetPreviewStyle(config, "link")}
+        />
+        {showLabels ? <span>Link</span> : null}
+      </span>
+    </span>
   );
 }
 
@@ -802,7 +862,7 @@ function PresetTemplateModal({
         <div className="cursor-builder__modal-grid">
           {CURSOR_PRESETS.map((preset) => (
             <button data-active={activePreset === preset.id} key={preset.id} onClick={() => onApply(preset.id)} type="button">
-              <span className="cursor-builder__preset-swatch" style={presetSwatchStyle(preset.config)} />
+              <PresetPreviewPair config={preset.config} showLabels />
               <strong>{preset.name}</strong>
               <small>{preset.bestFor}</small>
             </button>
@@ -813,11 +873,35 @@ function PresetTemplateModal({
   );
 }
 
-function presetSwatchStyle(config: CursorConfigInput): CSSProperties {
+function getPresetPreviewCursorType(config: CursorConfigInput, mode: "default" | "link"): CursorType {
+  if (mode === "link" && config.linkStyle?.enabled !== false) {
+    return config.linkStyle?.cursorType ?? config.cursorType ?? DEFAULT_CURSOR_CONFIG.linkStyle.cursorType;
+  }
+
+  return config.cursorType ?? DEFAULT_CURSOR_CONFIG.cursorType;
+}
+
+function presetPreviewStyle(config: CursorConfigInput, mode: "default" | "link"): CSSProperties {
+  const useLinkStyle = mode === "link" && config.linkStyle?.enabled !== false;
+  const primary = useLinkStyle
+    ? (config.linkStyle?.hoverColor ?? config.hoverColor ?? DEFAULT_CURSOR_CONFIG.linkStyle.hoverColor)
+    : (config.primaryColor ?? DEFAULT_CURSOR_CONFIG.primaryColor);
+  const hover = useLinkStyle
+    ? (config.hoverColor ?? config.linkStyle?.hoverColor ?? DEFAULT_CURSOR_CONFIG.hoverColor)
+    : (config.hoverColor ?? DEFAULT_CURSOR_CONFIG.hoverColor);
+
   return {
-    "--primary": config.primaryColor ?? DEFAULT_CURSOR_CONFIG.primaryColor,
-    "--hover": config.hoverColor ?? config.linkStyle?.hoverColor ?? DEFAULT_CURSOR_CONFIG.hoverColor,
+    "--primary": primary,
+    "--hover": hover,
   } as CSSProperties;
+}
+
+function formatPersistTime(date: Date) {
+  return new Intl.DateTimeFormat(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  }).format(date);
 }
 
 function getCursorBuilderCss() {
@@ -1104,18 +1188,84 @@ function getCursorBuilderCss() {
       box-shadow: inset 0 0 0 1px rgba(8, 122, 70, 0.16), 0 12px 28px rgba(35, 37, 47, 0.06);
     }
 
-    .cursor-builder__preset-swatch,
+    .cursor-builder__preset-previews {
+      display: inline-flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 8px;
+      min-width: 78px;
+    }
+
+    .cursor-builder__preset-preview-item {
+      display: grid;
+      justify-items: center;
+      gap: 3px;
+      min-width: 34px;
+    }
+
+    .cursor-builder__preset-preview-item span:last-child {
+      color: #85868f;
+      font-size: 8px;
+      font-weight: 850;
+      letter-spacing: 0.08em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .cursor-builder__preset-preview {
+      width: 30px;
+      height: 30px;
+      border-radius: 999px;
+      position: relative;
+      display: block;
+      background: #ffffff;
+      border: 1px solid #e7e8ee;
+      box-shadow: 0 8px 18px rgba(15, 17, 28, 0.08);
+    }
+
+    .cursor-builder__preset-preview::before,
+    .cursor-builder__preset-preview::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+    }
+
+    .cursor-builder__preset-preview::before {
+      width: 20px;
+      height: 20px;
+      border: 1.5px solid var(--primary);
+      opacity: 0.34;
+    }
+
+    .cursor-builder__preset-preview::after {
+      width: 8px;
+      height: 8px;
+      background: var(--primary);
+      opacity: 0.92;
+    }
+
+    .cursor-builder__preset-preview[data-cursor-type="dot"]::before {
+      display: none;
+    }
+
+    .cursor-builder__preset-preview[data-cursor-type="ring"]::after {
+      width: 4px;
+      height: 4px;
+      opacity: 0.32;
+    }
+
+    .cursor-builder__preset-preview[data-muted="true"] {
+      opacity: 0.46;
+      filter: saturate(0.5);
+    }
+
     .cursor-builder__preset-icon {
       width: 32px;
       height: 32px;
       border-radius: 999px;
-    }
-
-    .cursor-builder__preset-swatch {
-      background:
-        radial-gradient(circle at 34% 36%, var(--hover) 0 22%, transparent 23%),
-        conic-gradient(from 120deg, var(--primary), var(--hover), var(--primary));
-      box-shadow: inset 0 0 0 8px #ffffff, 0 8px 18px rgba(15, 17, 28, 0.12);
     }
 
     .cursor-builder__preset-icon {
@@ -1398,6 +1548,43 @@ function getCursorBuilderCss() {
       margin-bottom: 12px;
     }
 
+    .cursor-builder__stage-head > div:first-child {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .cursor-builder__theme-switcher {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid #e3e6e2;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+
+    .cursor-builder__theme-switcher button {
+      min-height: 26px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      color: #5b5f66;
+      cursor: pointer;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 820;
+      transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .cursor-builder__theme-switcher button:hover,
+    .cursor-builder__theme-switcher button[data-active="true"] {
+      background: #087a46;
+      color: #ffffff;
+      box-shadow: 0 8px 18px rgba(8, 122, 70, 0.16);
+    }
+
     .cursor-builder__preview-shell {
       min-width: 0;
       overflow: hidden;
@@ -1451,6 +1638,35 @@ function getCursorBuilderCss() {
       isolation: isolate;
     }
 
+    .cursor-builder__surface[data-theme="light"] {
+      background:
+        linear-gradient(90deg, rgba(15, 23, 42, 0.04) 1px, transparent 1px),
+        linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+        radial-gradient(circle at 86% 20%, rgba(8, 122, 70, 0.11), transparent 30%),
+        radial-gradient(circle at 18% 82%, rgba(37, 99, 235, 0.08), transparent 28%),
+        #f8fafc;
+      color: #111827;
+    }
+
+    .cursor-builder__surface[data-theme="brand"] {
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px),
+        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+        radial-gradient(circle at 82% 18%, rgba(246, 184, 75, 0.28), transparent 30%),
+        linear-gradient(135deg, #087a46, #0b5135 58%, #09251c);
+      color: #f8fafc;
+    }
+
+    .cursor-builder__surface[data-theme="shop"] {
+      background:
+        linear-gradient(90deg, rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+        linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+        radial-gradient(circle at 78% 20%, rgba(239, 68, 68, 0.12), transparent 30%),
+        radial-gradient(circle at 16% 84%, rgba(14, 165, 233, 0.1), transparent 28%),
+        #fff7ed;
+      color: #1f2937;
+    }
+
     .cursor-builder__surface::before {
       content: "";
       position: absolute;
@@ -1459,6 +1675,12 @@ function getCursorBuilderCss() {
       background: linear-gradient(135deg, rgba(255, 255, 255, 0.11), transparent 36%, rgba(255, 255, 255, 0.04));
       opacity: 0.56;
       z-index: -1;
+    }
+
+    .cursor-builder__surface[data-theme="light"]::before,
+    .cursor-builder__surface[data-theme="shop"]::before {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.68), transparent 38%, rgba(255, 255, 255, 0.22));
+      opacity: 0.72;
     }
 
     .cursor-builder__surface-nav {
@@ -1582,6 +1804,64 @@ function getCursorBuilderCss() {
       margin: 20px 0 0;
       color: rgba(248, 250, 252, 0.56);
       font-size: 13px;
+    }
+
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__surface-nav a,
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__surface-nav button,
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__actions a,
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__actions button,
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__example-grid a,
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__example-grid button,
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__surface-nav a,
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__surface-nav button,
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__actions a,
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__actions button,
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__example-grid a,
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__example-grid button {
+      border-color: rgba(15, 23, 42, 0.12);
+      background: rgba(255, 255, 255, 0.66);
+      color: #111827;
+    }
+
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__hero-preview h3,
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__example-grid strong,
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__hero-preview h3,
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__example-grid strong {
+      color: #111827;
+    }
+
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__actions button {
+      background: #111827;
+      color: #ffffff;
+    }
+
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__actions button {
+      background: #ef4444;
+      border-color: #ef4444;
+      color: #ffffff;
+    }
+
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__example-grid span,
+    .cursor-builder__surface[data-theme="light"] .cursor-builder__mobile-note,
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__example-grid span,
+    .cursor-builder__surface[data-theme="shop"] .cursor-builder__mobile-note {
+      color: rgba(17, 24, 39, 0.62);
+    }
+
+    .cursor-builder__surface[data-theme="brand"] .cursor-builder__surface-nav a,
+    .cursor-builder__surface[data-theme="brand"] .cursor-builder__surface-nav button,
+    .cursor-builder__surface[data-theme="brand"] .cursor-builder__actions a,
+    .cursor-builder__surface[data-theme="brand"] .cursor-builder__actions button,
+    .cursor-builder__surface[data-theme="brand"] .cursor-builder__example-grid a,
+    .cursor-builder__surface[data-theme="brand"] .cursor-builder__example-grid button {
+      border-color: rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .cursor-builder__surface[data-theme="brand"] .cursor-builder__actions button {
+      background: #f6b84b;
+      border-color: #f6b84b;
+      color: #102218;
     }
 
     .cursor-builder__modal {

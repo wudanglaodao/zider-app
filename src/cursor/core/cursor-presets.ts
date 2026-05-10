@@ -1,10 +1,13 @@
 import type { CursorConfigInput } from "./cursor-config";
 
 export type CursorPresetId =
-  | "minimal-dot"
-  | "clean-ring"
-  | "studio-cursor"
-  | "glass-ai"
+  | "light-site"
+  | "dark-site"
+  | "brand-accent"
+  | "shop-cta"
+  | "editorial-link"
+  | "portfolio-soft"
+  | "neon-product"
   | "luxury-motion";
 
 export type CursorPreset = {
@@ -17,94 +20,203 @@ export type CursorPreset = {
 
 export const CURSOR_PRESETS: CursorPreset[] = [
   {
-    id: "minimal-dot",
-    name: "Minimal Dot",
-    description: "A quiet cursor for SaaS pages and clean brand sites.",
-    bestFor: "SaaS and company websites",
+    id: "light-site",
+    name: "Light Site",
+    description: "Dark cursor with a calm brand hover for white and airy websites.",
+    bestFor: "White backgrounds",
     config: {
-      cursorType: "dot",
-      cursorSize: 20,
+      cursorType: "dot-ring",
+      cursorSize: 28,
       borderWidth: 1,
-      primaryColor: "#f8fafc",
-      hoverColor: "#7dd3fc",
+      primaryColor: "#111827",
+      hoverColor: "#087a46",
       hoverText: "CLICK",
       hoverEffect: "scale",
       clickEffect: "pulse",
-      interaction: {
-        followSpeed: 0.22,
-        hoverScale: 1.55,
-        pulseScale: 1.9,
-      },
-    },
-  },
-  {
-    id: "clean-ring",
-    name: "Clean Ring",
-    description: "A crisp hollow ring with a clear hover state.",
-    bestFor: "Portfolios and creative pages",
-    config: {
-      cursorType: "ring",
-      cursorSize: 34,
-      borderWidth: 2,
-      primaryColor: "#f8fafc",
-      hoverColor: "#22d3ee",
-      hoverText: "OPEN",
-      hoverEffect: "ring-expand",
-      clickEffect: "pulse",
       linkStyle: {
         enabled: true,
-        cursorType: "ring",
-        cursorSize: 40,
-        borderWidth: 2,
-        hoverColor: "#22d3ee",
+        cursorType: "dot-ring",
+        cursorSize: 36,
+        borderWidth: 1,
+        hoverColor: "#087a46",
         hoverText: "OPEN",
       },
       interaction: {
-        followSpeed: 0.18,
-        ringExpandScale: 1.82,
+        followSpeed: 0.2,
+        hoverScale: 1.5,
+        pulseScale: 1.85,
       },
     },
   },
   {
-    id: "studio-cursor",
-    name: "Studio Cursor",
-    description: "Dot plus ring with text feedback for high-touch websites.",
-    bestFor: "AI products and creative studios",
+    id: "dark-site",
+    name: "Dark Site",
+    description: "Bright dot and ring for black, slate, and high-contrast sites.",
+    bestFor: "Dark websites",
     config: {
       cursorType: "dot-ring",
-      cursorSize: 36,
+      cursorSize: 32,
       borderWidth: 1,
       primaryColor: "#f8fafc",
-      hoverColor: "#fef08a",
-      hoverText: "VIEW",
+      hoverColor: "#38bdf8",
+      hoverText: "OPEN",
+      hoverEffect: "scale",
+      clickEffect: "pulse",
+      defaultStyle: {
+        opacity: 0.96,
+        blendMode: "normal",
+      },
+      linkStyle: {
+        enabled: true,
+        cursorType: "dot-ring",
+        cursorSize: 40,
+        borderWidth: 1,
+        hoverColor: "#38bdf8",
+        hoverText: "OPEN",
+      },
+      interaction: {
+        followSpeed: 0.16,
+        hoverScale: 1.7,
+      },
+    },
+  },
+  {
+    id: "brand-accent",
+    name: "Brand Accent",
+    description: "Zider green with a warm accent for branded business pages.",
+    bestFor: "Brand-color sites",
+    config: {
+      cursorType: "dot-ring",
+      cursorSize: 30,
+      borderWidth: 1,
+      primaryColor: "#087a46",
+      hoverColor: "#f6b84b",
+      hoverText: "OPEN",
+      hoverEffect: "text",
+      clickEffect: "pulse",
+      defaultStyle: {
+        opacity: 0.98,
+        blendMode: "normal",
+      },
+      linkStyle: {
+        enabled: true,
+        cursorType: "dot-ring",
+        cursorSize: 38,
+        borderWidth: 1,
+        hoverColor: "#f6b84b",
+        hoverText: "OPEN",
+      },
+      interaction: {
+        followSpeed: 0.17,
+        hoverScale: 1.65,
+        pulseDuration: 520,
+      },
+    },
+  },
+  {
+    id: "shop-cta",
+    name: "Shop CTA",
+    description: "A clear retail cursor that makes products and buy buttons feel active.",
+    bestFor: "Ecommerce pages",
+    config: {
+      cursorType: "dot",
+      cursorSize: 24,
+      borderWidth: 1,
+      primaryColor: "#1f2937",
+      hoverColor: "#ef4444",
+      hoverText: "SHOP",
       hoverEffect: "text",
       clickEffect: "pulse",
       linkStyle: {
         enabled: true,
         cursorType: "dot-ring",
         cursorSize: 42,
-        borderWidth: 1,
-        hoverColor: "#fef08a",
-        hoverText: "VIEW",
+        borderWidth: 2,
+        hoverColor: "#ef4444",
+        hoverText: "SHOP",
       },
       interaction: {
-        followSpeed: 0.16,
-        hoverScale: 1.75,
-        pulseDuration: 560,
+        followSpeed: 0.2,
+        hoverScale: 1.85,
+        pulseScale: 2.45,
       },
     },
   },
   {
-    id: "glass-ai",
-    name: "Glass AI",
-    description: "A luminous technology feel, mapped to MVP effects for now.",
-    bestFor: "AI and technology websites",
+    id: "editorial-link",
+    name: "Editorial Link",
+    description: "A subtle ring and blue hover for content-heavy pages.",
+    bestFor: "Blogs and magazines",
+    config: {
+      cursorType: "ring",
+      cursorSize: 34,
+      borderWidth: 1,
+      primaryColor: "#0f172a",
+      hoverColor: "#2563eb",
+      hoverText: "READ",
+      hoverEffect: "ring-expand",
+      clickEffect: "pulse",
+      defaultStyle: {
+        opacity: 0.9,
+        blendMode: "normal",
+      },
+      linkStyle: {
+        enabled: true,
+        cursorType: "ring",
+        cursorSize: 44,
+        borderWidth: 2,
+        hoverColor: "#2563eb",
+        hoverText: "VIEW",
+      },
+      interaction: {
+        followSpeed: 0.14,
+        ringExpandScale: 1.7,
+      },
+    },
+  },
+  {
+    id: "portfolio-soft",
+    name: "Portfolio Soft",
+    description: "Soft teal and coral motion for portfolios and personal sites.",
+    bestFor: "Portfolios",
+    config: {
+      cursorType: "dot-ring",
+      cursorSize: 30,
+      borderWidth: 1,
+      primaryColor: "#0f766e",
+      hoverColor: "#fb7185",
+      hoverText: "VIEW",
+      hoverEffect: "scale",
+      clickEffect: "pulse",
+      defaultStyle: {
+        opacity: 0.94,
+        blendMode: "normal",
+      },
+      linkStyle: {
+        enabled: true,
+        cursorType: "dot-ring",
+        cursorSize: 40,
+        borderWidth: 1,
+        hoverColor: "#fb7185",
+        hoverText: "VIEW",
+      },
+      interaction: {
+        followSpeed: 0.18,
+        hoverScale: 1.62,
+      },
+    },
+  },
+  {
+    id: "neon-product",
+    name: "Neon Product",
+    description: "A luminous technology feel for product launches and AI pages.",
+    bestFor: "AI and SaaS launches",
     config: {
       cursorType: "dot-ring",
       cursorSize: 38,
       borderWidth: 1,
       primaryColor: "#e0f2fe",
-      hoverColor: "#38bdf8",
+      hoverColor: "#22d3ee",
       hoverText: "OPEN",
       hoverEffect: "glow",
       clickEffect: "pulse",
@@ -115,6 +227,14 @@ export const CURSOR_PRESETS: CursorPreset[] = [
       customAsset: {
         mode: "icon",
         iconName: "sparkles",
+      },
+      linkStyle: {
+        enabled: true,
+        cursorType: "dot-ring",
+        cursorSize: 44,
+        borderWidth: 1,
+        hoverColor: "#22d3ee",
+        hoverText: "OPEN",
       },
       interaction: {
         followSpeed: 0.14,
