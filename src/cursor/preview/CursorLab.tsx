@@ -831,12 +831,12 @@ function getCursorBuilderCss() {
 
     .cursor-builder-shell--embedded {
       min-height: 100vh;
-      padding: 38px clamp(18px, 4vw, 64px);
+      padding: 30px clamp(18px, 4vw, 56px);
       background:
-        linear-gradient(115deg, rgba(8, 122, 70, 0.075) 0 1px, transparent 1px 148px),
-        linear-gradient(90deg, rgba(13, 23, 19, 0.035) 1px, transparent 1px),
-        linear-gradient(rgba(13, 23, 19, 0.025) 1px, transparent 1px),
-        #f7f8f5;
+        linear-gradient(115deg, rgba(8, 122, 70, 0.035) 0 1px, transparent 1px 148px),
+        linear-gradient(90deg, rgba(13, 23, 19, 0.018) 1px, transparent 1px),
+        linear-gradient(rgba(13, 23, 19, 0.014) 1px, transparent 1px),
+        #fbfcf8;
       background-size: 40px 40px;
       color: #0d1713;
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -860,9 +860,9 @@ function getCursorBuilderCss() {
     .cursor-builder__hero-preview p {
       margin: 0;
       color: #087a46;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 850;
-      letter-spacing: 0.14em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
     }
 
@@ -874,20 +874,20 @@ function getCursorBuilderCss() {
     }
 
     .cursor-builder__brandline img {
-      width: 92px;
+      width: 78px;
       height: auto;
       display: block;
     }
 
     .cursor-builder__brandline span {
-      min-height: 28px;
+      min-height: 25px;
       display: inline-flex;
       align-items: center;
       border: 1px solid rgba(8, 122, 70, 0.18);
       border-radius: 999px;
       background: #e8f7ee;
       color: #087a46;
-      padding: 0 12px;
+      padding: 0 10px;
     }
 
     .cursor-builder h1,
@@ -898,19 +898,19 @@ function getCursorBuilderCss() {
     }
 
     .cursor-builder h1 {
-      margin: 10px 0 0;
+      margin: 8px 0 0;
       color: #111318;
-      font-size: clamp(30px, 3vw, 42px);
-      line-height: 1.03;
+      font-size: clamp(26px, 2.35vw, 34px);
+      line-height: 1.06;
       overflow-wrap: break-word;
     }
 
     .cursor-builder__subtitle {
       max-width: 780px;
-      margin: 14px 0 0;
+      margin: 12px 0 0;
       color: #54565f;
-      font-size: 16px;
-      line-height: 1.42;
+      font-size: 14px;
+      line-height: 1.38;
     }
 
     .cursor-builder__panel-meta em,

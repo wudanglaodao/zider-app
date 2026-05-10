@@ -83,6 +83,7 @@ create table if not exists widget_configs (
 3. The webhook persists the installation.
 4. The app exchanges `instanceId` for an OAuth access token.
 5. The app calls Wix Embedded Script API and passes `scriptUrl` as `properties.parameters.scriptUrl`.
+   The generated script URL uses one query param only, for example `/embed.js?instanceId=...`, so Wix does not rewrite `&` inside the dynamic parameter.
 6. Wix injects the script into the site.
 7. The script fetches the published cursor config and mounts the DOM runtime.
 
