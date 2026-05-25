@@ -1,6 +1,6 @@
 import { ArrowRight, ChevronDown, ChevronRight, Globe2, Menu, X } from "lucide-react";
 
-const ziderLogoUrl = "https://zider.ink/wp-content/uploads/2024/07/zider-def.png";
+const ziderLogoUrl = "https://assets.lopuo.com/app/zider/uploads/2024/07/zider-def.png";
 
 const navItems = ["Products", "Solutions", "Resources", "Developers", "Pricing"];
 const platformLogos = [

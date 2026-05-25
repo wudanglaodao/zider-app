@@ -89,7 +89,7 @@ const iconOptions: { iconName: CursorIconName; label: string; Icon: LucideIcon; 
 ];
 
 const hoverTexts = ["CLICK", "OPEN", "VIEW"] as const;
-const ziderLogoUrl = "https://zider.ink/wp-content/uploads/2024/07/zider-def.png";
+const ziderLogoUrl = "https://assets.lopuo.com/app/zider/uploads/2024/07/zider-def.png";
 type PanelId = "preset" | "default" | "link" | "asset" | "interaction" | "guards";
 type PreviewThemeId = "light" | "dark" | "brand" | "shop";
 
