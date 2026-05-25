@@ -1,5 +1,37 @@
 create extension if not exists pgcrypto;
 
+create table if not exists public.cms_entries (
+  id uuid primary key default gen_random_uuid(),
+  content_type text not null check (content_type in ('blog', 'forum')),
+  locale text not null default 'en',
+  title text not null,
+  slug text not null,
+  status text not null default 'draft' check (status in ('draft', 'published', 'archived')),
+  excerpt text,
+  body text,
+  cover_image_url text,
+  tags text[] not null default '{}',
+  source_url text,
+  author_name text,
+  published_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (content_type, locale, slug)
+);
+
+create table if not exists public.zider_users (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  display_name text,
+  password_hash text not null,
+  role text not null default 'member' check (role in ('admin', 'editor', 'member')),
+  status text not null default 'active' check (status in ('active', 'disabled')),
+  last_login_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (email)
+);
+
 create table if not exists public.zider_apps (
   id uuid primary key default gen_random_uuid(),
   app_key text not null unique,
@@ -22,6 +54,20 @@ create table if not exists public.app_platforms (
   webhook_public_key_ref text,
   oauth_client_id_ref text,
   default_billing_provider text not null default 'unknown',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (app_key, platform)
+);
+
+create table if not exists public.app_platform_secrets (
+  id uuid primary key default gen_random_uuid(),
+  app_key text not null,
+  platform text not null default 'wix',
+  oauth_client_id text,
+  oauth_client_secret text,
+  app_secret text,
+  webhook_public_key text,
+  notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (app_key, platform)
@@ -157,6 +203,9 @@ create table if not exists public.app_daily_metrics (
 create index if not exists idx_app_installations_app_platform_status
   on public.app_installations(app_key, platform, status);
 
+create index if not exists idx_app_platform_secrets_app_platform
+  on public.app_platform_secrets(app_key, platform);
+
 create index if not exists idx_platform_event_logs_received_at
   on public.platform_event_logs(received_at desc);
 
@@ -168,3 +217,20 @@ create index if not exists idx_platform_event_logs_test_events
 
 create index if not exists idx_app_billing_events_app_created
   on public.app_billing_events(app_key, platform, created_at desc);
+
+create index if not exists idx_cms_entries_public_lookup
+  on public.cms_entries(content_type, locale, slug)
+  where status = 'published';
+
+create index if not exists idx_cms_entries_admin_updated
+  on public.cms_entries(status, updated_at desc);
+
+create index if not exists idx_cms_entries_tags
+  on public.cms_entries using gin(tags);
+
+create index if not exists idx_zider_users_role_status
+  on public.zider_users(role, status);
+
+alter table public.cms_entries enable row level security;
+alter table public.zider_users enable row level security;
+alter table public.app_platform_secrets enable row level security;

@@ -6,7 +6,7 @@ This note captures the first installable Wix-app path for **Interactive Custom C
 
 Create a self-hosted Wix app and configure:
 
-- Dashboard page URL: `https://app.zider.ink/wix/interactive-custom-cursor`
+- Dashboard page URL: `https://workspace.zider.ink/wix/interactive-custom-cursor`
 - App Instance Installed webhook: `https://app.zider.ink/events/wix/interactive_custom_cursor`
 - Embedded Script extension code:
 
@@ -23,40 +23,40 @@ The Embedded Script extension must define a dynamic parameter named `scriptUrl`.
 ## Environment
 
 ```bash
-NEXT_PUBLIC_ZIDER_APP_URL=https://app.zider.ink
-WIX_INTERACTIVE_CUSTOM_CURSOR_APP_ID=...
-WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET=...
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
 CURSOR_WIDGET_CONFIGS_TABLE=widget_configs
 ```
 
+Wix OAuth client ID, app secret, client secret, and webhook public key are stored in `app_platform_secrets` with `app_key=interactive_custom_cursor` and `platform=wix`. Use `npm --prefix apps/app run seed:platform-secrets` for the one-time import.
+
 ## Webhook Public Key Storage
 
-For multiple Wix apps, store the webhook public key per app in `app_platforms.webhook_public_key_ref`.
+For multiple Wix apps, store the webhook public key per app in `app_platform_secrets.webhook_public_key`.
 
-The field supports either:
+Legacy fallback lookup is still available for emergency recovery before database seeding:
 
-- the full PEM public key from Wix, or
-- an environment variable reference, for example `WIX_INTERACTIVE_CUSTOM_CURSOR_WEBHOOK_PUBLIC_KEY`.
-- a JSON-map reference for legacy multi-app env storage, for example `WIX_WEBHOOK_PUBLIC_KEYS.zider_countup`.
+- `WIX_WEBHOOK_PUBLIC_KEYS`
+- `WIX_WEBHOOK_PUBLIC_KEY`
 
 Runtime lookup order:
 
-1. `app_platforms.webhook_public_key_ref`
-2. `WIX_WEBHOOK_PUBLIC_KEYS`
-3. `WIX_WEBHOOK_PUBLIC_KEY`
+1. `app_platform_secrets.webhook_public_key`
+2. legacy database/env references from `app_platforms.webhook_public_key_ref`
+3. legacy environment fallbacks
 
 ## Local Testing
 
 Use a dev instance ID:
 
 ```text
-http://localhost:3100/wix/interactive-custom-cursor?instanceId=dev-site-1
+http://localhost:3102/wix/interactive-custom-cursor?instanceId=dev-site-1
 ```
 
 Save writes draft config. Publish copies the draft to `publishedConfig`. The front-site embed reads the published config:
 
 ```text
-http://localhost:3100/api/widgets/interactive-custom-cursor/embed.js?platform=wix&instanceId=dev-site-1
+http://localhost:3102/api/widgets/interactive-custom-cursor/embed.js?platform=wix&instanceId=dev-site-1
 ```
 
 ## Optional Supabase Table

@@ -50,9 +50,9 @@ SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 ```
 
-Preferred public key storage is `app_platforms.webhook_public_key_ref`, one row per Wix app. Store either the full PEM public key, a single env var reference, or a legacy JSON-map reference such as `WIX_WEBHOOK_PUBLIC_KEYS.zider_countup`.
+Preferred public key storage is `app_platform_secrets.webhook_public_key`, one row per Wix app. This keeps Wix webhook keys in Supabase instead of Vercel environment variables.
 
-Legacy fallback public key format:
+Legacy fallback public key format, only for emergency recovery before database seeding:
 
 ```json
 {
@@ -61,7 +61,7 @@ Legacy fallback public key format:
 }
 ```
 
-If all apps share a public key, `WIX_WEBHOOK_PUBLIC_KEY` can be used instead.
+If all apps share a public key, `WIX_WEBHOOK_PUBLIC_KEY` can be used as a temporary fallback instead.
 
 ## Supabase Setup
 
