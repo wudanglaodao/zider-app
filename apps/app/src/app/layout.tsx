@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ZIDER App",
-  description: "Webhook, API, and data dashboard for ZIDER.",
+  title: "Page not found - ZIDER",
+  description: "This page is not available. Visit the ZIDER website instead.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
