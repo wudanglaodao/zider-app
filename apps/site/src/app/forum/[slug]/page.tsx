@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
 
 import { PublicPage } from "@/app/_components/PublicChrome";
-import { filterVisibleForumEntries, isVisibleForumEntry } from "@/app/forum/_lib/forum-listing";
-import { getPublishedCmsEntry, listCmsEntries, type CmsEntry } from "@/lib/cms/content";
+import { isVisibleForumEntry, loadForumEntries } from "@/app/forum/_lib/forum-listing";
+import { getPublishedCmsEntry, type CmsEntry } from "@/lib/cms/content";
 import { getForumEntryModule, getForumModuleHref } from "@/lib/cms/forum-modules";
-import { getSampleForumEntry, sampleForumEntries } from "@/lib/cms/sample-forum";
+import { getSampleForumEntry } from "@/lib/cms/sample-forum";
 
 export const dynamic = "force-dynamic";
 
@@ -132,8 +132,7 @@ async function loadEntry(slug: string) {
 async function loadRelatedEntries(entry: CmsEntry): Promise<RelatedForumPosts> {
   const module = getForumEntryModule(entry);
   const candidateEntries = await loadPublishedForumEntries();
-  const entries = candidateEntries.length ? candidateEntries : sampleForumEntries;
-  const otherEntries = entries.filter((candidate) => candidate.slug !== entry.slug);
+  const otherEntries = candidateEntries.filter((candidate) => candidate.slug !== entry.slug);
   const recommendedEntries = otherEntries.slice(0, 4);
 
   if (!module) {
@@ -165,14 +164,7 @@ async function loadRelatedEntries(entry: CmsEntry): Promise<RelatedForumPosts> {
 }
 
 async function loadPublishedForumEntries() {
-  try {
-    const entries = await listCmsEntries({ contentType: "forum", publishedOnly: true });
-    const visibleEntries = filterVisibleForumEntries(entries);
-    return visibleEntries.length ? visibleEntries : filterVisibleForumEntries(sampleForumEntries);
-  } catch (error) {
-    console.warn("Failed to load related forum entries", error);
-    return filterVisibleForumEntries(sampleForumEntries);
-  }
+  return loadForumEntries();
 }
 
 function formatPublishedDate(value: string) {

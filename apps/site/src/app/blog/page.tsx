@@ -1,25 +1,16 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
 import { BookOpenText } from "lucide-react";
 
 import { PublicPage } from "@/app/_components/PublicChrome";
 import { getCmsCategoryName, getDisplayTagLabels } from "@/lib/cms/categories";
 import { listCmsEntries, type CmsEntry } from "@/lib/cms/content";
 import { getEntryDescription } from "@/lib/cms/descriptions";
+import { loadMigratedBlogEntries, mergeEntriesBySlug } from "@/lib/cms/migrated-blog";
 import { sampleBlogEntries, type BlogEntry } from "@/lib/cms/sample-blog";
 
 export const dynamic = "force-dynamic";
 
-type BlogPageProps = {
-  searchParams?: Promise<{
-    preview?: string;
-  }>;
-};
-
-export default async function BlogPage({ searchParams }: BlogPageProps) {
-  const previewMode = (await searchParams)?.preview === "wordpress";
-  const entries = await loadEntries(previewMode);
+export default async function BlogPage() {
+  const entries = await loadEntries();
 
   return (
     <PublicPage>
@@ -47,7 +38,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
 
         <section className="contentList" aria-label="Latest blog posts">
           {entries.map((entry) => (
-            <ContentCard entry={entry} href={`/blog/${entry.slug}${previewMode ? "?preview=wordpress" : ""}`} key={entry.id} />
+            <ContentCard entry={entry} href={`/blog/${entry.slug}`} key={entry.id} />
           ))}
         </section>
       </main>
@@ -55,71 +46,17 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
   );
 }
 
-async function loadEntries(previewMode = false) {
-  if (previewMode) {
-    const previewEntries = await loadWordPressPreviewEntries();
-
-    if (previewEntries.length) {
-      return previewEntries;
-    }
-  }
+async function loadEntries() {
+  const migratedEntries = await loadMigratedBlogEntries();
+  const fallbackEntries = migratedEntries.length ? migratedEntries : sampleBlogEntries;
 
   try {
     const entries = await listCmsEntries({ contentType: "blog", publishedOnly: true });
-    return entries.length ? entries : sampleBlogEntries;
+    return mergeEntriesBySlug(entries, fallbackEntries);
   } catch (error) {
     console.warn("Failed to load blog entries", error);
-    return sampleBlogEntries;
+    return fallbackEntries;
   }
-}
-
-async function loadWordPressPreviewEntries() {
-  try {
-    const filePath = path.join(process.cwd(), "data", "wordpress-blog-preview.json");
-    const rawValue = await readFile(filePath, "utf8");
-    const rows = JSON.parse(rawValue);
-
-    return Array.isArray(rows) ? rows.map(mapPreviewEntry) : [];
-  } catch {
-    console.warn("Failed to load WordPress preview entries");
-    return [];
-  }
-}
-
-function mapPreviewEntry(row: Record<string, unknown>): CmsEntry {
-  const now = new Date().toISOString();
-
-  return {
-    authorName: stringOrNull(row.author_name),
-    body: stringOrNull(row.body),
-    contentType: "blog",
-    coverImageUrl: stringOrNull(row.cover_image_url),
-    createdAt: stringOrFallback(row.published_at, now),
-    excerpt: stringOrNull(row.excerpt),
-    id: `wordpress-preview-${stringOrFallback(row.slug, row.title, now)}`,
-    locale: stringOrFallback(row.locale, "en"),
-    publishedAt: stringOrNull(row.published_at),
-    slug: stringOrFallback(row.slug, `wordpress-preview-${Date.now()}`),
-    sourceUrl: stringOrNull(row.source_url),
-    status: row.status === "draft" || row.status === "archived" ? row.status : "published",
-    tags: Array.isArray(row.tags) ? row.tags.filter((tag): tag is string => typeof tag === "string") : [],
-    title: stringOrFallback(row.title, "Untitled"),
-    updatedAt: stringOrFallback(row.updated_at, now),
-  };
-}
-
-function stringOrNull(value: unknown) {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function stringOrFallback(...values: unknown[]) {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
-  }
-
-  return "";
 }
 
 function ContentCard({ entry, href }: { entry: BlogEntry | CmsEntry; href: string }) {

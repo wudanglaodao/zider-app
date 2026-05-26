@@ -1,12 +1,10 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-
 import { notFound } from "next/navigation";
 
 import { PublicPage } from "@/app/_components/PublicChrome";
 import { getCmsCategoryName } from "@/lib/cms/categories";
 import { getPublishedCmsEntry, listCmsEntries, type CmsEntry } from "@/lib/cms/content";
 import { getEntryDescription } from "@/lib/cms/descriptions";
+import { loadMigratedBlogEntries, mergeEntriesBySlug } from "@/lib/cms/migrated-blog";
 import { getSampleBlogEntry, sampleBlogEntries, type BlogEntry } from "@/lib/cms/sample-blog";
 
 export const dynamic = "force-dynamic";
@@ -15,15 +13,11 @@ type BlogEntryPageProps = {
   params: Promise<{
     slug: string;
   }>;
-  searchParams?: Promise<{
-    preview?: string;
-  }>;
 };
 
-export default async function BlogEntryPage({ params, searchParams }: BlogEntryPageProps) {
+export default async function BlogEntryPage({ params }: BlogEntryPageProps) {
   const { slug } = await params;
-  const previewMode = (await searchParams)?.preview === "wordpress";
-  const [entry, recommendedEntries] = await Promise.all([loadEntry(slug, previewMode), loadRecommendedEntries(slug, previewMode)]);
+  const [entry, recommendedEntries] = await Promise.all([loadEntry(slug), loadRecommendedEntries(slug)]);
 
   if (!entry) {
     notFound();
@@ -196,87 +190,33 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-async function loadEntry(slug: string, previewMode = false) {
-  if (previewMode) {
-    const previewEntry = (await loadWordPressPreviewEntries()).find((entry) => entry.slug === slug);
-
-    if (previewEntry) {
-      return previewEntry;
-    }
-  }
-
+async function loadEntry(slug: string) {
   try {
-    return (await getPublishedCmsEntry("blog", slug)) ?? getSampleBlogEntry(slug);
+    return (await getPublishedCmsEntry("blog", slug)) ?? (await loadMigratedBlogEntry(slug)) ?? getSampleBlogEntry(slug);
   } catch (error) {
     console.warn("Failed to load blog entry", error);
-    return getSampleBlogEntry(slug);
+    return (await loadMigratedBlogEntry(slug)) ?? getSampleBlogEntry(slug);
   }
 }
 
-async function loadRecommendedEntries(slug: string, previewMode = false) {
-  if (previewMode) {
-    return (await loadWordPressPreviewEntries()).filter((entry) => entry.slug !== slug).slice(0, 4);
-  }
-
-  const sampleRecommendations = sampleBlogEntries.filter((entry) => entry.slug !== slug).slice(0, 4);
+async function loadRecommendedEntries(slug: string) {
+  const migratedEntries = await loadMigratedBlogEntries();
+  const fallbackEntries = migratedEntries.length ? migratedEntries : sampleBlogEntries;
+  const fallbackRecommendations = fallbackEntries.filter((entry) => entry.slug !== slug).slice(0, 4);
 
   try {
     const entries = await listCmsEntries({ contentType: "blog", publishedOnly: true });
-    const recommendations = entries.filter((entry) => entry.slug !== slug).slice(0, 4);
-    return recommendations.length ? recommendations : sampleRecommendations;
+    return mergeEntriesBySlug(entries, fallbackEntries)
+      .filter((entry) => entry.slug !== slug)
+      .slice(0, 4);
   } catch (error) {
     console.warn("Failed to load recommended blog entries", error);
-    return sampleRecommendations;
+    return fallbackRecommendations;
   }
 }
 
-async function loadWordPressPreviewEntries() {
-  try {
-    const filePath = path.join(process.cwd(), "data", "wordpress-blog-preview.json");
-    const rawValue = await readFile(filePath, "utf8");
-    const rows = JSON.parse(rawValue);
-
-    return Array.isArray(rows) ? rows.map(mapPreviewEntry) : [];
-  } catch {
-    console.warn("Failed to load WordPress preview entries");
-    return [];
-  }
-}
-
-function mapPreviewEntry(row: Record<string, unknown>): CmsEntry {
-  const now = new Date().toISOString();
-
-  return {
-    authorName: stringOrNull(row.author_name),
-    body: stringOrNull(row.body),
-    contentType: "blog",
-    coverImageUrl: stringOrNull(row.cover_image_url),
-    createdAt: stringOrFallback(row.published_at, now),
-    excerpt: stringOrNull(row.excerpt),
-    id: `wordpress-preview-${stringOrFallback(row.slug, row.title, now)}`,
-    locale: stringOrFallback(row.locale, "en"),
-    publishedAt: stringOrNull(row.published_at),
-    slug: stringOrFallback(row.slug, `wordpress-preview-${Date.now()}`),
-    sourceUrl: stringOrNull(row.source_url),
-    status: row.status === "draft" || row.status === "archived" ? row.status : "published",
-    tags: Array.isArray(row.tags) ? row.tags.filter((tag): tag is string => typeof tag === "string") : [],
-    title: stringOrFallback(row.title, "Untitled"),
-    updatedAt: stringOrFallback(row.updated_at, now),
-  };
-}
-
-function stringOrNull(value: unknown) {
-  return typeof value === "string" && value.trim() ? value : null;
-}
-
-function stringOrFallback(...values: unknown[]) {
-  for (const value of values) {
-    if (typeof value === "string" && value.trim()) {
-      return value;
-    }
-  }
-
-  return "";
+async function loadMigratedBlogEntry(slug: string) {
+  return (await loadMigratedBlogEntries()).find((entry) => entry.slug === slug) ?? null;
 }
 
 function getCoverImageUrl(entry: BlogEntry | CmsEntry | Awaited<ReturnType<typeof getPublishedCmsEntry>>) {

@@ -2,10 +2,10 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
 
-import { filterVisibleForumEntries } from "@/app/forum/_lib/forum-listing";
+import { loadForumEntries } from "@/app/forum/_lib/forum-listing";
 import { ForumSpaceIcon } from "@/app/forum/_components/ForumSpaceIcon";
 import { PublicPage } from "@/app/_components/PublicChrome";
-import { listCmsEntries, type CmsEntry } from "@/lib/cms/content";
+import type { CmsEntry } from "@/lib/cms/content";
 import {
   forumCommunitySpace,
   getForumEntryModule,
@@ -14,7 +14,6 @@ import {
   isForumCommunityEntry,
   type ForumModule,
 } from "@/lib/cms/forum-modules";
-import { sampleForumEntries } from "@/lib/cms/sample-forum";
 
 export const dynamic = "force-dynamic";
 
@@ -104,14 +103,7 @@ async function loadModuleEntries(moduleKey: string) {
       ? entries.filter(isForumCommunityEntry)
       : entries.filter((entry) => getForumEntryModule(entry)?.key === moduleKey);
 
-  try {
-    const entries = await listCmsEntries({ contentType: "forum", publishedOnly: true });
-    const moduleEntries = filterByModule(filterVisibleForumEntries(entries));
-    return moduleEntries.length ? moduleEntries : filterByModule(sampleForumEntries);
-  } catch (error) {
-    console.warn("Failed to load forum module entries", error);
-    return filterByModule(sampleForumEntries);
-  }
+  return filterByModule(await loadForumEntries());
 }
 
 function Pagination({ baseHref, currentPage, totalPages }: { baseHref: string; currentPage: number; totalPages: number }) {

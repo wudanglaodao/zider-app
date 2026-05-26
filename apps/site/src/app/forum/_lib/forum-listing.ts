@@ -13,12 +13,21 @@ const removedForumSlugs = new Set([
 export async function loadForumEntries() {
   try {
     const entries = await listCmsEntries({ contentType: "forum", publishedOnly: true });
-    const visibleEntries = filterVisibleForumEntries(entries);
-    return visibleEntries.length ? visibleEntries : filterVisibleForumEntries(sampleForumEntries);
+    return mergeForumEntries(entries, sampleForumEntries);
   } catch (error) {
     console.warn("Failed to load forum entries", error);
     return filterVisibleForumEntries(sampleForumEntries);
   }
+}
+
+export function mergeForumEntries(primaryEntries: CmsEntry[], fallbackEntries: CmsEntry[]) {
+  const visiblePrimaryEntries = filterVisibleForumEntries(primaryEntries);
+  const seenSlugs = new Set(visiblePrimaryEntries.map((entry) => entry.slug));
+
+  return [
+    ...visiblePrimaryEntries,
+    ...filterVisibleForumEntries(fallbackEntries).filter((entry) => !seenSlugs.has(entry.slug)),
+  ].sort(sortByPublishedDate);
 }
 
 export function filterVisibleForumEntries(entries: CmsEntry[]) {
@@ -55,11 +64,7 @@ export function sortForumEntries(entries: CmsEntry[], sort: ForumSort) {
     return sortedEntries.sort((firstEntry, secondEntry) => getHotScore(secondEntry) - getHotScore(firstEntry));
   }
 
-  return sortedEntries.sort(
-    (firstEntry, secondEntry) =>
-      Date.parse(secondEntry.publishedAt || secondEntry.updatedAt) -
-      Date.parse(firstEntry.publishedAt || firstEntry.updatedAt),
-  );
+  return sortedEntries.sort(sortByPublishedDate);
 }
 
 export function parseForumSort(value: string | string[] | undefined): ForumSort {
@@ -129,4 +134,11 @@ function getHotScore(entry: CmsEntry) {
   const tagScore = Math.min(entry.tags.length, 5);
 
   return recencyScore + mediaScore + contentScore + tagScore;
+}
+
+function sortByPublishedDate(firstEntry: CmsEntry, secondEntry: CmsEntry) {
+  return (
+    Date.parse(secondEntry.publishedAt || secondEntry.updatedAt || secondEntry.createdAt) -
+    Date.parse(firstEntry.publishedAt || firstEntry.updatedAt || firstEntry.createdAt)
+  );
 }
