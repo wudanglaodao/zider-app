@@ -1,6 +1,8 @@
 import type { CmsContentType, CmsEntry } from "@/lib/cms/content";
+import { extractCmsFaqItems, stripCmsFaqBlock } from "@/lib/cms/faq";
 
 import { saveCmsEntryAction } from "../actions";
+import { CmsFaqEditor } from "./CmsFaqEditor";
 import { CmsRichTextEditor } from "./CmsRichTextEditor";
 
 export function CmsEntryForm({
@@ -13,6 +15,8 @@ export function CmsEntryForm({
   const contentType = entry?.contentType ?? type;
   const status = entry?.status ?? "draft";
   const tags = entry?.tags.join(", ") ?? "";
+  const body = stripCmsFaqBlock(entry?.body);
+  const faqItems = extractCmsFaqItems(entry?.body);
 
   return (
     <form action={saveCmsEntryAction} className="form-card">
@@ -79,8 +83,14 @@ export function CmsEntryForm({
         <span>Cover image URL</span>
         <input defaultValue={entry?.coverImageUrl ?? ""} name="coverImageUrl" placeholder="https://cdn.example.com/app/zider/uploads/2024/12/image.png" />
       </label>
+      <label>
+        <span>Source URL</span>
+        <input defaultValue={entry?.sourceUrl ?? ""} name="sourceUrl" placeholder="https://zider.ink/question/example/" />
+      </label>
 
-      <CmsRichTextEditor initialHtml={entry?.body ?? ""} />
+      <CmsRichTextEditor initialHtml={body} />
+
+      {contentType === "forum" ? <CmsFaqEditor initialItems={faqItems} /> : null}
 
       <div className="field-grid">
         <label>

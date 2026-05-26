@@ -5,14 +5,19 @@ import { redirect } from "next/navigation";
 
 import { requireAdminSession } from "@/lib/account/session";
 import { archiveCmsEntry, parseTagInput, upsertCmsEntry } from "@/lib/cms/content";
+import { applyCmsFaqItemsToBody, parseCmsFaqInput } from "@/lib/cms/faq";
 
 export async function saveCmsEntryAction(formData: FormData) {
   await requireAdminSession("/admin/cms");
 
-  await upsertCmsEntry({
+  const contentType = stringValue(formData, "contentType") === "forum" ? "forum" : "blog";
+  const body = stringValue(formData, "body");
+  const faqItems = parseCmsFaqInput(stringValue(formData, "faqItems"));
+
+  const savedEntry = await upsertCmsEntry({
     authorName: stringValue(formData, "authorName"),
-    body: stringValue(formData, "body"),
-    contentType: stringValue(formData, "contentType") === "forum" ? "forum" : "blog",
+    body: contentType === "forum" ? applyCmsFaqItemsToBody(body, faqItems) : body,
+    contentType,
     coverImageUrl: stringValue(formData, "coverImageUrl"),
     excerpt: stringValue(formData, "excerpt"),
     id: stringValue(formData, "id"),
@@ -27,6 +32,7 @@ export async function saveCmsEntryAction(formData: FormData) {
   revalidatePath("/admin/cms");
   revalidatePath("/blog");
   revalidatePath("/forum");
+  revalidatePath(`/${savedEntry.contentType}/${savedEntry.slug}`);
   redirect("/admin/cms?saved=1");
 }
 

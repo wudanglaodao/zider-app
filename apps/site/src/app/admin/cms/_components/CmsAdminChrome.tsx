@@ -610,6 +610,7 @@ function getAdminCss() {
     }
 
     .form-card label,
+    .faq-editor,
     .rich-editor-wrap {
       display: grid;
       gap: 7px;
@@ -639,6 +640,82 @@ function getAdminCss() {
 
     .form-card textarea {
       resize: vertical;
+    }
+
+    .faq-editor {
+      border: 1px solid #d9e4ec;
+      border-radius: 12px;
+      background: #fbfdfc;
+      margin-top: 18px;
+      padding: 18px;
+    }
+
+    .faq-editor__head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      border-bottom: 1px solid #edf2f5;
+      padding-bottom: 16px;
+    }
+
+    .faq-editor__head h3 {
+      margin: 0;
+      color: #0a2540;
+      font-size: 22px;
+      line-height: 1.16;
+    }
+
+    .faq-editor__head span {
+      display: block;
+      margin-top: 8px;
+      color: #63758a;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .faq-editor__items {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .faq-editor__item {
+      border: 1px solid #edf2f5;
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 14px;
+    }
+
+    .faq-editor__item-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .faq-editor__item-head strong {
+      color: #0a2540;
+      font-size: 14px;
+      font-weight: 760;
+    }
+
+    .faq-editor__item-head button {
+      width: 34px;
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid #f2d4d4;
+      border-radius: 7px;
+      background: #fffafa;
+      color: #b91c1c;
+      cursor: pointer;
+    }
+
+    .faq-editor__item label:last-child {
+      margin-bottom: 0;
     }
 
     .rich-editor {
@@ -898,6 +975,7 @@ function getAdminCss() {
       .cms-hero,
       .table-head,
       .form-head,
+      .faq-editor__head,
       .filter-row {
         flex-direction: column;
       }

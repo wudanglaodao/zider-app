@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PublicPage } from "@/app/_components/PublicChrome";
 import { isVisibleForumEntry, loadForumEntries } from "@/app/forum/_lib/forum-listing";
 import { getPublishedCmsEntry, type CmsEntry } from "@/lib/cms/content";
+import { extractCmsFaqItems, stripCmsFaqBlock, type CmsFaqItem } from "@/lib/cms/faq";
 import { getForumEntryModule, getForumModuleHref } from "@/lib/cms/forum-modules";
 import { getSampleForumEntry } from "@/lib/cms/sample-forum";
 
@@ -32,6 +33,7 @@ export default async function ForumEntryPage({ params }: ForumEntryPageProps) {
   const module = getForumEntryModule(entry);
   const relatedPosts = await loadRelatedEntries(entry);
   const publishedDate = formatPublishedDate(entry.publishedAt || entry.createdAt);
+  const faqItems = extractCmsFaqItems(entry.body);
 
   return (
     <PublicPage>
@@ -50,12 +52,51 @@ export default async function ForumEntryPage({ params }: ForumEntryPageProps) {
             <h1 className="entryTitle">{entry.title}</h1>
             {entry.excerpt ? <p className="entrySummary">{entry.excerpt}</p> : null}
             <RichEntryBody body={entry.body || ""} entryId={entry.id} />
+            <ForumFaq items={faqItems} pageTitle={entry.title} />
           </article>
 
           <RelatedArticles relatedPosts={relatedPosts} />
         </div>
       </main>
     </PublicPage>
+  );
+}
+
+function ForumFaq({ items, pageTitle }: { items: CmsFaqItem[]; pageTitle: string }) {
+  if (!items.length) {
+    return null;
+  }
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: items.map((item) => ({
+      "@type": "Question",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: item.answer,
+      },
+      name: item.question,
+    })),
+  };
+
+  return (
+    <section className="entryFaq" aria-labelledby="entry-faq-heading">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
+      />
+      <p>FAQ</p>
+      <h2 id="entry-faq-heading">{pageTitle} FAQ</h2>
+      <div className="entryFaqList">
+        {items.map((item, index) => (
+          <details className="entryFaqItem" key={`${item.question}-${index}`}>
+            <summary>{item.question}</summary>
+            <p>{item.answer}</p>
+          </details>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -83,13 +124,15 @@ function RelatedArticles({ relatedPosts }: { relatedPosts: RelatedForumPosts }) 
 }
 
 function RichEntryBody({ body, entryId }: { body: string; entryId: string }) {
-  if (looksLikeHtml(body)) {
-    return <div className="entryBody" dangerouslySetInnerHTML={{ __html: normalizeImportedForumBody(body) }} />;
+  const visibleBody = stripCmsFaqBlock(body);
+
+  if (looksLikeHtml(visibleBody)) {
+    return <div className="entryBody" dangerouslySetInnerHTML={{ __html: normalizeImportedForumBody(visibleBody) }} />;
   }
 
   return (
     <div className="entryBody">
-      {body.split(/\n{2,}/).map((paragraph, index) => (
+      {visibleBody.split(/\n{2,}/).map((paragraph, index) => (
         <p key={`${entryId}-${index}`}>{paragraph}</p>
       ))}
     </div>
@@ -368,6 +411,63 @@ function getEntryCss() {
 
     .entryBody code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    .entryFaq {
+      border-top: 1px solid var(--zider-line);
+      margin-top: 48px;
+      padding-top: 28px;
+    }
+
+    .entryFaq > p {
+      margin: 0 0 10px;
+      color: var(--zider-green);
+      font-size: 12px;
+      font-weight: 820;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .entryFaq h2 {
+      margin: 0;
+      color: var(--zider-ink);
+      font-size: 25px;
+      font-weight: 700;
+      line-height: 1.18;
+      letter-spacing: 0;
+    }
+
+    .entryFaqList {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .entryFaqItem {
+      border: 1px solid rgba(10, 37, 64, 0.09);
+      border-radius: 8px;
+      background: #fbfdfc;
+      padding: 0 16px;
+    }
+
+    .entryFaqItem summary {
+      min-height: 52px;
+      display: flex;
+      align-items: center;
+      color: var(--zider-ink);
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 720;
+      line-height: 1.35;
+    }
+
+    .entryFaqItem p {
+      margin: 0;
+      border-top: 1px solid var(--zider-line);
+      color: var(--zider-muted);
+      font-size: 15px;
+      line-height: 1.62;
+      padding: 14px 0 16px;
     }
 
     .relatedArticles {
