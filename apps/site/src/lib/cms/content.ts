@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { normalizeCmsAssetUrls } from "@/lib/cms/assets";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export type CmsContentType = "blog" | "forum";
@@ -155,9 +156,9 @@ export async function upsertCmsEntry(input: CmsEntryInput) {
   const now = new Date().toISOString();
   const payload = {
     author_name: emptyToNull(parsed.authorName),
-    body: emptyToNull(sanitizeCmsBody(parsed.body)),
+    body: emptyToNull(normalizeCmsAssetUrls(sanitizeCmsBody(parsed.body))),
     content_type: parsed.contentType,
-    cover_image_url: emptyToNull(parsed.coverImageUrl),
+    cover_image_url: emptyToNull(normalizeCmsAssetUrls(parsed.coverImageUrl)),
     excerpt: emptyToNull(parsed.excerpt),
     locale: parsed.locale,
     published_at: parsed.status === "published" ? now : null,
@@ -236,9 +237,9 @@ export function parseTagInput(value: string) {
 function mapCmsEntry(row: CmsEntryRow): CmsEntry {
   return {
     authorName: row.author_name,
-    body: row.body,
+    body: normalizeCmsAssetUrls(row.body),
     contentType: row.content_type,
-    coverImageUrl: row.cover_image_url,
+    coverImageUrl: normalizeCmsAssetUrls(row.cover_image_url),
     createdAt: row.created_at,
     excerpt: row.excerpt,
     id: row.id,
