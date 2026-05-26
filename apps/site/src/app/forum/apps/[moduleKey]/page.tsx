@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
 import { ArrowUpRight } from "lucide-react";
 
+import { filterVisibleForumEntries } from "@/app/forum/_lib/forum-listing";
 import { ForumSpaceIcon } from "@/app/forum/_components/ForumSpaceIcon";
 import { PublicPage } from "@/app/_components/PublicChrome";
 import { listCmsEntries, type CmsEntry } from "@/lib/cms/content";
@@ -105,7 +106,7 @@ async function loadModuleEntries(moduleKey: string) {
 
   try {
     const entries = await listCmsEntries({ contentType: "forum", publishedOnly: true });
-    const moduleEntries = filterByModule(entries);
+    const moduleEntries = filterByModule(filterVisibleForumEntries(entries));
     return moduleEntries.length ? moduleEntries : filterByModule(sampleForumEntries);
   } catch (error) {
     console.warn("Failed to load forum module entries", error);

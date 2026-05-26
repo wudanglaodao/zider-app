@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { PublicPage } from "@/app/_components/PublicChrome";
+import { filterVisibleForumEntries, isVisibleForumEntry } from "@/app/forum/_lib/forum-listing";
 import { getPublishedCmsEntry, listCmsEntries, type CmsEntry } from "@/lib/cms/content";
 import { getForumEntryModule, getForumModuleHref } from "@/lib/cms/forum-modules";
 import { getSampleForumEntry, sampleForumEntries } from "@/lib/cms/sample-forum";
@@ -119,10 +120,12 @@ function normalizeImportedForumBody(value: string) {
 
 async function loadEntry(slug: string) {
   try {
-    return (await getPublishedCmsEntry("forum", slug)) ?? getSampleForumEntry(slug);
+    const entry = (await getPublishedCmsEntry("forum", slug)) ?? getSampleForumEntry(slug);
+    return entry && isVisibleForumEntry(entry) ? entry : null;
   } catch (error) {
     console.warn("Failed to load forum entry", error);
-    return getSampleForumEntry(slug);
+    const entry = getSampleForumEntry(slug);
+    return entry && isVisibleForumEntry(entry) ? entry : null;
   }
 }
 
@@ -164,10 +167,11 @@ async function loadRelatedEntries(entry: CmsEntry): Promise<RelatedForumPosts> {
 async function loadPublishedForumEntries() {
   try {
     const entries = await listCmsEntries({ contentType: "forum", publishedOnly: true });
-    return entries.length ? entries : sampleForumEntries;
+    const visibleEntries = filterVisibleForumEntries(entries);
+    return visibleEntries.length ? visibleEntries : filterVisibleForumEntries(sampleForumEntries);
   } catch (error) {
     console.warn("Failed to load related forum entries", error);
-    return sampleForumEntries;
+    return filterVisibleForumEntries(sampleForumEntries);
   }
 }
 

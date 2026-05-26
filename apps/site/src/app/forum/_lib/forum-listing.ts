@@ -6,14 +6,27 @@ export const FORUM_PAGE_SIZE = 10;
 
 export type ForumSort = "new" | "hot";
 
+const removedForumSlugs = new Set([
+  "how-to-build-a-real-estate-website-with-rental-and-sales-modules-using-wix-studio",
+]);
+
 export async function loadForumEntries() {
   try {
     const entries = await listCmsEntries({ contentType: "forum", publishedOnly: true });
-    return entries.length ? entries : sampleForumEntries;
+    const visibleEntries = filterVisibleForumEntries(entries);
+    return visibleEntries.length ? visibleEntries : filterVisibleForumEntries(sampleForumEntries);
   } catch (error) {
     console.warn("Failed to load forum entries", error);
-    return sampleForumEntries;
+    return filterVisibleForumEntries(sampleForumEntries);
   }
+}
+
+export function filterVisibleForumEntries(entries: CmsEntry[]) {
+  return entries.filter(isVisibleForumEntry);
+}
+
+export function isVisibleForumEntry(entry: Pick<CmsEntry, "slug">) {
+  return !removedForumSlugs.has(entry.slug);
 }
 
 export function searchForumEntries(entries: CmsEntry[], query: string) {
