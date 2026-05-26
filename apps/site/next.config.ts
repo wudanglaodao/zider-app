@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         destination: "/forum/apps/beforeafter-slider-x",
         statusCode: 301,
       },
+      {
+        source: "/wix-app-widgets/store-content-suite",
+        destination: "/forum/apps/store-content-suite",
+        statusCode: 301,
+      },
     ];
   },
 };
