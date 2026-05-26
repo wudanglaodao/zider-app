@@ -87,7 +87,24 @@ export const forumModules: ForumModule[] = [
   },
 ];
 
-export function getForumEntryModule(entry: Pick<CmsEntry, "excerpt" | "tags" | "title">) {
+const forumModuleByEntrySlug: Record<string, string> = {
+  "beforeafter-slider-x": "beforeafter_slider_x",
+  "how-do-you-create-a-before-and-after-slider-in-wix": "before_and_after",
+  "is-there-a-good-before-and-after-slider-app-for-wix-websites": "before_and_after",
+  "where-can-i-find-a-before-and-after-slider-on-wix-is-free": "before_and_after",
+  "what-is-the-best-wix-before-and-after-slider-for-showing-visual-comparisons": "before_and_after",
+  "looking-for-a-simple-before-after-slider-app-for-wix": "before_and_after",
+  "how-do-you-show-renovation-or-redesign-results-on-a-wix-site": "before_and_after",
+  "how-to-set-before-and-after": "before_and_after",
+};
+
+export function getForumEntryModule(entry: Pick<CmsEntry, "excerpt" | "slug" | "tags" | "title">) {
+  const moduleKey = forumModuleByEntrySlug[entry.slug];
+
+  if (moduleKey) {
+    return forumModules.find((module) => module.key === moduleKey) ?? null;
+  }
+
   const haystack = [entry.title, entry.excerpt, ...entry.tags].filter(Boolean).join(" ").toLowerCase();
   return forumModules.find((module) => module.aliases.some((alias) => haystack.includes(alias)));
 }
@@ -96,7 +113,7 @@ export function getForumModuleHref(module: Pick<ForumModule, "key">) {
   return `/forum/apps/${getForumModuleSlug(module)}`;
 }
 
-export function isForumCommunityEntry(entry: Pick<CmsEntry, "excerpt" | "tags" | "title">) {
+export function isForumCommunityEntry(entry: Pick<CmsEntry, "excerpt" | "slug" | "tags" | "title">) {
   const hasCommunityTag = entry.tags.some((tag) =>
     ["community", "announcement", "rules"].includes(tag.toLowerCase()),
   );
