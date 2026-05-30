@@ -1,5 +1,5 @@
 import { getAppPlatformSecret } from "@/lib/platform-secrets";
-import { INTERACTIVE_CUSTOM_CURSOR_APP_KEY } from "@/lib/webhooks/app-registry";
+import { INTERACTIVE_CUSTOM_CURSOR_APP_KEY, PRINTOPS_APP_KEY } from "@/lib/webhooks/app-registry";
 
 export type WixAccessTokenResponse = {
   accessToken: string;
@@ -7,12 +7,16 @@ export type WixAccessTokenResponse = {
 };
 
 export async function createWixAccessToken(instanceId: string): Promise<WixAccessTokenResponse> {
-  const credentials = await getInteractiveCustomCursorWixCredentials();
+  return createWixAccessTokenForApp(INTERACTIVE_CUSTOM_CURSOR_APP_KEY, instanceId);
+}
+
+export async function createWixAccessTokenForApp(appKey: string, instanceId: string): Promise<WixAccessTokenResponse> {
+  const credentials = await getWixCredentials(appKey);
   const clientId = credentials.clientId;
   const clientSecret = credentials.clientSecret;
 
   if (!clientId || !clientSecret) {
-    throw new Error("Missing Interactive Custom Cursor Wix OAuth credentials in app_platform_secrets");
+    throw new Error(`Missing ${appKey} Wix OAuth credentials in app_platform_secrets or environment`);
   }
 
   const response = await fetch("https://www.wixapis.com/oauth2/token", {
@@ -46,13 +50,34 @@ export async function createWixAccessToken(instanceId: string): Promise<WixAcces
 }
 
 export async function getInteractiveCustomCursorWixCredentials() {
-  const databaseSecret = await getAppPlatformSecret(INTERACTIVE_CUSTOM_CURSOR_APP_KEY, "wix");
+  return getWixCredentials(INTERACTIVE_CUSTOM_CURSOR_APP_KEY);
+}
+
+export async function getPrintOpsWixCredentials() {
+  return getWixCredentials(PRINTOPS_APP_KEY);
+}
+
+export async function getWixCredentials(appKey: string) {
+  const databaseSecret = await getAppPlatformSecret(appKey, "wix");
+  const envPrefix = getWixCredentialEnvPrefix(appKey);
 
   return {
-    clientId: databaseSecret?.oauthClientId || process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_ID || "",
-    clientSecret: databaseSecret?.oauthClientSecret || process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET || "",
+    clientId: databaseSecret?.oauthClientId || process.env[`${envPrefix}_APP_ID`] || "",
+    clientSecret: databaseSecret?.oauthClientSecret || process.env[`${envPrefix}_APP_SECRET`] || "",
     source: databaseSecret?.oauthClientId && databaseSecret.oauthClientSecret ? "database" : "env",
   };
+}
+
+function getWixCredentialEnvPrefix(appKey: string) {
+  if (appKey === PRINTOPS_APP_KEY) {
+    return "WIX_PRINTOPS";
+  }
+
+  if (appKey === INTERACTIVE_CUSTOM_CURSOR_APP_KEY) {
+    return "WIX_INTERACTIVE_CUSTOM_CURSOR";
+  }
+
+  return `WIX_${appKey.toUpperCase()}`;
 }
 
 function extractAccessToken(raw: unknown): string | null {

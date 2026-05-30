@@ -21,11 +21,11 @@ Zider
 │  ├─ Embedded Script
 │  └─ Cursor Config
 │
-└─ App 2: PrintSlip
+└─ App 2: Zider PrintOps
    ├─ Wix App Market Listing
    ├─ Dashboard Settings
-   ├─ Invoice Template Config
-   ├─ Packing Slip Config
+   ├─ Invoice Template Center
+   ├─ Wix Order Sync
    └─ Order Print / Preview
 ```
 
@@ -62,25 +62,26 @@ It focuses on front-site visual interaction:
 
 The goal is to validate whether Wix users want a lightweight visual interaction enhancement app.
 
-## App 2: PrintSlip
+## App 2: Zider PrintOps
 
-PrintSlip is a future independent app.
+Zider PrintOps is the order printing app.
 
 Positioning:
 
 ```text
-Print custom invoices and packing slips for your store orders.
+Custom invoice templates and print-ready order documents for Wix Stores.
 ```
 
 It focuses on store operations:
 
 - Custom invoices
-- Custom packing slips
+- Wix order sync
+- Recent history backfill
 - Store branding
 - Order print preview
 - Batch printing
 
-PrintSlip should not share runtime logic with Interactive Custom Cursor. It may share brand, dashboard layout patterns, billing, and analytics later.
+PrintOps should not share runtime logic with Interactive Custom Cursor. It may share brand, dashboard layout patterns, billing, and analytics later.
 
 ## Shared Platform Principle
 
@@ -101,7 +102,7 @@ Recommended app keys:
 
 ```text
 interactive_custom_cursor
-printslip
+zider_printops
 ```
 
 ## Current Planning Rule

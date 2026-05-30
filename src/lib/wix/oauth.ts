@@ -4,11 +4,16 @@ export type WixAccessTokenResponse = {
 };
 
 export async function createWixAccessToken(instanceId: string): Promise<WixAccessTokenResponse> {
-  const clientId = process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_ID;
-  const clientSecret = process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET;
+  return createWixAccessTokenForApp("interactive_custom_cursor", instanceId);
+}
+
+export async function createWixAccessTokenForApp(appKey: string, instanceId: string): Promise<WixAccessTokenResponse> {
+  const credentials = getWixCredentials(appKey);
+  const clientId = credentials.clientId;
+  const clientSecret = credentials.clientSecret;
 
   if (!clientId || !clientSecret) {
-    throw new Error("Missing WIX_INTERACTIVE_CUSTOM_CURSOR_APP_ID or WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET");
+    throw new Error(`Missing Wix OAuth credentials for ${appKey}`);
   }
 
   const response = await fetch("https://www.wixapis.com/oauth2/token", {
@@ -39,6 +44,27 @@ export async function createWixAccessToken(instanceId: string): Promise<WixAcces
     accessToken,
     raw,
   };
+}
+
+export function getWixCredentials(appKey: string) {
+  const envPrefix = getWixCredentialEnvPrefix(appKey);
+
+  return {
+    clientId: process.env[`${envPrefix}_APP_ID`] || "",
+    clientSecret: process.env[`${envPrefix}_APP_SECRET`] || "",
+  };
+}
+
+function getWixCredentialEnvPrefix(appKey: string) {
+  if (appKey === "zider_printops") {
+    return "WIX_PRINTOPS";
+  }
+
+  if (appKey === "interactive_custom_cursor") {
+    return "WIX_INTERACTIVE_CUSTOM_CURSOR";
+  }
+
+  return `WIX_${appKey.toUpperCase()}`;
 }
 
 function extractAccessToken(raw: unknown): string | null {

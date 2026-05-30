@@ -17,10 +17,10 @@ components.zider.ink
 
 workspace.zider.ink
 ├── /dashboard
-├── /wix-order-printer
-├── /wix-order-printer/orders
-├── /wix-order-printer/templates
-├── /wix-order-printer/print-jobs
+├── /apps/printops
+├── /apps/printops/templates
+├── /apps/printops/settings
+├── /plug-in/printops/wix
 └── /settings
 ```
 
@@ -43,6 +43,23 @@ This app will use the request host to switch product line context:
 
 ## Current Skeleton
 
-The standalone shell already builds with `/`, `/components`, `/solutions`, `/interactive-custom-cursor`, `/wix/interactive-custom-cursor`, `/api/health`, `/api/widgets/interactive-custom-cursor/embed.js`, and `/api/widgets/interactive-custom-cursor/config`.
+The standalone shell already builds with `/`, `/components`, `/solutions`, `/interactive-custom-cursor`, `/wix/interactive-custom-cursor`, `/apps/printops`, `/apps/printops/templates`, `/apps/printops/settings`, `/plug-in/printops/wix`, `/api/health`, `/api/widgets/interactive-custom-cursor/embed.js`, and `/api/widgets/interactive-custom-cursor/config`.
 
 Next migration step: build the authenticated Components dashboard around these product routes.
+
+## PrintOps Wix Preview
+
+Use `/plug-in/printops/wix` as the Wix dashboard URL for the first Wix test app.
+
+Local smoke test:
+
+```text
+http://localhost:3102/plug-in/printops/wix?instanceId=wix-dev-preview
+```
+
+Production / preview requires either database credentials in `app_platform_secrets` with `app_key=zider_printops` and `platform=wix`, or environment variables:
+
+```text
+WIX_PRINTOPS_APP_ID
+WIX_PRINTOPS_APP_SECRET
+```

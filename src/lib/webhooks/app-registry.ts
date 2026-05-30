@@ -17,7 +17,18 @@ export type AppRegistryEntry = {
   billingProvider: "wix" | "stripe" | "paddle" | "manual" | "none" | "unknown";
 };
 
+export const PRINTOPS_APP_KEY = "zider_printops";
+
 export const EXISTING_WIX_APPS: AppRegistryEntry[] = [
+  {
+    appKey: PRINTOPS_APP_KEY,
+    appName: "Zider PrintOps",
+    platform: "wix",
+    status: "planned",
+    distributionChannel: "marketplace",
+    acquisitionSource: "wix_app_market",
+    billingProvider: "none",
+  },
   {
     appKey: "interactive_custom_cursor",
     appName: "Interactive Custom Cursor",

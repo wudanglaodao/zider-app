@@ -1,0 +1,150 @@
+{
+  "updatedAt": "2026-05-29",
+  "defaultColor": "#111111",
+  "icons": [
+    {
+      "name": "Instagram",
+      "slug": "instagram",
+      "file": "instagram.svg",
+      "publicPath": "/assets/social-icons/instagram.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/instagram.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "Facebook",
+      "slug": "facebook",
+      "file": "facebook.svg",
+      "publicPath": "/assets/social-icons/facebook.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/facebook.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "X",
+      "slug": "x",
+      "file": "x.svg",
+      "publicPath": "/assets/social-icons/x.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/x.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "TikTok",
+      "slug": "tiktok",
+      "file": "tiktok.svg",
+      "publicPath": "/assets/social-icons/tiktok.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/tiktok.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "YouTube",
+      "slug": "youtube",
+      "file": "youtube.svg",
+      "publicPath": "/assets/social-icons/youtube.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/youtube.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "Pinterest",
+      "slug": "pinterest",
+      "file": "pinterest.svg",
+      "publicPath": "/assets/social-icons/pinterest.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/pinterest.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "LinkedIn",
+      "slug": "linkedin",
+      "file": "linkedin.svg",
+      "publicPath": "/assets/social-icons/linkedin.svg",
+      "source": "Bootstrap Icons",
+      "sourceUrl": "https://github.com/twbs/icons/blob/main/icons/linkedin.svg",
+      "license": "MIT"
+    },
+    {
+      "name": "WhatsApp",
+      "slug": "whatsapp",
+      "file": "whatsapp.svg",
+      "publicPath": "/assets/social-icons/whatsapp.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/whatsapp.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "Threads",
+      "slug": "threads",
+      "file": "threads.svg",
+      "publicPath": "/assets/social-icons/threads.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/threads.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "Snapchat",
+      "slug": "snapchat",
+      "file": "snapchat.svg",
+      "publicPath": "/assets/social-icons/snapchat.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/snapchat.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "Telegram",
+      "slug": "telegram",
+      "file": "telegram.svg",
+      "publicPath": "/assets/social-icons/telegram.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/telegram.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "WeChat",
+      "slug": "wechat",
+      "file": "wechat.svg",
+      "publicPath": "/assets/social-icons/wechat.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/wechat.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "Xiaohongshu",
+      "slug": "xiaohongshu",
+      "file": "xiaohongshu.svg",
+      "publicPath": "/assets/social-icons/xiaohongshu.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/xiaohongshu.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "Sina Weibo",
+      "slug": "sinaweibo",
+      "file": "sinaweibo.svg",
+      "publicPath": "/assets/social-icons/sinaweibo.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/sinaweibo.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "Bilibili",
+      "slug": "bilibili",
+      "file": "bilibili.svg",
+      "publicPath": "/assets/social-icons/bilibili.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/bilibili.svg",
+      "license": "CC0-1.0"
+    },
+    {
+      "name": "LINE",
+      "slug": "line",
+      "file": "line.svg",
+      "publicPath": "/assets/social-icons/line.svg",
+      "source": "Simple Icons",
+      "sourceUrl": "https://simpleicons.org/icons/line.svg",
+      "license": "CC0-1.0"
+    }
+  ]
+}

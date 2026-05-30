@@ -2,6 +2,8 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { CURSOR_APP_KEY } from "@/cursor/core";
 import { getAppPlatformSecret } from "@/lib/platform-secrets";
 
+export const PRINTOPS_APP_KEY = "zider_printops";
+
 export type WixInstanceContext = {
   instanceId: string | null;
   siteOwnerId: string | null;
@@ -11,13 +13,35 @@ export type WixInstanceContext = {
 };
 
 export function getInteractiveCursorWixSecret() {
-  return process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET ?? process.env.WIX_APP_SECRET ?? "";
+  return getWixSecretFromEnvironment(CURSOR_APP_KEY);
 }
 
 export async function getInteractiveCursorWixSecretFromDatabase() {
-  const databaseSecret = await getAppPlatformSecret(CURSOR_APP_KEY, "wix");
+  return getWixSecretForApp(CURSOR_APP_KEY);
+}
 
-  return databaseSecret?.appSecret || databaseSecret?.oauthClientSecret || getInteractiveCursorWixSecret();
+export async function getWixSecretForApp(appKey: string) {
+  const databaseSecret = await getAppPlatformSecret(appKey, "wix");
+
+  return databaseSecret?.appSecret || databaseSecret?.oauthClientSecret || getWixSecretFromEnvironment(appKey);
+}
+
+function getWixSecretFromEnvironment(appKey: string) {
+  const envPrefix = getWixEnvironmentPrefix(appKey);
+
+  return process.env[`${envPrefix}_APP_SECRET`] ?? process.env.WIX_APP_SECRET ?? "";
+}
+
+function getWixEnvironmentPrefix(appKey: string) {
+  if (appKey === PRINTOPS_APP_KEY) {
+    return "WIX_PRINTOPS";
+  }
+
+  if (appKey === CURSOR_APP_KEY) {
+    return "WIX_INTERACTIVE_CUSTOM_CURSOR";
+  }
+
+  return `WIX_${appKey.toUpperCase()}`;
 }
 
 export function parseWixInstance(instance: string | null | undefined, secret = getInteractiveCursorWixSecret()): WixInstanceContext | null {
@@ -48,8 +72,12 @@ export function parseWixInstance(instance: string | null | undefined, secret = g
 }
 
 export async function resolveWixInstanceId(searchParams: Record<string, string | string[] | undefined>) {
+  return resolveWixInstanceIdForApp(CURSOR_APP_KEY, searchParams);
+}
+
+export async function resolveWixInstanceIdForApp(appKey: string, searchParams: Record<string, string | string[] | undefined>) {
   const instance = getParam(searchParams.instance);
-  const parsed = parseWixInstance(instance, await getInteractiveCursorWixSecretFromDatabase());
+  const parsed = parseWixInstance(instance, await getWixSecretForApp(appKey));
 
   if (parsed?.instanceId && (parsed.verified || process.env.NODE_ENV !== "production")) {
     return {

@@ -13,3 +13,4 @@ Avoid extracting too early. The first migration goal is clean app boundaries.
 | `@zider/db` | Supabase clients, database types, shared queries |
 | `@zider/cms` | CMS content queries and validators |
 | `@zider/config` | Domain constants, product-line constants, env helpers |
+| `@zider/platform-plugins` | PrintOps platform adapters for Wix, WordPress / WooCommerce, Shopify, CSV and Direct API |
