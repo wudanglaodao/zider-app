@@ -142,16 +142,6 @@ Optional:
 NEXT_PUBLIC_SITE_URL=https://zider.ink
 ```
 
-Optional customer widget:
-
-```text
-AI_CUSTOMER_WIDGET_ENABLED=true
-AI_CUSTOMER_WIDGET_SITE_ID=...
-AI_CUSTOMER_WIDGET_SRC=https://www.lopuo.work/widget.js
-AI_CUSTOMER_WIDGET_THEME=...
-AI_CUSTOMER_WIDGET_PLUGINS=...
-```
-
 One-time local/admin seed values:
 
 ```text
