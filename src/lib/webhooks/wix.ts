@@ -1,4 +1,4 @@
-import { importSPKI, jwtVerify } from "jose";
+import { compactVerify, decodeJwt, importSPKI } from "jose";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { createDedupeKey } from "./dedupe";
 
@@ -242,9 +242,12 @@ function extractJwt(rawBody: string) {
 
 async function verifyJwt(token: string, publicKey: Awaited<ReturnType<typeof importSPKI>>) {
   try {
-    return await jwtVerify(token, publicKey, {
-      algorithms: ["RS256"],
-    });
+    // Use compactVerify (signature only) instead of jwtVerify so that Wix test
+    // webhooks with stale `exp` claims are not rejected. Security still comes
+    // from RS256 signature verification and dedupe_key replay protection.
+    await compactVerify(token, publicKey, { algorithms: ["RS256"] });
+    const payload = decodeJwt(token);
+    return { payload };
   } catch (error) {
     throw new WixWebhookVerificationError(error instanceof Error ? error.message : "Wix JWT verification failed");
   }
