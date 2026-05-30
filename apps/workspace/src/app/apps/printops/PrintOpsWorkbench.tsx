@@ -68,6 +68,36 @@ type Order = {
 };
 
 type PrintOpsView = "orders" | "templates" | "settings";
+type PrintOpsPluginContext = {
+  appKey: string;
+  appName: string;
+  instanceId: string | null;
+  platform: "wix";
+  source: "instance" | "dev-instance-id" | "missing";
+  syncEndpoint: string;
+  verified: boolean;
+};
+type WixSyncOrderSummary = {
+  orderNumber: string | null;
+  sourceOrderId: string;
+  updatedAt: string | null;
+  lineItems: Array<{
+    title: string | null;
+    sku: string | null;
+    quantity: number | null;
+    customFields: unknown[];
+  }>;
+  customFields: unknown[];
+};
+type WixSyncStatus = {
+  customFieldCount: number;
+  error: string | null;
+  mode: "latest" | "history" | null;
+  orderCount: number;
+  orders: WixSyncOrderSummary[];
+  status: "idle" | "syncing" | "success" | "error";
+  window: { from: string; to: string } | null;
+};
 type OrderTemplateVisualStyle = "atelier" | "market" | "mono";
 type OrderTemplateAccent = "charcoal" | "forest" | "slate";
 type WorkspaceAccent = "forest" | "blue" | "violet" | "red" | "amber";
@@ -1279,7 +1309,7 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
   };
 }
 
-export function PrintOpsWorkbench({ initialView = "orders" }: { initialView?: PrintOpsView }) {
+export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { initialView?: PrintOpsView; pluginContext?: PrintOpsPluginContext }) {
   const [selectedIds, setSelectedIds] = useState<string[]>(["1008", "1007", "1006"]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -1299,6 +1329,15 @@ export function PrintOpsWorkbench({ initialView = "orders" }: { initialView?: Pr
   const [template, setTemplate] = useState("order");
   const [language, setLanguage] = useState<PrintLocale>(defaultPrintLocale);
   const [timezone, setTimezone] = useState("Asia/Shanghai");
+  const [wixSyncStatus, setWixSyncStatus] = useState<WixSyncStatus>({
+    customFieldCount: 0,
+    error: null,
+    mode: null,
+    orderCount: 0,
+    orders: [],
+    status: "idle",
+    window: null,
+  });
 
   const activeView = initialView;
   const messages = getPrintOpsMessages(siteLocale);
@@ -1522,6 +1561,63 @@ export function PrintOpsWorkbench({ initialView = "orders" }: { initialView?: Pr
     setTemplateEditorOpen(false);
   }
 
+  async function syncWixOrders(mode: "latest" | "history") {
+    if (!pluginContext?.instanceId) {
+      setWixSyncStatus((current) => ({
+        ...current,
+        error: messages.wixSync.missingInstance,
+        mode,
+        status: "error",
+      }));
+      return;
+    }
+
+    setWixSyncStatus((current) => ({ ...current, error: null, mode, status: "syncing" }));
+
+    try {
+      const response = await fetch(pluginContext.syncEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          historyDays: mode === "history" ? 7 : undefined,
+          mode,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        orders?: WixSyncOrderSummary[];
+        sync?: {
+          customFieldCount?: number;
+          orderCount?: number;
+          window?: { from: string; to: string };
+        };
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? `Wix sync request failed with ${response.status}`);
+      }
+
+      setWixSyncStatus({
+        customFieldCount: payload.sync?.customFieldCount ?? 0,
+        error: null,
+        mode,
+        orderCount: payload.sync?.orderCount ?? 0,
+        orders: payload.orders ?? [],
+        status: "success",
+        window: payload.sync?.window ?? null,
+      });
+    } catch (error) {
+      setWixSyncStatus((current) => ({
+        ...current,
+        error: error instanceof Error ? error.message : messages.wixSync.failed,
+        mode,
+        status: "error",
+      }));
+    }
+  }
+
   return (
     <main
       className={styles.shell}
@@ -1666,7 +1762,11 @@ export function PrintOpsWorkbench({ initialView = "orders" }: { initialView?: Pr
             tab={templateTab}
           />
         ) : (
-          <div className={styles.mainGrid}>
+          <>
+            {pluginContext ? (
+              <WixSyncPanel context={pluginContext} messages={messages} onSync={syncWixOrders} status={wixSyncStatus} />
+            ) : null}
+            <div className={styles.mainGrid}>
           <section className={styles.ordersPanel}>
             <div className={styles.filterBar}>
             <label className={styles.search}>
@@ -1762,6 +1862,7 @@ export function PrintOpsWorkbench({ initialView = "orders" }: { initialView?: Pr
             </div>
           </aside>
         </div>
+          </>
         )}
       </section>
 
@@ -2000,6 +2101,100 @@ function SettingsCenter({
       </section>
     </div>
   );
+}
+
+function WixSyncPanel({
+  context,
+  messages,
+  onSync,
+  status,
+}: {
+  context: PrintOpsPluginContext;
+  messages: PrintOpsMessages;
+  onSync: (mode: "latest" | "history") => Promise<void>;
+  status: WixSyncStatus;
+}) {
+  const hasInstance = Boolean(context.instanceId);
+  const statusLabel = hasInstance ? (context.verified ? messages.wixSync.connected : messages.wixSync.devMode) : messages.wixSync.missingInstance;
+  const statusTone = hasInstance ? (context.verified ? "good" : "warn") : "warn";
+  const syncMessage =
+    status.status === "syncing"
+      ? messages.wixSync.syncing
+      : status.status === "success"
+        ? messages.wixSync.synced
+        : status.status === "error"
+          ? messages.wixSync.failed
+          : messages.wixSync.ready;
+
+  return (
+    <section className={styles.syncPanel} data-tone={statusTone}>
+      <div className={styles.syncMain}>
+        <span className={styles.syncIcon}>
+          {status.status === "error" ? <AlertTriangle size={18} aria-hidden /> : <CheckCircle2 size={18} aria-hidden />}
+        </span>
+        <div>
+          <div className={styles.syncTitle}>
+            <strong>{messages.wixSync.title}</strong>
+            <span>{statusLabel}</span>
+          </div>
+          <p>{messages.wixSync.description}</p>
+          <small data-state={status.status}>{status.error ?? syncMessage}</small>
+        </div>
+      </div>
+
+      <div className={styles.syncActions}>
+        <button className={styles.secondaryButton} type="button" disabled={!hasInstance || status.status === "syncing"} onClick={() => onSync("latest")}>
+          {messages.wixSync.syncLatest}
+        </button>
+        <button className={styles.primaryButton} type="button" disabled={!hasInstance || status.status === "syncing"} onClick={() => onSync("history")}>
+          {messages.wixSync.syncHistory}
+        </button>
+      </div>
+
+      {status.status === "success" ? (
+        <div className={styles.syncResult}>
+          <span>
+            <strong>{status.orderCount}</strong> {messages.wixSync.ordersSynced}
+          </span>
+          <span>
+            <strong>{status.customFieldCount}</strong> {messages.wixSync.customFieldsFound}
+          </span>
+          {status.window ? (
+            <span>
+              {messages.wixSync.window}: {formatSyncDate(status.window.from)} - {formatSyncDate(status.window.to)}
+            </span>
+          ) : null}
+          {status.orders.length > 0 ? (
+            <span>
+              {messages.wixSync.sampleOrders}: {status.orders.slice(0, 3).map(formatSyncedOrder).join(", ")}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function formatSyncedOrder(order: WixSyncOrderSummary) {
+  const itemCount = order.lineItems.reduce((total, lineItem) => total + (lineItem.quantity ?? 0), 0);
+  const customFieldCount = order.customFields.length + order.lineItems.reduce((total, lineItem) => total + lineItem.customFields.length, 0);
+
+  return `${order.orderNumber ?? order.sourceOrderId} (${itemCount || order.lineItems.length} items, ${customFieldCount} custom)`;
+}
+
+function formatSyncDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString(undefined, {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+  });
 }
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: "warning" }) {

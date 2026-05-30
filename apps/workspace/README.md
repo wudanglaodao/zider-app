@@ -56,3 +56,22 @@ Production / preview requires either database credentials in `app_platform_secre
 WIX_PRINTOPS_APP_ID
 WIX_PRINTOPS_APP_SECRET
 ```
+
+P0 order sync endpoint:
+
+```text
+POST /api/apps/printops/wix/orders/sync?instance=...
+POST /api/apps/printops/wix/orders/sync?instanceId=wix-dev-preview
+```
+
+Supported request body:
+
+```json
+{
+  "mode": "latest",
+  "limit": 50,
+  "maxPages": 10
+}
+```
+
+Use `"mode": "history"` with `"historyDays": 7` for the first-version manual backfill window. The endpoint exchanges the Wix `instanceId` for an access token, queries Wix orders by `updatedDate`, and returns normalized orders plus captured custom fields for invoice rendering.

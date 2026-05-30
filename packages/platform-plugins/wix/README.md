@@ -33,6 +33,15 @@ This is enough for development stores and early merchants to validate the core l
 | `src/sync.ts` | Run latest/history sync across cursor pages and expose normalized results |
 | `src/types.ts` | Shared Wix and PrintOps adapter types |
 
+Workspace API entry point:
+
+```text
+POST /api/apps/printops/wix/orders/sync?instance=...
+POST /api/apps/printops/wix/orders/sync?instanceId=wix-dev-preview
+```
+
+The workspace route handles Wix instance resolution and OAuth token exchange, then calls this adapter package. The response intentionally returns normalized order summaries and captured custom fields, not the full raw payload.
+
 Recommended P0 flow:
 
 1. Resolve the Wix `instanceId` from the Wix dashboard request.

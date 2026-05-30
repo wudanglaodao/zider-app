@@ -1012,6 +1012,122 @@
   font-size: 14px;
 }
 
+.syncPanel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 14px;
+}
+
+.syncPanel[data-tone="good"] {
+  border-color: var(--accent-border);
+}
+
+.syncPanel[data-tone="warn"] {
+  border-color: #efd28e;
+}
+
+.syncMain {
+  min-width: 0;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.syncIcon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--green-soft);
+  color: var(--green-strong);
+}
+
+.syncPanel[data-tone="warn"] .syncIcon {
+  background: var(--yellow-soft);
+  color: var(--yellow-text);
+}
+
+.syncTitle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.syncTitle strong {
+  color: var(--ink);
+  font-size: 15px;
+}
+
+.syncTitle span {
+  border-radius: 999px;
+  background: var(--neutral-pill);
+  color: var(--neutral-pill-text);
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.syncPanel p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.syncPanel small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.syncPanel small[data-state="error"] {
+  color: var(--yellow-text);
+}
+
+.syncActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.syncResult {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.syncResult span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.syncResult strong {
+  color: var(--ink);
+  margin-right: 4px;
+}
+
 .mainGrid {
   display: grid;
   grid-template-columns: minmax(680px, 1fr) minmax(320px, 390px);
@@ -4488,6 +4604,20 @@
   .themeCardGrid,
   .regionalPreviewBox {
     grid-template-columns: 1fr;
+  }
+
+  .syncPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .syncActions {
+    justify-content: stretch;
+  }
+
+  .syncActions .primaryButton,
+  .syncActions .secondaryButton {
+    flex: 1;
+    justify-content: center;
   }
 
   .settingsTwoColumns > *:last-child,

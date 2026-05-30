@@ -15,7 +15,39 @@ type PrintOpsWixPageProps = {
 
 export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageProps) {
   const params = await searchParams;
-  await resolveWixInstanceIdForApp(PRINTOPS_APP_KEY, params);
+  const instanceContext = await resolveWixInstanceIdForApp(PRINTOPS_APP_KEY, params);
+  const queryString = createQueryString(params);
+  const syncEndpoint = `/api/apps/printops/wix/orders/sync${queryString ? `?${queryString}` : ""}`;
 
-  return <PrintOpsWorkbench initialView="orders" />;
+  return (
+    <PrintOpsWorkbench
+      initialView="orders"
+      pluginContext={{
+        appKey: PRINTOPS_APP_KEY,
+        appName: "Zider PrintOps",
+        instanceId: instanceContext.instanceId,
+        platform: "wix",
+        source: instanceContext.source,
+        syncEndpoint,
+        verified: instanceContext.verified,
+      }}
+    />
+  );
+}
+
+function createQueryString(params: Record<string, string | string[] | undefined>) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (Array.isArray(value)) {
+      value.forEach((item) => query.append(key, item));
+      return;
+    }
+
+    if (value) {
+      query.set(key, value);
+    }
+  });
+
+  return query.toString();
 }
