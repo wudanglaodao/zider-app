@@ -9,7 +9,7 @@ This checklist prepares the public `zider.ink` site for release from `apps/site`
 - [ ] Confirm the Vercel project is linked to `apps/site`.
 - [ ] Confirm the production domain is `zider.ink`.
 - [ ] Keep `zider-app` reserved for `app.zider.ink` webhook and app runtime work.
-- [ ] Keep `zider-workspace` reserved for `components.zider.ink` and `workspace.zider.ink`.
+- [ ] Keep `zider-workspace` reserved for `workspace.zider.ink`.
 
 ## Environment
 

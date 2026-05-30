@@ -22,7 +22,7 @@
 - Big Brand Invoice 模板预览、下载 PDF、浏览器打印。
 - 模板配置编辑器。
 - 多语言打印标签、日期格式、地址格式、SKU、订单条形码、自定义字段承接。
-- Wix 插件 dashboard 路由：`/plug-in/printops/wix`。
+- Wix 插件 dashboard 路由：`/apps/printops/wix`。
 
 暂不包含：
 
@@ -40,7 +40,7 @@
 - `apps/workspace` typecheck 通过。
 - `packages/platform-plugins` typecheck 通过。
 - `/apps/printops/templates` 可打开。
-- `/plug-in/printops/wix?instanceId=wix-dev-preview` 可打开。
+- `/apps/printops/wix?instanceId=wix-dev-preview` 可打开。
 - 下载 PDF 为单页 A4 Invoice。
 - 浏览器打印预览尺寸正确。
 - 切换模板打印语言后，预览、PDF、浏览器打印一致。
@@ -69,7 +69,7 @@ Workspace 发布环境需要：
 Wix App 设置：
 
 - App name：Zider PrintOps
-- Dashboard URL：`https://workspace.zider.ink/plug-in/printops/wix`
+- Dashboard URL：`https://workspace.zider.ink/apps/printops/wix`
 - Redirect / allowed URLs：包含 workspace 发布域名
 - App credentials：保存到环境变量或 `app_platform_secrets`
 

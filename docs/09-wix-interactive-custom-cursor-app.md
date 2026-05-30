@@ -6,7 +6,7 @@ This note captures the first installable Wix-app path for **Interactive Custom C
 
 Create a self-hosted Wix app and configure:
 
-- Dashboard page URL: `https://workspace.zider.ink/wix/interactive-custom-cursor`
+- Dashboard page URL: `https://workspace.zider.ink/widget/interactive-custom-cursor/wix`
 - App Instance Installed webhook: `https://app.zider.ink/events/wix/interactive_custom_cursor`
 - Embedded Script extension code:
 
@@ -50,13 +50,13 @@ Runtime lookup order:
 Use a dev instance ID:
 
 ```text
-http://localhost:3102/wix/interactive-custom-cursor?instanceId=dev-site-1
+http://localhost:3102/widget/interactive-custom-cursor/wix?instanceId=dev-site-1
 ```
 
 Save writes draft config. Publish copies the draft to `publishedConfig`. The front-site embed reads the published config:
 
 ```text
-http://localhost:3102/api/widgets/interactive-custom-cursor/embed.js?platform=wix&instanceId=dev-site-1
+http://localhost:3102/widget/interactive-custom-cursor/embed.js?platform=wix&instanceId=dev-site-1
 ```
 
 ## Optional Supabase Table

@@ -55,7 +55,7 @@ export function WorkbenchShell({
             <a
               className="zider-workbench__create"
               data-active={active === "cursor"}
-              href="/interactive-custom-cursor"
+              href="/widget/interactive-custom-cursor"
               aria-label="Create widget"
               title="Create widget"
             >

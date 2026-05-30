@@ -1,6 +1,6 @@
 import { createWixAccessToken } from "./oauth";
 
-const defaultComponentsUrl = "https://components.zider.ink";
+const defaultWorkspaceUrl = "https://workspace.zider.ink";
 
 export async function installInteractiveCustomCursorEmbedScript(instanceId: string) {
   const { accessToken } = await createWixAccessToken(instanceId);
@@ -14,7 +14,7 @@ export async function installInteractiveCustomCursorEmbedScript(instanceId: stri
     body: JSON.stringify({
       properties: {
         parameters: {
-          scriptUrl: `${getComponentsUrl()}/api/widgets/interactive-custom-cursor/embed.js?instanceId=${encodeURIComponent(instanceId)}`,
+          scriptUrl: `${getWorkspaceUrl()}/widget/interactive-custom-cursor/embed.js?instanceId=${encodeURIComponent(instanceId)}`,
         },
       },
     }),
@@ -28,6 +28,6 @@ export async function installInteractiveCustomCursorEmbedScript(instanceId: stri
   return payload;
 }
 
-function getComponentsUrl() {
-  return (process.env.ZIDER_COMPONENTS_URL?.trim() || defaultComponentsUrl).replace(/\/$/, "");
+function getWorkspaceUrl() {
+  return (process.env.ZIDER_WORKSPACE_URL?.trim() || defaultWorkspaceUrl).replace(/\/$/, "");
 }

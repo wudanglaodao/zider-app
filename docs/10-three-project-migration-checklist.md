@@ -8,13 +8,13 @@ This checklist tracks the move from the current root `zider-ink` Next.js app int
 |---|---|---|
 | `zider-ink` | `zider.ink` | `apps/site` |
 | `zider-app` | `app.zider.ink` | `apps/app` |
-| `zider-workspace` | `components.zider.ink`, `workspace.zider.ink` | `apps/workspace` |
+| `zider-workspace` | `workspace.zider.ink` | `apps/workspace` |
 
 ## Phase 0: Freeze Public Runtime Routes
 
 - [ ] Confirm Wix still sends webhooks to `https://app.zider.ink/events/[platform]/[appKey]`.
-- [ ] Confirm new embed script consumers use the workspace URL for `/api/widgets/interactive-custom-cursor/embed.js`.
-- [ ] Confirm widget config consumers use the workspace URL for `/api/widgets/interactive-custom-cursor/config`.
+- [ ] Confirm new embed script consumers use the workspace URL for `/widget/interactive-custom-cursor/embed.js`.
+- [ ] Confirm widget config consumers use the workspace URL for `/widget/interactive-custom-cursor/config`.
 - [ ] Confirm `/api/health` expectations.
 
 ## Phase 1: Prepare Skeleton

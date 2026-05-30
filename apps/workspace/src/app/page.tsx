@@ -15,7 +15,7 @@ const apps = [
     name: "Interactive Custom Cursor",
     scope: "Wix sites",
     description: "A lightweight visual interaction app for custom cursors, hover states, and click effects.",
-    href: "/interactive-custom-cursor",
+    href: "/widget/interactive-custom-cursor",
     cta: "Open Cursor App",
     status: "Workspace",
     icon: MousePointer2,
@@ -32,7 +32,7 @@ export default function WorkspaceHomePage() {
         </Link>
         <nav className="landingLinks" aria-label="Zider apps">
           <Link href="/apps/printops/templates">PrintOps</Link>
-          <Link href="/interactive-custom-cursor">Cursor</Link>
+          <Link href="/widget/interactive-custom-cursor">Cursor</Link>
         </nav>
       </header>
 
@@ -48,7 +48,7 @@ export default function WorkspaceHomePage() {
               <Printer size={18} aria-hidden />
               Open PrintOps
             </Link>
-            <Link className="landingSecondaryButton" href="/plug-in/printops/wix?instance=wix-dev-preview">
+            <Link className="landingSecondaryButton" href="/apps/printops/wix?instance=wix-dev-preview">
               Wix preview
               <ArrowRight size={17} aria-hidden />
             </Link>

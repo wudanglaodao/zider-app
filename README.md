@@ -8,13 +8,13 @@ ZIDER Ink is the monorepo for the public ZIDER site, Wix integration service, an
 | --- | --- | --- | --- |
 | `zider-ink` | `apps/site` | `zider.ink` | Public site, Blog, Forum, global account sign-in, CMS admin |
 | `zider-app` | `apps/app` | `app.zider.ink` | Wix integration service, webhook receiver, analytics ingestion |
-| `zider-workspace` | `apps/workspace` | `components.zider.ink`, `workspace.zider.ink` | Component runtime, embed scripts, workspace and solution pages |
+| `zider-workspace` | `apps/workspace` | `workspace.zider.ink` | Workspace apps, widget runtime, and solution pages |
 
 Keep these boundaries strict:
 
 - `app.zider.ink` keeps existing Wix webhook URLs, for example `/events/wix/zider_product_detail_enhancer`.
-- `components.zider.ink` serves component runtime and embed script endpoints.
-- `workspace.zider.ink` serves workspace and solution UI.
+- `workspace.zider.ink/apps/*` serves merchant apps and solution UI.
+- `workspace.zider.ink/widget/*` serves widget workspaces and runtime endpoints.
 - `zider.ink` serves the public website, Blog, Forum, account, and CMS routes.
 
 ## Key Routes
@@ -34,8 +34,10 @@ apps/app
 apps/workspace
 ├── /components
 ├── /solutions
-├── /wix/interactive-custom-cursor
-└── /api/widgets/interactive-custom-cursor/embed.js
+├── /apps/printops
+├── /apps/printops/wix
+├── /widget/interactive-custom-cursor
+└── /widget/interactive-custom-cursor/embed.js
 ```
 
 ## Development

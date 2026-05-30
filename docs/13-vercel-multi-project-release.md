@@ -8,7 +8,7 @@ This repo is prepared as three separate Vercel projects that share one GitHub re
 |---|---|---|---|
 | `zider-ink` | `apps/site` | `zider.ink` | Public site, Blog, Forum, global account sign-in, CMS admin |
 | `zider-app` | `apps/app` | `app.zider.ink` | Wix integration service, webhooks, analytics ingestion |
-| `zider-workspace` | `apps/workspace` | `components.zider.ink`, `workspace.zider.ink` | Component runtime, embeds, workspace and solution pages |
+| `zider-workspace` | `apps/workspace` | `workspace.zider.ink` | Workspace apps, widget runtime, and solution pages |
 
 Use `workspace.zider.ink` for the solutions workspace. Do not configure `solutions.zider.ink` for this release.
 
@@ -55,17 +55,10 @@ Do not use it for:
 
 This is one Vercel project with two production domains.
 
-Use `components.zider.ink` for:
-
-- Component runtime endpoints
-- Widget embed scripts
-- Widget config APIs
-- URLs that installed Wix sites load directly
-
 Use `workspace.zider.ink` for:
 
-- Workspace UI
-- Solution pages
+- Solution/app pages under `/apps/*`
+- Widget workspace and runtime routes under `/widget/*`
 - Internal/product workspace surfaces
 
 Do not use `zider-workspace` for:
@@ -110,15 +103,16 @@ https://app.zider.ink/api/health
 
 ### `zider-workspace`
 
-- `components.zider.ink`
 - `workspace.zider.ink`
 
 Current workspace routes include:
 
 ```text
-https://components.zider.ink/api/widgets/interactive-custom-cursor/embed.js
-https://components.zider.ink/api/widgets/interactive-custom-cursor/config
-https://workspace.zider.ink/solutions
+https://workspace.zider.ink/apps/printops
+https://workspace.zider.ink/apps/printops/wix
+https://workspace.zider.ink/widget/interactive-custom-cursor
+https://workspace.zider.ink/widget/interactive-custom-cursor/embed.js
+https://workspace.zider.ink/widget/interactive-custom-cursor/config
 ```
 
 ## Environment Variables
@@ -170,12 +164,12 @@ SUPABASE_SERVICE_ROLE_KEY=...
 Optional:
 
 ```text
-ZIDER_COMPONENTS_URL=https://components.zider.ink
+ZIDER_WORKSPACE_URL=https://workspace.zider.ink
 ```
 
 Notes:
 
-- `ZIDER_COMPONENTS_URL` is only an override for Wix script installation previews. If omitted, the script URL defaults to `https://components.zider.ink`.
+- `ZIDER_WORKSPACE_URL` is only an override for Wix script installation previews. If omitted, the script URL defaults to `https://workspace.zider.ink`.
 - Run `npm --prefix apps/app run seed:platform-secrets` after the `app_platform_secrets` migration is applied.
 - `WIX_INTERACTIVE_CUSTOM_CURSOR_APP_ID`, `WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET`, `WIX_WEBHOOK_PUBLIC_KEY`, and `WIX_WEBHOOK_PUBLIC_KEYS` are legacy fallbacks only. Do not add them to Vercel unless recovering from an unseeded database.
 
@@ -229,7 +223,7 @@ https://zider.ink/forum
 https://zider.ink/account?mode=signin
 https://app.zider.ink/api/health?checks=1
 https://workspace.zider.ink/api/health
-https://components.zider.ink/api/widgets/interactive-custom-cursor/embed.js?instanceId=test
+https://workspace.zider.ink/widget/interactive-custom-cursor/embed.js?instanceId=test
 ```
 
 ## CLI Note

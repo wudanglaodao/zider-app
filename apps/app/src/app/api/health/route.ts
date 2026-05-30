@@ -66,7 +66,7 @@ export async function GET(request: Request) {
     env: {
       supabaseUrl: Boolean(process.env.SUPABASE_URL),
       supabaseServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-      ziderComponentsUrlOverride: Boolean(process.env.ZIDER_COMPONENTS_URL),
+      ziderWorkspaceUrlOverride: Boolean(process.env.ZIDER_WORKSPACE_URL),
       wixInteractiveCustomCursorCredentials: Boolean(interactiveCursorCredentials.clientId && interactiveCursorCredentials.clientSecret),
       wixInteractiveCustomCursorCredentialsSource: interactiveCursorCredentials.source,
       wixWebhookPublicKeyFallback: Boolean(process.env.WIX_WEBHOOK_PUBLIC_KEY),

@@ -29,7 +29,7 @@ export default async function WixInteractiveCustomCursorPage({ searchParams }: W
         platform: "wix",
         instanceId,
         instanceToken: context.instance,
-        configEndpoint: "/api/widgets/interactive-custom-cursor/config",
+        configEndpoint: "/widget/interactive-custom-cursor/config",
       }}
       shell="embedded"
     />

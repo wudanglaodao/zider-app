@@ -10,7 +10,7 @@ The current repository still runs from the root Next.js app. These folders now c
 |---|---|---|---|
 | `zider-ink` | `zider.ink` | `apps/site` | Marketing site, Blog, Forum, Docs, Account, CMS |
 | `zider-app` | `app.zider.ink` | `apps/app` | Wix webhook, API, analytics, system dashboard |
-| `zider-workspace` | `components.zider.ink`, `workspace.zider.ink` | `apps/workspace` | Components and Solutions product backends |
+| `zider-workspace` | `workspace.zider.ink` | `apps/workspace` | Apps and widget product backends |
 
 ## Migration Rule
 

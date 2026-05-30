@@ -7,7 +7,7 @@ export function GET(request: NextRequest) {
   const url = request.nextUrl;
   const instanceId = url.searchParams.get("instanceId");
   const platform = url.searchParams.get("platform") ?? "wix";
-  const configUrl = new URL("/api/widgets/interactive-custom-cursor/config", getWorkspaceRuntimeBaseUrl(request.url));
+  const configUrl = new URL("/widget/interactive-custom-cursor/config", getWorkspaceRuntimeBaseUrl(request.url));
 
   if (instanceId) {
     configUrl.searchParams.set("platform", platform);
