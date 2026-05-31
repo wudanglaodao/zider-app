@@ -18,6 +18,7 @@ This folder splits the original Interactive Custom Cursor PRD into smaller plann
 - [11 WordPress Blog Migration](./11-wordpress-blog-migration.md)
 - [12 ZIDER Ink Release Checklist](./12-zider-ink-release-checklist.md)
 - [13 Vercel Multi-Project Release](./13-vercel-multi-project-release.md)
+- [14 Wix Event Contract](./14-wix-event-contract.md)
 
 ## Current Decision
 

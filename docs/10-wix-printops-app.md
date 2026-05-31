@@ -1,6 +1,8 @@
 # Zider PrintOps Wix App Harness
 
 This note captures the first installable Wix-app path for **Zider PrintOps**.
+Webhook routing and verification boundaries are defined in
+[14 Wix Event Contract](./14-wix-event-contract.md).
 
 ## Wix CLI Project
 

@@ -1,5 +1,9 @@
 # Wix Webhook Setup
 
+Canonical routing and verification rules live in
+[14 Wix Event Contract](./14-wix-event-contract.md). Treat that document as the
+source of truth before changing any Wix event route.
+
 ## MVP Events
 
 Configure these three webhook events for each existing Wix app:
