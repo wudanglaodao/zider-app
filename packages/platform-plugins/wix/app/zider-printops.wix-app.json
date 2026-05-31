@@ -1,0 +1,100 @@
+{
+  "appName": "Zider PrintOps",
+  "appKey": "zider_printops",
+  "status": "private-preview",
+  "platform": "wix",
+  "distribution": "wix-developer-console",
+  "dashboard": {
+    "productionUrl": "https://workspace.zider.ink/apps/printops/wix",
+    "localDevUrl": "http://localhost:3102/apps/printops/wix?instanceId=wix-dev-preview",
+    "requiredQuery": "instance"
+  },
+  "oauth": {
+    "credentialStorage": "app_platform_secrets or Vercel environment variables",
+    "env": {
+      "clientId": "WIX_PRINTOPS_APP_ID",
+      "clientSecret": "WIX_PRINTOPS_APP_SECRET",
+      "appSecret": "WIX_PRINTOPS_APP_SECRET"
+    },
+    "database": {
+      "table": "app_platform_secrets",
+      "app_key": "zider_printops",
+      "platform": "wix",
+      "oauth_client_id": "Wix App ID / Client ID",
+      "oauth_client_secret": "Wix App Secret / Client Secret",
+      "app_secret": "Wix signed instance secret",
+      "webhook_public_key": "Wix webhook public key"
+    }
+  },
+  "permissions": [
+    {
+      "label": "Read Orders",
+      "required": true,
+      "reason": "Sync Wix eCommerce orders for invoice preview, PDF download, and browser print."
+    },
+    {
+      "label": "Read Products",
+      "required": false,
+      "reason": "P1 product enrichment for SKU, product images, and product custom fields."
+    },
+    {
+      "label": "Read Stores / Site Info",
+      "required": true,
+      "reason": "Read store identity, locale, currency, and site metadata for template defaults."
+    }
+  ],
+  "webhooks": [
+    {
+      "event": "App Instance Installed",
+      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "requiredForP0": true
+    },
+    {
+      "event": "App Instance Removed",
+      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "requiredForP0": true
+    },
+    {
+      "event": "Order Created",
+      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "requiredForP0": false
+    },
+    {
+      "event": "Order Updated",
+      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "requiredForP0": false
+    },
+    {
+      "event": "Order Canceled",
+      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "requiredForP0": false
+    }
+  ],
+  "runtimeEndpoints": {
+    "dashboard": "GET /apps/printops/wix?instance=...",
+    "orderSync": "POST /api/apps/printops/wix/orders/sync?instance=...",
+    "webhooks": "POST https://app.zider.ink/events/wix/zider_printops"
+  },
+  "firstTest": {
+    "openFromWix": "https://workspace.zider.ink/apps/printops/wix?instance=...",
+    "syncLatest": {
+      "method": "POST",
+      "url": "https://workspace.zider.ink/api/apps/printops/wix/orders/sync?instance=...",
+      "body": {
+        "mode": "latest",
+        "limit": 50,
+        "maxPages": 10
+      }
+    },
+    "syncHistory": {
+      "method": "POST",
+      "url": "https://workspace.zider.ink/api/apps/printops/wix/orders/sync?instance=...",
+      "body": {
+        "mode": "history",
+        "historyDays": 7,
+        "limit": 50,
+        "maxPages": 10
+      }
+    }
+  }
+}

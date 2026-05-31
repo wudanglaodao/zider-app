@@ -44,6 +44,14 @@ Next migration step: build the authenticated Components dashboard around these p
 
 Use `/apps/printops/wix` as the Wix dashboard URL for the first Wix test app.
 
+Wix Developer Console setup source:
+
+```text
+packages/platform-plugins/wix/app/zider-printops.wix-app.json
+packages/platform-plugins/wix/app/README.md
+docs/10-wix-printops-app.md
+```
+
 Local smoke test:
 
 ```text

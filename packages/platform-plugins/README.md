@@ -15,6 +15,9 @@ Each adapter translates a commerce platform into the same PrintOps concepts:
 ```text
 packages/platform-plugins/
   wix/
+    app/
+      zider-printops.wix-app.json
+      README.md
     src/
       config.ts
       orders.ts
