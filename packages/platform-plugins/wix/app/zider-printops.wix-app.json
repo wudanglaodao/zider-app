@@ -4,6 +4,13 @@
   "status": "private-preview",
   "platform": "wix",
   "distribution": "wix-developer-console",
+  "wixCliProject": {
+    "appId": "5d48a40b-9822-4d8f-910a-d383501a4ea9",
+    "projectId": "zider-print-ops",
+    "path": "packages/platform-plugins/wix/app/zider-print-ops",
+    "template": "Custom Products Catalog",
+    "templateId": "24493a0d-18f2-4f68-b6d5-55992cef7daa"
+  },
   "dashboard": {
     "productionUrl": "https://workspace.zider.ink/apps/printops/wix",
     "localDevUrl": "http://localhost:3102/apps/printops/wix?instanceId=wix-dev-preview",

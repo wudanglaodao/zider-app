@@ -2,6 +2,31 @@
 
 This note captures the first installable Wix-app path for **Zider PrintOps**.
 
+## Wix CLI Project
+
+The actual local Wix CLI project has been created at:
+
+```text
+packages/platform-plugins/wix/app/zider-print-ops
+```
+
+Wix registration:
+
+```text
+App name: Zider PrintOps
+App ID: 5d48a40b-9822-4d8f-910a-d383501a4ea9
+Project ID: zider-print-ops
+```
+
+Run it locally with:
+
+```bash
+cd packages/platform-plugins/wix/app/zider-print-ops
+npm run dev
+```
+
+The CLI dashboard page is a lightweight PrintOps entry point that links to the hosted workspace dashboard. The full order sync and template UI still lives in `apps/workspace`.
+
 ## Wix Developer Setup
 
 Create a self-hosted Wix dashboard app and configure:
@@ -113,4 +138,3 @@ Still to build after install test:
 - Render the Orders table from synced Wix orders instead of sample rows.
 - Wire synced orders into Big Brand Invoice rendering.
 - Add order webhooks for incremental refresh.
-

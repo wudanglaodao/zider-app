@@ -1,8 +1,48 @@
 # Zider PrintOps Wix App
 
-This folder is the installable Wix app configuration pack for the first PrintOps private preview.
+This folder contains the installable Wix app configuration and local Wix CLI project for the first PrintOps private preview.
 
-Wix does not consume this JSON directly from the repo. Use it as the single source of truth when filling the Wix Developer Console.
+Wix does not consume `zider-printops.wix-app.json` directly from the repo. Use it as the single source of truth when filling the Wix Developer Console or checking the Wix CLI project.
+
+## Wix CLI Project
+
+The local Wix app project lives here:
+
+```text
+packages/platform-plugins/wix/app/zider-print-ops
+```
+
+It was generated with the Wix CLI app scaffold:
+
+```bash
+npm create @wix/new@latest -- app --app-name "Zider PrintOps" --template 24493a0d-18f2-4f68-b6d5-55992cef7daa
+```
+
+Registered Wix app:
+
+```text
+App ID: 5d48a40b-9822-4d8f-910a-d383501a4ea9
+Project ID: zider-print-ops
+```
+
+The scaffold template currently has an npm registry gap for `@wix/wix-style-react-incubator@3.21.0`, so the generated `package.json` uses an npm `overrides` entry to resolve that dependency to `3.22.0`.
+
+Local commands:
+
+```bash
+cd packages/platform-plugins/wix/app/zider-print-ops
+npm install
+npm run build
+npm run dev
+```
+
+The generated `.env.local` contains Wix local credentials and must stay uncommitted.
+
+Local dev note:
+
+- A Wix development site named `dev sitex 1332118063` was created during the first `npm run dev` run.
+- The CLI opened the install flow but timed out while waiting for browser-side installation.
+- Re-run `npm run dev -- --port 4321`, choose that development site if prompted, then complete the app installation in the browser.
 
 ## App Identity
 
@@ -125,4 +165,3 @@ Expected result:
 - `Missing Wix instance`: the app was not opened from Wix, or Wix did not append `instance`.
 - `Missing zider_printops Wix OAuth credentials`: `WIX_PRINTOPS_APP_ID` / `WIX_PRINTOPS_APP_SECRET` or Supabase `app_platform_secrets` is not configured.
 - `Wix orders search failed`: permissions are missing, the access token is invalid, or the test site has no eCommerce orders in the sync window.
-
