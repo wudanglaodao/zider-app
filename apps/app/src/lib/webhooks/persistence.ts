@@ -52,7 +52,7 @@ async function upsertApp(app: AppRegistryEntry) {
       {
         app_key: app.appKey,
         app_name: app.appName,
-        app_category: "wix_existing_app",
+        app_category: app.appCategory ?? "wix_existing_app",
         status: app.status,
       },
       { onConflict: "app_key" },

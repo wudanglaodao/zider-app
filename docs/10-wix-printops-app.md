@@ -36,6 +36,15 @@ Create a self-hosted Wix dashboard app and configure:
 - Dashboard page URL: `https://workspace.zider.ink/apps/printops/wix`
 - App Instance Installed webhook: `https://app.zider.ink/events/wix/zider_printops`
 - App Instance Removed webhook: `https://app.zider.ink/events/wix/zider_printops`
+- Paid Plan Purchased webhook: `https://app.zider.ink/events/wix/zider_printops`
+- Paid Plan Changed webhook: `https://app.zider.ink/events/wix/zider_printops`
+- Paid Plan Auto Renewal Cancelled webhook: `https://app.zider.ink/events/wix/zider_printops`
+- Plan Converted to Paid webhook: `https://app.zider.ink/events/wix/zider_printops`
+- Plan Reactivated webhook: `https://app.zider.ink/events/wix/zider_printops`
+- Plan Transferred webhook: `https://app.zider.ink/events/wix/zider_printops`
+- Order Created webhook: `https://app.zider.ink/webhooks/printops/wix`
+- Order Updated webhook: `https://app.zider.ink/webhooks/printops/wix`
+- Order Canceled webhook: `https://app.zider.ink/webhooks/printops/wix`
 
 P0 permissions:
 
@@ -60,17 +69,26 @@ Or store credentials in Supabase:
 ```text
 app_platform_secrets.app_key=zider_printops
 app_platform_secrets.platform=wix
-app_platform_secrets.oauth_client_id=...
-app_platform_secrets.oauth_client_secret=...
-app_platform_secrets.app_secret=...
+app_platform_secrets.client_id=...
+app_platform_secrets.client_secret=...
 app_platform_secrets.webhook_public_key=...
 ```
+
+`client_id` / `client_secret` are used for Wix OAuth and API calls. Wix Events/Webhooks use
+`webhook_public_key` for JWT signature verification; do not store order or install webhook
+verification under `webhook_secret`.
 
 Webhook receiver needs:
 
 ```bash
 SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+Run the PrintOps webhook seed after the base schema:
+
+```bash
+psql "$DATABASE_URL" -f supabase/seed-printops-wix-webhooks.sql
 ```
 
 ## Local Testing
@@ -121,6 +139,19 @@ Historical P0 backfill:
 9. PrintOps searches Wix orders by `updatedDate`.
 10. PrintOps returns normalized orders, line items, SKU, item options, and custom fields for invoice rendering.
 
+Billing lifecycle:
+
+- Wix sends paid-plan webhooks to `/events/wix/zider_printops`.
+- The receiver stores every verified raw payload in `platform_event_logs`.
+- Billing events are normalized into `app_billing_events`.
+- Current plan fields on `app_installations` are updated from the Wix event payload when `vendorProductId` is present.
+
+Order lifecycle:
+
+- Wix sends order/business webhooks to `/webhooks/printops/wix`.
+- The receiver stores verified raw payloads in `app_business_event_logs`.
+- These events are intentionally separated from app install and billing analytics.
+
 ## Current Boundary
 
 Implemented now:
@@ -131,10 +162,11 @@ Implemented now:
 - Latest and 7-day history order sync API.
 - Normalized order and custom field extraction.
 - Manual sync panel in the Orders workspace.
+- PrintOps business webhook receiver for Wix order events.
 
 Still to build after install test:
 
 - Persist `platform_connections`, `source_orders`, `order_sync_runs`.
 - Render the Orders table from synced Wix orders instead of sample rows.
 - Wire synced orders into Big Brand Invoice rendering.
-- Add order webhooks for incremental refresh.
+- Convert order webhooks into incremental order refresh jobs.

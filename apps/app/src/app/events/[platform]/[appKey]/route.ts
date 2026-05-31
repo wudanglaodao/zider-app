@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { getAppRegistryEntry, INTERACTIVE_CUSTOM_CURSOR_APP_KEY, isSupportedPlatform } from "@/lib/webhooks/app-registry";
 import { persistWixWebhook } from "@/lib/webhooks/persistence";
-import { verifyWixWebhook, WixWebhookVerificationError } from "@/lib/webhooks/wix";
+import { isWixAppManagementEventType, verifyWixWebhook, WixWebhookVerificationError } from "@/lib/webhooks/wix";
 import { installInteractiveCustomCursorEmbedScript } from "@/lib/wix/embedded-script";
 
 export const runtime = "nodejs";
@@ -38,6 +38,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   try {
     const wix = await verifyWixWebhook(rawBody, canonicalAppKey);
+
+    if (!isWixAppManagementEventType(wix.eventType)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "This receiver only accepts Wix app lifecycle and billing events. App business webhooks must use their app-specific webhook URL.",
+          rawEventType: wix.rawEventType,
+        },
+        { status: 409 },
+      );
+    }
+
     const persistence = persistWixWebhook({
       app,
       platform,

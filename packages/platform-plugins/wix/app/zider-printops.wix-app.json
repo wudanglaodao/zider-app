@@ -27,10 +27,9 @@
       "table": "app_platform_secrets",
       "app_key": "zider_printops",
       "platform": "wix",
-      "oauth_client_id": "Wix App ID / Client ID",
-      "oauth_client_secret": "Wix App Secret / Client Secret",
-      "app_secret": "Wix signed instance secret",
-      "webhook_public_key": "Wix webhook public key"
+      "client_id": "Wix App ID / Client ID",
+      "client_secret": "Wix App Secret / Client Secret",
+      "webhook_public_key": "Wix Events/Webhooks public key for JWT verification"
     }
   },
   "permissions": [
@@ -50,7 +49,7 @@
       "reason": "Read store identity, locale, currency, and site metadata for template defaults."
     }
   ],
-  "webhooks": [
+  "appAnalyticsWebhooks": [
     {
       "event": "App Instance Installed",
       "endpoint": "https://app.zider.ink/events/wix/zider_printops",
@@ -62,25 +61,58 @@
       "requiredForP0": true
     },
     {
-      "event": "Order Created",
+      "event": "Paid Plan Purchased",
       "endpoint": "https://app.zider.ink/events/wix/zider_printops",
-      "requiredForP0": false
+      "requiredForP0": true
+    },
+    {
+      "event": "Paid Plan Changed",
+      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "requiredForP0": true
+    },
+    {
+      "event": "Paid Plan Auto Renewal Cancelled",
+      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "requiredForP0": true
+    },
+    {
+      "event": "Plan Converted to Paid",
+      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "requiredForP0": true
+    },
+    {
+      "event": "Plan Reactivated",
+      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "requiredForP0": true
+    },
+    {
+      "event": "Plan Transferred",
+      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "requiredForP0": true
+    }
+  ],
+  "businessWebhooks": [
+    {
+      "event": "Order Created",
+      "endpoint": "https://app.zider.ink/webhooks/printops/wix",
+      "requiredForP0": true
     },
     {
       "event": "Order Updated",
-      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
-      "requiredForP0": false
+      "endpoint": "https://app.zider.ink/webhooks/printops/wix",
+      "requiredForP0": true
     },
     {
       "event": "Order Canceled",
-      "endpoint": "https://app.zider.ink/events/wix/zider_printops",
+      "endpoint": "https://app.zider.ink/webhooks/printops/wix",
       "requiredForP0": false
     }
   ],
   "runtimeEndpoints": {
     "dashboard": "GET /apps/printops/wix?instance=...",
     "orderSync": "POST /api/apps/printops/wix/orders/sync?instance=...",
-    "webhooks": "POST https://app.zider.ink/events/wix/zider_printops"
+    "appAnalyticsWebhooks": "POST https://app.zider.ink/events/wix/zider_printops",
+    "businessWebhooks": "POST https://app.zider.ink/webhooks/printops/wix"
   },
   "firstTest": {
     "openFromWix": "https://workspace.zider.ink/apps/printops/wix?instance=...",

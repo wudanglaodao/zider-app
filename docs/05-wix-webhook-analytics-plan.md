@@ -243,8 +243,6 @@ platform_app_id
 platform_app_name
 marketplace_url
 status
-webhook_public_key_ref
-oauth_client_id_ref
 default_billing_provider
 created_at
 updated_at
@@ -257,6 +255,27 @@ interactive_custom_cursor | wix | <wix_app_id>
 interactive_custom_cursor | webflow | null
 interactive_custom_cursor | direct | null
 printslip | wix | <wix_app_id>
+```
+
+### app_webhook_subscriptions
+
+Stores the expected webhook subscriptions per app/platform, so setup status can be audited separately from received event logs.
+
+```text
+id
+app_id
+app_key
+app_platform_id
+platform
+event_type
+event_name
+callback_url
+status
+subscribed_at
+last_verified_at
+notes
+created_at
+updated_at
 ```
 
 ### app_installations

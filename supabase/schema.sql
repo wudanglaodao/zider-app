@@ -51,8 +51,6 @@ create table if not exists public.app_platforms (
   platform_app_name text,
   marketplace_url text,
   status text not null default 'active',
-  webhook_public_key_ref text,
-  oauth_client_id_ref text,
   default_billing_provider text not null default 'unknown',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -63,14 +61,32 @@ create table if not exists public.app_platform_secrets (
   id uuid primary key default gen_random_uuid(),
   app_key text not null,
   platform text not null default 'wix',
-  oauth_client_id text,
-  oauth_client_secret text,
-  app_secret text,
+  client_id text,
+  client_secret text,
   webhook_public_key text,
+  webhook_secret text,
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (app_key, platform)
+);
+
+create table if not exists public.app_webhook_subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  app_id uuid references public.zider_apps(id) on delete cascade,
+  app_key text not null,
+  app_platform_id uuid references public.app_platforms(id) on delete set null,
+  platform text not null,
+  event_type text not null,
+  event_name text not null,
+  callback_url text not null,
+  status text not null default 'required',
+  subscribed_at timestamptz,
+  last_verified_at timestamptz,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (app_key, platform, event_type)
 );
 
 create table if not exists public.app_installations (
@@ -158,6 +174,36 @@ create table if not exists public.platform_event_logs (
   processed_at timestamptz
 );
 
+create table if not exists public.app_business_event_logs (
+  id uuid primary key default gen_random_uuid(),
+  app_id uuid references public.zider_apps(id) on delete cascade,
+  app_key text not null,
+  app_platform_id uuid references public.app_platforms(id) on delete set null,
+  platform text not null,
+  business_domain text not null default 'business',
+  instance_id text,
+  event_type text not null,
+  event_id text,
+  event_time timestamptz,
+  source_entity_type text,
+  source_entity_id text,
+  source_entity_number text,
+  dedupe_key text not null unique,
+  raw_body text,
+  raw_jwt text,
+  raw_headers jsonb,
+  decoded_payload jsonb,
+  event_data jsonb,
+  event_source text not null default 'live',
+  is_test_event boolean not null default false,
+  test_reason text,
+  verification_status text not null default 'unverified',
+  processing_status text not null default 'received',
+  processing_error text,
+  received_at timestamptz not null default now(),
+  processed_at timestamptz
+);
+
 create table if not exists public.app_billing_events (
   id uuid primary key default gen_random_uuid(),
   app_id uuid references public.zider_apps(id) on delete cascade,
@@ -206,6 +252,9 @@ create index if not exists idx_app_installations_app_platform_status
 create index if not exists idx_app_platform_secrets_app_platform
   on public.app_platform_secrets(app_key, platform);
 
+create index if not exists idx_app_webhook_subscriptions_app_platform
+  on public.app_webhook_subscriptions(app_key, platform, status);
+
 create index if not exists idx_platform_event_logs_received_at
   on public.platform_event_logs(received_at desc);
 
@@ -214,6 +263,15 @@ create index if not exists idx_platform_event_logs_app_type
 
 create index if not exists idx_platform_event_logs_test_events
   on public.platform_event_logs(app_key, platform, is_test_event, received_at desc);
+
+create index if not exists idx_app_business_event_logs_app_domain_type
+  on public.app_business_event_logs(app_key, platform, business_domain, event_type);
+
+create index if not exists idx_app_business_event_logs_source_entity
+  on public.app_business_event_logs(app_key, platform, source_entity_type, source_entity_id);
+
+create index if not exists idx_app_business_event_logs_received_at
+  on public.app_business_event_logs(received_at desc);
 
 create index if not exists idx_app_billing_events_app_created
   on public.app_billing_events(app_key, platform, created_at desc);

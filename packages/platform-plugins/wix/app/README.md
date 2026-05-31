@@ -84,11 +84,13 @@ Or Supabase:
 ```text
 app_platform_secrets.app_key = zider_printops
 app_platform_secrets.platform = wix
-app_platform_secrets.oauth_client_id = ...
-app_platform_secrets.oauth_client_secret = ...
-app_platform_secrets.app_secret = ...
+app_platform_secrets.client_id = ...
+app_platform_secrets.client_secret = ...
 app_platform_secrets.webhook_public_key = ...
 ```
+
+`webhook_public_key` is the Wix Events/Webhooks JWT verification key for this app. `client_id`
+and `client_secret` are only for OAuth/API access.
 
 ### Permissions
 
@@ -105,24 +107,36 @@ Read Products is not required for the first invoice test because the order paylo
 
 ### Webhooks
 
-Configure these to the same endpoint:
+Configure app install and billing analytics webhooks to:
 
 ```text
 https://app.zider.ink/events/wix/zider_printops
 ```
 
-P0 required:
+P0 app analytics:
 
 - App Instance Installed
 - App Instance Removed
+- Paid Plan Purchased
+- Paid Plan Changed
+- Paid Plan Auto Renewal Cancelled
+- Plan Converted to Paid
+- Plan Reactivated
+- Plan Transferred
 
-P0.1 / P1 for incremental order refresh:
+Configure PrintOps business webhooks to:
+
+```text
+https://app.zider.ink/webhooks/printops/wix
+```
+
+P0.1 / P1 business events for incremental order refresh:
 
 - Order Created
 - Order Updated
 - Order Canceled
 
-The first dashboard test can work without order webhooks because the workspace has manual latest/history sync buttons. Webhooks become important after the install loop is stable.
+The first dashboard test can work without order webhooks because the workspace has manual latest/history sync buttons. Business webhooks become important after the install loop is stable.
 
 ## Runtime Routes
 
@@ -137,6 +151,7 @@ Webhook receiver:
 
 ```text
 POST https://app.zider.ink/events/wix/zider_printops
+POST https://app.zider.ink/webhooks/printops/wix
 ```
 
 ## First Install Test

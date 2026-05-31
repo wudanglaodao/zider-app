@@ -29,6 +29,7 @@ https://app.zider.ink/events/wix/:app_key
 Current draft app keys:
 
 ```text
+https://app.zider.ink/events/wix/zider_printops
 https://app.zider.ink/events/wix/store_content_suite
 https://app.zider.ink/events/wix/zider_copy_button_clipboard
 https://app.zider.ink/events/wix/zider_product_detail_enhancer
@@ -52,6 +53,11 @@ SUPABASE_SERVICE_ROLE_KEY
 
 Preferred public key storage is `app_platform_secrets.webhook_public_key`, one row per Wix app. This keeps Wix webhook keys in Supabase instead of Vercel environment variables.
 
+`/events/wix/{appKey}` is reserved for Wix app lifecycle and billing events such as install,
+uninstall, and plan changes. These events are verified with the app's `webhook_public_key` and
+written to the app installation / billing analytics tables. App business data, such as PrintOps
+order events, must use the app-specific receiver instead: `/webhooks/printops/wix`.
+
 Legacy fallback public key format, only for emergency recovery before database seeding:
 
 ```json
@@ -70,6 +76,14 @@ Run:
 ```text
 supabase/schema.sql
 ```
+
+For PrintOps, also run:
+
+```text
+supabase/seed-printops-wix-webhooks.sql
+```
+
+This creates the `zider_printops` app/platform row and records the required Wix App Management webhook subscriptions in `app_webhook_subscriptions`.
 
 The route uses the Supabase service role key, so keep this backend-only and never expose it to browser code.
 
@@ -97,6 +111,33 @@ The receiver:
 - Deduplicates by `dedupe_key`
 - Upserts installation state
 - Inserts billing rows for `Paid Plan Purchased`
+
+## PrintOps Wix Subscription Checklist
+
+Configure these Wix Dev Center app analytics webhooks for `Zider PrintOps`:
+
+```text
+App Instance Installed              -> https://app.zider.ink/events/wix/zider_printops
+App Instance Removed                -> https://app.zider.ink/events/wix/zider_printops
+Paid Plan Purchased                 -> https://app.zider.ink/events/wix/zider_printops
+Paid Plan Changed                   -> https://app.zider.ink/events/wix/zider_printops
+Paid Plan Auto Renewal Cancelled    -> https://app.zider.ink/events/wix/zider_printops
+Plan Converted to Paid              -> https://app.zider.ink/events/wix/zider_printops
+Plan Reactivated                    -> https://app.zider.ink/events/wix/zider_printops
+Plan Transferred                    -> https://app.zider.ink/events/wix/zider_printops
+```
+
+After each webhook is saved and verified in Wix, update its row in `app_webhook_subscriptions.status` from `required` to `active`.
+
+Configure PrintOps business webhooks separately. These are not app install or billing analytics events and should not write to `platform_event_logs` / `app_installations`.
+
+```text
+Order Created                       -> https://app.zider.ink/webhooks/printops/wix
+Order Updated                       -> https://app.zider.ink/webhooks/printops/wix
+Order Canceled                      -> https://app.zider.ink/webhooks/printops/wix
+```
+
+The business receiver stores verified payloads in `app_business_event_logs`.
 
 ## Notes
 

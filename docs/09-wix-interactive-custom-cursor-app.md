@@ -42,8 +42,7 @@ Legacy fallback lookup is still available for emergency recovery before database
 Runtime lookup order:
 
 1. `app_platform_secrets.webhook_public_key`
-2. legacy database/env references from `app_platforms.webhook_public_key_ref`
-3. legacy environment fallbacks
+2. legacy environment fallbacks
 
 ## Local Testing
 

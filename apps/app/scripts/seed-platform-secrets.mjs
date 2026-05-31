@@ -34,13 +34,13 @@ const { data, error } = await supabase
   .upsert(
     records.map((record) => ({
       app_key: record.appKey,
-      app_secret: record.appSecret || null,
+      client_id: record.clientId || null,
+      client_secret: record.clientSecret || null,
       notes: record.notes || null,
-      oauth_client_id: record.oauthClientId || null,
-      oauth_client_secret: record.oauthClientSecret || null,
       platform: record.platform || "wix",
       updated_at: now,
       webhook_public_key: normalizePemValue(record.webhookPublicKey),
+      webhook_secret: record.webhookSecret || null,
     })),
     {
       onConflict: "app_key,platform",
@@ -64,31 +64,33 @@ function readSecretRecords() {
 
     return records.map((record) => ({
       appKey: normalizeAppKey(requiredString(record.appKey ?? record.app_key, "appKey")),
-      appSecret: optionalString(record.appSecret ?? record.app_secret),
+      clientId: optionalString(record.clientId ?? record.client_id ?? record.oauthClientId ?? record.oauth_client_id),
+      clientSecret: optionalString(
+        record.clientSecret ?? record.client_secret ?? record.oauthClientSecret ?? record.oauth_client_secret,
+      ),
       notes: optionalString(record.notes),
-      oauthClientId: optionalString(record.oauthClientId ?? record.oauth_client_id),
-      oauthClientSecret: optionalString(record.oauthClientSecret ?? record.oauth_client_secret),
       platform: optionalString(record.platform) || "wix",
       webhookPublicKey: optionalString(record.webhookPublicKey ?? record.webhook_public_key),
+      webhookSecret: optionalString(record.webhookSecret ?? record.webhook_secret ?? record.appSecret ?? record.app_secret),
     }));
   }
 
   const webhookRecords = readWebhookPublicKeyRecords();
   const interactiveCursor = {
     appKey: "interactive_custom_cursor",
-    appSecret: optionalString(process.env.ZIDER_WIX_APP_SECRET || process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET),
+    clientId: optionalString(process.env.ZIDER_WIX_CLIENT_ID || process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_ID),
+    clientSecret: optionalString(process.env.ZIDER_WIX_CLIENT_SECRET || process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET),
     notes: "Seeded from local environment.",
-    oauthClientId: optionalString(process.env.ZIDER_WIX_CLIENT_ID || process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_ID),
-    oauthClientSecret: optionalString(process.env.ZIDER_WIX_CLIENT_SECRET || process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET),
     platform: "wix",
     webhookPublicKey: optionalString(process.env.ZIDER_WIX_WEBHOOK_PUBLIC_KEY || process.env.WIX_WEBHOOK_PUBLIC_KEY),
+    webhookSecret: optionalString(process.env.ZIDER_WIX_APP_SECRET || process.env.WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET),
   };
 
   return mergeSecretRecords([...webhookRecords, ...(hasAnySecret(interactiveCursor) ? [interactiveCursor] : [])]);
 }
 
 function hasAnySecret(record) {
-  return Boolean(record.appSecret || record.oauthClientId || record.oauthClientSecret || record.webhookPublicKey);
+  return Boolean(record.clientId || record.clientSecret || record.webhookPublicKey || record.webhookSecret);
 }
 
 function requiredString(value, label) {
@@ -136,12 +138,12 @@ function readWebhookPublicKeyRecords() {
         ...entries
           .map(([appKey, webhookPublicKey]) => ({
             appKey: normalizeAppKey(requiredString(appKey, "appKey")),
-            appSecret: "",
+            clientId: "",
+            clientSecret: "",
             notes: `Seeded from ${envName}.`,
-            oauthClientId: "",
-            oauthClientSecret: "",
             platform: "wix",
             webhookPublicKey: optionalString(webhookPublicKey),
+            webhookSecret: "",
           }))
           .filter(hasAnySecret),
       );

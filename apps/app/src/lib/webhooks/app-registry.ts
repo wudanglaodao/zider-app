@@ -9,9 +9,10 @@ export type SupportedPlatform =
 export type AppRegistryEntry = {
   appKey: string;
   appName: string;
+  appCategory?: string;
   platform: SupportedPlatform;
   platformAppId?: string;
-  status: "published" | "planned";
+  status: "published" | "planned" | "private-preview";
   distributionChannel: "marketplace" | "direct" | "website" | "partner" | "agency" | "manual" | "import" | "unknown";
   acquisitionSource: string;
   billingProvider: "wix" | "stripe" | "paddle" | "manual" | "none" | "unknown";
@@ -24,11 +25,13 @@ export const EXISTING_WIX_APPS: AppRegistryEntry[] = [
   {
     appKey: PRINTOPS_APP_KEY,
     appName: "Zider PrintOps",
+    appCategory: "print_operations",
     platform: "wix",
-    status: "planned",
+    platformAppId: "5d48a40b-9822-4d8f-910a-d383501a4ea9",
+    status: "private-preview",
     distributionChannel: "marketplace",
     acquisitionSource: "wix_app_market",
-    billingProvider: "none",
+    billingProvider: "wix",
   },
   {
     appKey: INTERACTIVE_CUSTOM_CURSOR_APP_KEY,
