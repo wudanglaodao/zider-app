@@ -44,7 +44,7 @@ export async function getAppPlatformSecret(appKey: string, platform = "wix") {
   const supabase = getSupabaseAdmin();
   const current = await supabase
     .from("app_platform_secrets")
-    .select("app_key,platform,client_id,client_secret,webhook_public_key")
+    .select("app_key,platform,client_id,client_secret,webhook_public_key,webhook_secret")
     .eq("app_key", appKey)
     .eq("platform", platform)
     .maybeSingle<AppPlatformSecretCurrentRow>();

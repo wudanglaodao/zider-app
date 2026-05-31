@@ -133,15 +133,36 @@ Plan Transferred                    -> https://app.zider.ink/events/wix/zider_pr
 
 After each webhook is saved and verified in Wix, update its row in `app_webhook_subscriptions.status` from `required` to `active`.
 
-Configure PrintOps business webhooks separately. These are not app install or billing analytics events and should not write to `platform_event_logs` / `app_installations`.
+PrintOps order/business events are handled by Wix CLI Event extensions in the
+PrintOps app code. Do not add them to the shared app analytics route.
+
+Primary order-event delivery:
+
+```text
+Wix CLI Event extension -> https://app.zider.ink/webhooks/printops/wix
+Authorization: Bearer ${PRINTOPS_WIX_EVENT_FORWARD_SECRET}
+```
+
+The app receiver accepts that secret from `PRINTOPS_WIX_EVENT_FORWARD_SECRET`
+or `app_platform_secrets.webhook_secret` for `zider_printops` / `wix`.
+
+Manual Wix webhook subscriptions are only a backup path. If used, point all
+PrintOps order/business webhooks at the same app-specific route. These events
+are not app install or billing analytics events and should not write to
+`platform_event_logs` / `app_installations`.
 
 ```text
 Order Created                       -> https://app.zider.ink/webhooks/printops/wix
 Order Updated                       -> https://app.zider.ink/webhooks/printops/wix
 Order Canceled                      -> https://app.zider.ink/webhooks/printops/wix
+Order Approved                      -> https://app.zider.ink/webhooks/printops/wix
+Order Fulfilled                     -> https://app.zider.ink/webhooks/printops/wix
+Order Payment Status Updated        -> https://app.zider.ink/webhooks/printops/wix
+Order Committed                     -> https://app.zider.ink/webhooks/printops/wix
 ```
 
-The business receiver stores verified payloads in `app_business_event_logs`.
+The business receiver stores verified or trusted-forward payloads in
+`app_business_event_logs`.
 
 ## Notes
 

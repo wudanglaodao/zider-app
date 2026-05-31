@@ -12,6 +12,32 @@ export type PersistPrintOpsWixBusinessWebhookInput = {
   wix: WixDecodedWebhook;
 };
 
+export type PrintOpsWixForwardedEvent = {
+  source?: unknown;
+  eventType?: unknown;
+  rawEventType?: unknown;
+  eventId?: unknown;
+  eventTime?: unknown;
+  instanceId?: unknown;
+  entityId?: unknown;
+  entityFqdn?: unknown;
+  orderId?: unknown;
+  orderNumber?: unknown;
+  order?: unknown;
+  data?: unknown;
+  metadata?: unknown;
+  event?: unknown;
+};
+
+export type PersistPrintOpsWixForwardedBusinessEventInput = {
+  app: AppRegistryEntry;
+  platform: "wix";
+  appKey: string;
+  rawBody: string;
+  rawHeaders: Record<string, string>;
+  forwarded: PrintOpsWixForwardedEvent;
+};
+
 type BusinessEventDetails = {
   businessDomain: "orders" | "products" | "fulfillment" | "business";
   eventType: string;
@@ -98,6 +124,91 @@ export async function persistPrintOpsWixBusinessWebhook(input: PersistPrintOpsWi
   throw error ?? new Error("Inserted PrintOps business event did not return an id");
 }
 
+export async function persistPrintOpsWixForwardedBusinessEvent(input: PersistPrintOpsWixForwardedBusinessEventInput) {
+  const supabase = getSupabaseAdmin();
+  const app = await upsertApp(input.app);
+  const appPlatform = await upsertAppPlatform(input.app, app.id);
+  const details = getForwardedBusinessEventDetails(input.forwarded);
+  const eventId = getString(input.forwarded.eventId) ?? getString(getForwardedMetadata(input.forwarded).id);
+  const eventTime =
+    getTimestampString(input.forwarded.eventTime) ??
+    getTimestampString(getForwardedMetadata(input.forwarded).eventTime) ??
+    getTimestampString(getForwardedMetadata(input.forwarded).createdDate);
+  const instanceId = getString(input.forwarded.instanceId) ?? getString(getForwardedMetadata(input.forwarded).instanceId);
+  const eventData = getForwardedEventData(input.forwarded);
+  const dedupeKey = createDedupeKey([
+    input.appKey,
+    input.platform,
+    instanceId,
+    details.eventType,
+    eventId,
+    details.sourceEntityId,
+    input.rawBody,
+  ]);
+
+  const payload = {
+    app_id: app.id,
+    app_key: input.appKey,
+    app_platform_id: appPlatform.id,
+    platform: input.platform,
+    business_domain: details.businessDomain,
+    instance_id: instanceId,
+    event_type: details.eventType,
+    event_id: eventId,
+    event_time: eventTime,
+    source_entity_type: details.sourceEntityType,
+    source_entity_id: details.sourceEntityId,
+    source_entity_number: details.sourceEntityNumber,
+    dedupe_key: dedupeKey,
+    raw_body: input.rawBody,
+    raw_jwt: null,
+    raw_headers: input.rawHeaders,
+    decoded_payload: input.forwarded,
+    event_data: eventData,
+    event_source: "live",
+    is_test_event: false,
+    test_reason: null,
+    verification_status: "trusted_forward",
+    processing_status: "received",
+    processing_error: null,
+    processed_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
+    .from("app_business_event_logs")
+    .insert(payload)
+    .select("id")
+    .single();
+
+  if (!error && data) {
+    return {
+      status: "received" as const,
+      eventId: data.id as string,
+      eventType: details.eventType,
+    };
+  }
+
+  if (error && isDuplicateError(error)) {
+    const { data: existing, error: lookupError } = await supabase
+      .from("app_business_event_logs")
+      .select("id")
+      .eq("dedupe_key", dedupeKey)
+      .single();
+
+    if (lookupError) {
+      throw lookupError;
+    }
+
+    return {
+      status: "duplicate" as const,
+      eventId: existing.id as string,
+      eventType: details.eventType,
+    };
+  }
+
+  throw error ?? new Error("Inserted forwarded PrintOps business event did not return an id");
+}
+
 function getBusinessEventDetails(wix: WixDecodedWebhook): BusinessEventDetails {
   const rawEventType = wix.rawEventType ?? "";
   const eventType = normalizeBusinessEventType(rawEventType);
@@ -123,6 +234,33 @@ function getBusinessEventDetails(wix: WixDecodedWebhook): BusinessEventDetails {
   };
 }
 
+function getForwardedBusinessEventDetails(forwarded: PrintOpsWixForwardedEvent): BusinessEventDetails {
+  const rawEventType = getString(forwarded.eventType) ?? getString(forwarded.rawEventType) ?? "";
+  const eventType = normalizeBusinessEventType(rawEventType);
+  const eventData = getForwardedEventData(forwarded);
+  const metadata = getForwardedMetadata(forwarded);
+  const order = getForwardedOrder(forwarded) ?? {};
+  const sourceEntityId = getString(
+    forwarded.orderId ??
+      forwarded.entityId ??
+      metadata.entityId ??
+      metadata.entityIdBeforeUpdate ??
+      order.id ??
+      order._id ??
+      order.orderId ??
+      order.entityId,
+  );
+  const sourceEntityNumber = getString(forwarded.orderNumber ?? order.number ?? order.orderNumber ?? eventData.orderNumber);
+
+  return {
+    businessDomain: inferBusinessDomain(eventType, rawEventType),
+    eventType,
+    sourceEntityType: inferSourceEntityType(eventType, rawEventType),
+    sourceEntityId,
+    sourceEntityNumber,
+  };
+}
+
 function normalizeBusinessEventType(rawEventType: string) {
   const raw = rawEventType.trim();
 
@@ -136,6 +274,22 @@ function normalizeBusinessEventType(rawEventType: string) {
 
   if (/order[._\-\s]?cancel|cancelled[._\-\s]?order|canceled[._\-\s]?order/i.test(raw)) {
     return "order_canceled";
+  }
+
+  if (/order[._\-\s]?approved|approved[._\-\s]?order/i.test(raw)) {
+    return "order_approved";
+  }
+
+  if (/order[._\-\s]?committed|committed[._\-\s]?order/i.test(raw)) {
+    return "order_committed";
+  }
+
+  if (/order[._\-\s]?fulfilled|fulfilled[._\-\s]?order|fulfillment/i.test(raw)) {
+    return "order_fulfilled";
+  }
+
+  if (/order[._\-\s]?payment[._\-\s]?status[._\-\s]?updated|payment[._\-\s]?status/i.test(raw)) {
+    return "order_payment_status_updated";
   }
 
   if (/order/i.test(raw)) {
@@ -247,6 +401,40 @@ function getRecord(value: unknown): Record<string, unknown> | null {
   return null;
 }
 
+function getForwardedEventData(forwarded: PrintOpsWixForwardedEvent) {
+  const event = getRecord(forwarded.event) ?? {};
+  const data = getRecord(forwarded.data) ?? getRecord(event.data) ?? {};
+  const metadata = getForwardedMetadata(forwarded);
+  const order = getForwardedOrder(forwarded);
+
+  return {
+    source: getString(forwarded.source) ?? "wix_event_extension",
+    eventType: getString(forwarded.eventType) ?? getString(forwarded.rawEventType),
+    eventId: getString(forwarded.eventId) ?? getString(metadata.id),
+    eventTime: getTimestampString(forwarded.eventTime) ?? getTimestampString(metadata.eventTime),
+    instanceId: getString(forwarded.instanceId) ?? getString(metadata.instanceId),
+    entityId: getString(forwarded.entityId) ?? getString(metadata.entityId),
+    entityFqdn: getString(forwarded.entityFqdn) ?? getString(metadata.entityFqdn),
+    orderId: getString(forwarded.orderId) ?? getString(order?.id ?? order?._id ?? order?.orderId),
+    orderNumber: getString(forwarded.orderNumber) ?? getString(order?.number ?? order?.orderNumber),
+    data,
+    metadata,
+    order,
+    event,
+  };
+}
+
+function getForwardedMetadata(forwarded: PrintOpsWixForwardedEvent) {
+  const event = getRecord(forwarded.event) ?? {};
+  return getRecord(forwarded.metadata) ?? getRecord(event.metadata) ?? {};
+}
+
+function getForwardedOrder(forwarded: PrintOpsWixForwardedEvent) {
+  const event = getRecord(forwarded.event) ?? {};
+  const data = getRecord(forwarded.data) ?? getRecord(event.data) ?? {};
+  return getRecord(forwarded.order) ?? getRecord(data.order) ?? getRecord(data.entity) ?? getRecord(event.entity);
+}
+
 function getString(value: unknown) {
   if (typeof value === "string" && value.trim()) {
     return value.trim();
@@ -257,6 +445,29 @@ function getString(value: unknown) {
   }
 
   return null;
+}
+
+function getTimestampString(value: unknown) {
+  if (typeof value === "string") {
+    const numeric = Number(value);
+
+    if (Number.isFinite(numeric) && value.trim() !== "") {
+      return timestampFromNumber(numeric);
+    }
+
+    return value;
+  }
+
+  if (typeof value === "number") {
+    return timestampFromNumber(value);
+  }
+
+  return null;
+}
+
+function timestampFromNumber(value: number) {
+  const milliseconds = value > 10_000_000_000 ? value : value * 1000;
+  return new Date(milliseconds).toISOString();
 }
 
 function slugify(value: string) {

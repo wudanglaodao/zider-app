@@ -150,8 +150,10 @@ Billing lifecycle:
 
 Order lifecycle:
 
-- Wix sends order/business webhooks to `/webhooks/printops/wix`.
-- The receiver stores verified raw payloads in `app_business_event_logs`.
+- Wix CLI Event extensions subscribe to order events in the PrintOps Wix app.
+- The event handlers forward parsed order events to `/webhooks/printops/wix`
+  with `PRINTOPS_WIX_EVENT_FORWARD_SECRET`.
+- The receiver stores trusted-forward payloads in `app_business_event_logs`.
 - These events are intentionally separated from app install and billing analytics.
 
 ## Current Boundary
@@ -164,7 +166,8 @@ Implemented now:
 - Latest and 7-day history order sync API.
 - Normalized order and custom field extraction.
 - Manual sync panel in the Orders workspace.
-- PrintOps business webhook receiver for Wix order events.
+- PrintOps Wix Event extensions for order created/updated/approved/canceled/fulfilled/payment-status/committed events.
+- PrintOps business receiver for trusted-forward Wix order events.
 
 Still to build after install test:
 
