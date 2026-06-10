@@ -107,6 +107,16 @@ Manual order sync endpoint:
 POST http://localhost:3102/api/apps/printops/wix/orders/sync?instanceId=wix-dev-preview
 ```
 
+Readiness endpoint:
+
+```text
+GET http://localhost:3102/api/apps/printops/wix/readiness?instanceId=wix-dev-preview&verifyOAuth=1
+```
+
+It checks the Wix instance, PrintOps OAuth credentials, `printops_orders` database table,
+and whether Wix accepts the configured app credentials for the current instance. The
+response must not expose client secrets, access tokens, or webhook private material.
+
 Request body:
 
 ```json
@@ -139,7 +149,8 @@ Historical P0 backfill:
 7. PrintOps exchanges `instanceId` for a Wix access token.
 8. User clicks `Sync latest` or `Sync last 7 days`.
 9. PrintOps searches Wix orders by `updatedDate`.
-10. PrintOps returns normalized orders, line items, SKU, item options, and custom fields for invoice rendering.
+10. PrintOps upserts normalized orders into `printops_orders`.
+11. PrintOps returns normalized orders, line items, SKU, item options, and custom fields for invoice rendering.
 
 Billing lifecycle:
 
@@ -154,6 +165,8 @@ Order lifecycle:
 - The event handlers forward parsed order events to `/webhooks/printops/wix`
   with `PRINTOPS_WIX_EVENT_FORWARD_SECRET`.
 - The receiver stores trusted-forward payloads in `app_business_event_logs`.
+- When the event includes a full order payload, the receiver also upserts
+  `printops_orders` by `app_key + platform + instance_id + source_order_id`.
 - These events are intentionally separated from app install and billing analytics.
 
 ## Current Boundary
@@ -165,13 +178,14 @@ Implemented now:
 - PrintOps-specific Wix OAuth credential lookup.
 - Latest and 7-day history order sync API.
 - Normalized order and custom field extraction.
+- `printops_orders` current-state order cache.
+- Manual sync persistence into `printops_orders`.
+- Orders workspace reads `printops_orders` through `/api/apps/printops/wix/orders`.
 - Manual sync panel in the Orders workspace.
 - PrintOps Wix Event extensions for order created/updated/approved/canceled/fulfilled/payment-status/committed events.
 - PrintOps business receiver for trusted-forward Wix order events.
 
 Still to build after install test:
 
-- Persist `platform_connections`, `source_orders`, `order_sync_runs`.
-- Render the Orders table from synced Wix orders instead of sample rows.
 - Wire synced orders into Big Brand Invoice rendering.
-- Convert order webhooks into incremental order refresh jobs.
+- Convert ID-only order webhooks into incremental order refresh jobs.

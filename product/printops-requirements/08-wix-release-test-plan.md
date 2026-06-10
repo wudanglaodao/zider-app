@@ -139,15 +139,23 @@ P0 不实时把每个页面请求都打到 Wix，而是：
 
 P0 UI 不显示“需重打”状态，但底层预留：
 
-- `orders.updated_at`
-- `print_documents.order_updated_at`
-- `print_documents.created_at`
+- `printops_orders.source_updated_at`
+- `printops_orders.updated_at`
+- 后续 `print_documents.order_updated_at_source`
+- 后续 `print_documents.created_at`
 
 ## 4. 数据库模型 P0
 
-### 4.1 `platform_connections`
+### 4.1 `printops_orders`
 
-存储 Wix 安装站点。
+存储 PrintOps 当前可打印订单状态。P0 使用它作为 Orders 页面、模板预览、PDF 和浏览器打印的数据来源。
+
+唯一键：
+
+- `app_key`
+- `platform`
+- `instance_id`
+- `source_order_id`
 
 关键字段：
 
@@ -155,43 +163,77 @@ P0 UI 不显示“需重打”状态，但底层预留：
 - `app_key`
 - `platform`
 - `instance_id`
-- `site_id`
-- `site_owner_id`
-- `status`
-- `access_token_status`
-- `last_synced_at`
+- `source_order_id`
+- `source_order_number`
+- `source_created_at`
+- `source_updated_at`
+- `payment_status`
+- `fulfillment_status`
+- `currency`
+- `customer_name`
+- `customer_email`
+- `customer_phone`
+- `delivery_method`
+- `payment_method`
+- `note`
+- `total_item_quantity`
+- `total_amount`
+- `total_formatted`
+- `line_item_count`
+- `custom_field_count`
+- `normalized_order`
+- `raw_order`
+- `last_sync_mode`
+- `last_event_type`
+- `synced_at`
 - `created_at`
 - `updated_at`
 
-### 4.2 `source_orders`
+写入来源：
 
-存储订单当前状态和原始 payload。
+- 手动同步 API：`/api/apps/printops/wix/orders/sync`
+- PrintOps 业务 webhook：`/webhooks/printops/wix`
+
+读取来源：
+
+- Orders 页面 API：`/api/apps/printops/wix/orders`
+
+### 4.2 `app_business_event_logs`
+
+存储 PrintOps 业务事件日志，用于订单事件追踪、调试和后续重放。
 
 关键字段：
 
 - `id`
-- `connection_id`
-- `source_platform`
-- `source_order_id`
-- `order_number`
-- `created_at_source`
-- `updated_at_source`
-- `payment_status`
-- `fulfillment_status`
-- `order_status`
-- `customer_snapshot`
-- `billing_address_snapshot`
-- `shipping_address_snapshot`
-- `totals_snapshot`
-- `raw_payload`
-- `normalized_payload`
-- `custom_fields`
-- `line_items`
-- `synced_at`
+- `app_key`
+- `platform`
+- `business_domain`
+- `instance_id`
+- `event_type`
+- `event_id`
+- `event_time`
+- `source_entity_type`
+- `source_entity_id`
+- `source_entity_number`
+- `dedupe_key`
+- `raw_body`
+- `raw_jwt`
+- `decoded_payload`
+- `event_data`
+- `verification_status`
+- `processing_status`
+- `received_at`
+- `processed_at`
 
-### 4.3 `print_documents`
+### 4.3 后续增强表
 
-存储一次打印或 PDF 生成的快照。
+以下表 P0 先不强依赖，后续在正式打印记录、增量补偿任务和多平台连接管理时再引入：
+
+- `platform_connections`
+- `print_documents`
+- `order_sync_runs`
+
+`print_documents` 计划用于存储一次打印或 PDF 生成的快照。
 
 关键字段：
 
@@ -206,26 +248,6 @@ P0 UI 不显示“需重打”状态，但底层预留：
 - `pdf_url`
 - `status`
 - `created_at`
-
-### 4.4 `order_sync_runs`
-
-存储同步任务状态。
-
-关键字段：
-
-- `id`
-- `connection_id`
-- `mode`
-- `from`
-- `to`
-- `cursor`
-- `next_cursor`
-- `orders_seen`
-- `orders_upserted`
-- `status`
-- `error_message`
-- `started_at`
-- `finished_at`
 
 ## 5. 开发任务拆分
 
@@ -246,6 +268,7 @@ P0 UI 不显示“需重打”状态，但底层预留：
 - 配置权限。
 - 安装到 Wix 测试站点。
 - 获取真实 `instance` 参数并验证签名。
+- 打开 readiness 检查：`/api/apps/printops/wix/readiness?verifyOAuth=1`，确认 instance、OAuth credentials、`printops_orders`、access token 均已就绪。
 - 使用 `instance_id` 换取 access token。
 - 调用 Wix Orders Search API 同步最近 24 小时订单。
 - 保存 raw payload 和 normalized order。
@@ -279,7 +302,9 @@ P0 UI 不显示“需重打”状态，但底层预留：
 2. 创建订单并填写字段。
 3. PrintOps 同步 raw payload。
 4. Template Field Registry 能发现字段。
-5. Invoice 可打印自定义字段。
+5. Orders 工作台右侧预览显示订单级和商品级自定义字段。
+6. Invoice 模板的 `Additional details / Custom fields` 区块可打印自定义字段。
+7. PDF 下载和浏览器打印预览中的自定义字段与 Orders 预览一致。
 
 ### 6.3 订单状态更新
 
@@ -302,5 +327,6 @@ P0 测试通过标准：
 - 可以接住订单状态更新。
 - 可以保留 raw payload。
 - 可以提取 SKU、item options、自定义字段。
+- Orders 预览、Invoice 模板预览、PDF 和浏览器打印使用同一份自定义字段结果。
 - 可以用真实订单生成 A4 Invoice PDF。
 - 打印快照不被后续订单更新覆盖。

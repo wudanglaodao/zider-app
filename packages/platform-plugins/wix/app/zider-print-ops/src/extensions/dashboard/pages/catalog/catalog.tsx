@@ -3,11 +3,11 @@ import '@wix/design-system/styles.global.css';
 import { withProviders } from '../../withProviders';
 
 const workspaceUrl = 'https://workspace.zider.ink/apps/printops/wix';
-const localWorkspaceUrl = 'http://localhost:3102/apps/printops/wix?instanceId=wix-dev-preview';
+const localWorkspaceUrl = 'http://localhost:3104/apps/printops/wix';
 
 function PrintOpsDashboard() {
   const openWorkspace = () => {
-    window.open(workspaceUrl, '_blank', 'noopener,noreferrer');
+    window.open(buildWorkspaceUrl(), '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -45,10 +45,22 @@ function PrintOpsDashboard() {
 
       <section style={styles.devPanel}>
         <strong>Local test URL</strong>
-        <code style={styles.code}>{localWorkspaceUrl}</code>
+        <code style={styles.code}>{`${localWorkspaceUrl}?instanceId=wix-dev-preview`}</code>
       </section>
     </main>
   );
+}
+
+function buildWorkspaceUrl() {
+  const baseUrl = window.location.hostname === 'localhost' ? localWorkspaceUrl : workspaceUrl;
+  const target = new URL(baseUrl);
+  const currentParams = new URLSearchParams(window.location.search);
+
+  currentParams.forEach((value, key) => {
+    target.searchParams.set(key, value);
+  });
+
+  return target.toString();
 }
 
 const styles: Record<string, React.CSSProperties> = {

@@ -23,7 +23,7 @@ persistence boundaries. Update this file before changing any Wix event route.
 | Route | Owner | Accepted events | Writes to |
 | --- | --- | --- | --- |
 | `/events/wix/{appKey}` | App analytics receiver | App installed, app removed, paid plan events | `platform_event_logs`, `app_installations`, `app_billing_events` |
-| `/webhooks/printops/wix` | PrintOps business receiver | Order created, order updated, order approved, order canceled, order fulfilled, order payment status updated, order committed, future PrintOps business events | `app_business_event_logs` |
+| `/webhooks/printops/wix` | PrintOps business receiver | Order created, order updated, order approved, order canceled, order fulfilled, order payment status updated, order committed, future PrintOps business events | `app_business_event_logs`, `printops_orders` when a full order payload is present |
 
 If a request reaches the wrong route, return a `409` style boundary error rather
 than silently writing it to the wrong table.
@@ -134,6 +134,8 @@ This receiver must:
   verify Wix CLI Event extension forwards with
   `PRINTOPS_WIX_EVENT_FORWARD_SECRET`.
 - Store the verified or trusted-forward payload in `app_business_event_logs`.
+- Upsert the current order into `printops_orders` when the event includes a full
+  printable order payload.
 - Preserve `raw_body`, `raw_jwt`, `decoded_payload`, `event_data`, headers, and
   dedupe metadata for replay/debugging. Event extension forwards keep `raw_jwt`
   as `null`.
@@ -141,6 +143,46 @@ This receiver must:
   `order_approved`, `order_fulfilled`, `order_payment_status_updated`,
   `order_committed`, or `order_event`.
 - Reject app lifecycle and billing events.
+
+## PrintOps Order Cache
+
+`printops_orders` is the current-state cache for printable PrintOps orders. It
+is separate from app analytics tables.
+
+Canonical upsert key:
+
+```text
+app_key + platform + instance_id + source_order_id
+```
+
+Writers:
+
+- Manual sync API:
+  `apps/workspace/src/app/api/apps/printops/wix/orders/sync/route.ts`
+- PrintOps business webhook:
+  `apps/app/src/app/webhooks/printops/wix/route.ts`
+
+Manual sync writes normalized Wix orders after calling the Wix Orders API.
+Business webhooks write to the same cache only when the event includes a full
+order object. If a webhook only includes an order ID, keep the event in
+`app_business_event_logs` and let a later refresh job fetch the order by ID.
+
+The cache stores:
+
+- Source identifiers: `source_order_id`, `source_order_number`.
+- Current status: `payment_status`, `fulfillment_status`.
+- Customer and contact summary.
+- Delivery and payment method summary.
+- Totals and item counts.
+- `normalized_order` for PrintOps rendering.
+- `raw_order` for replay/debugging.
+- `last_sync_mode` or `last_event_type` to explain the latest update source.
+
+Run this migration before testing real order sync:
+
+```bash
+psql "$DATABASE_URL" -f supabase/migrations/20260609_add_printops_order_cache.sql
+```
 
 ## Wix CLI Event Extensions
 
@@ -242,6 +284,8 @@ add Shopify, WordPress, or other platform business webhooks later.
 - Do not treat `_ref` columns as public key sources.
 - Do not share `/events/wix/{appKey}` with order/product/business data.
 - Do not make PrintOps order webhooks depend on OAuth credentials.
+- Do not write order current state to `app_installations`,
+  `platform_event_logs`, or `app_billing_events`.
 - Do not store public keys in frontend code.
 - Keep raw verified payloads for debugging and replay.
 - Keep webhook processing idempotent; Wix can retry and duplicate events.
@@ -258,5 +302,9 @@ add Shopify, WordPress, or other platform business webhooks later.
   `apps/app/src/lib/webhooks/persistence.ts`
 - PrintOps business persistence:
   `apps/app/src/lib/webhooks/printops-business.ts`
+- PrintOps order cache mapper:
+  `packages/platform-plugins/wix/src/order-cache.ts`
+- Workspace order sync cache writer:
+  `apps/workspace/src/lib/printops/order-cache.ts`
 - Platform secret lookup:
   `apps/app/src/lib/platform-secrets.ts`

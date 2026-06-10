@@ -1,5 +1,6 @@
-import { syncWixOrders, type PrintOpsNormalizedOrder, type WixOrderSyncMode } from "@zider/platform-plugins/wix";
+import { countPrintOpsCustomFields, syncWixOrders, type PrintOpsNormalizedOrder, type WixOrderSyncMode } from "@zider/platform-plugins/wix";
 import { NextRequest, NextResponse } from "next/server";
+import { persistPrintOpsWixOrders } from "@/lib/printops/order-cache";
 import { PRINTOPS_APP_KEY, resolveWixInstanceIdForApp } from "@/lib/wix/app-instance";
 import { createPrintOpsWixAccessToken } from "@/lib/wix/oauth";
 
@@ -46,10 +47,13 @@ async function handleWixOrderSync(request: NextRequest) {
       maxPages,
       mode,
     });
-    const customFieldCount = result.normalizedOrders.reduce(
-      (total, order) => total + order.customFields.length + order.lineItems.reduce((lineTotal, lineItem) => lineTotal + lineItem.customFields.length, 0),
-      0,
-    );
+    const customFieldCount = result.normalizedOrders.reduce((total, order) => total + countPrintOpsCustomFields(order), 0);
+    const persistence = await persistPrintOpsWixOrders({
+      appKey: PRINTOPS_APP_KEY,
+      instanceId: instanceContext.instanceId,
+      orders: result.normalizedOrders,
+      syncMode: mode,
+    });
 
     return NextResponse.json({
       ok: true,
@@ -70,6 +74,7 @@ async function handleWixOrderSync(request: NextRequest) {
         nextCursor: result.nextCursor,
         reachedPageLimit: result.reachedPageLimit,
       },
+      persistence,
       orders: result.normalizedOrders.slice(0, 25).map(summarizeOrder),
     });
   } catch (error) {
@@ -91,12 +96,28 @@ function summarizeOrder(order: PrintOpsNormalizedOrder) {
     updatedAt: order.updatedAt,
     paymentStatus: order.paymentStatus,
     fulfillmentStatus: order.fulfillmentStatus,
+    currency: order.currency,
+    customer: order.customer,
+    billingAddress: order.billingAddress,
+    shippingAddress: order.shippingAddress,
+    deliveryMethod: order.deliveryMethod,
+    paymentMethod: order.paymentMethod,
+    note: order.note,
+    tags: order.tags,
+    totalItemQuantity: order.totalItemQuantity,
+    totals: order.totals,
     customFields: order.customFields,
     lineItems: order.lineItems.map((lineItem) => ({
       sourceLineItemId: lineItem.sourceLineItemId,
       title: lineItem.title,
       sku: lineItem.sku,
+      barcode: lineItem.barcode,
+      variant: lineItem.variant,
       quantity: lineItem.quantity,
+      imageUrl: lineItem.imageUrl,
+      price: lineItem.price,
+      totalPrice: lineItem.totalPrice,
+      options: lineItem.options,
       customFields: lineItem.customFields,
     })),
   };

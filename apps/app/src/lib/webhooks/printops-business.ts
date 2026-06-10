@@ -1,3 +1,5 @@
+import { normalizeWixOrder, type WixRawOrder } from "@zider/platform-plugins/wix";
+import { persistPrintOpsWixOrders, type PrintOpsOrderCachePersistenceResult } from "@/lib/printops/order-cache";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import type { AppRegistryEntry } from "./app-registry";
 import { createDedupeKey } from "./dedupe";
@@ -51,15 +53,7 @@ export async function persistPrintOpsWixBusinessWebhook(input: PersistPrintOpsWi
   const app = await upsertApp(input.app);
   const appPlatform = await upsertAppPlatform(input.app, app.id);
   const details = getBusinessEventDetails(input.wix);
-  const dedupeKey = createDedupeKey([
-    input.appKey,
-    input.platform,
-    input.wix.instanceId,
-    details.eventType,
-    input.wix.eventId,
-    details.sourceEntityId,
-    input.rawBody,
-  ]);
+  const dedupeKey = createDedupeKey([input.wix.dedupeKey, details.eventType, details.sourceEntityId]);
 
   const payload = {
     app_id: app.id,
@@ -96,10 +90,18 @@ export async function persistPrintOpsWixBusinessWebhook(input: PersistPrintOpsWi
     .single();
 
   if (!error && data) {
+    const orderCache = await persistOrderCacheFromWixWebhook({
+      appKey: input.appKey,
+      eventType: details.eventType,
+      instanceId: input.wix.instanceId,
+      order: getWixWebhookOrder(input.wix),
+    });
+
     return {
       status: "received" as const,
       eventId: data.id as string,
       eventType: details.eventType,
+      orderCache,
     };
   }
 
@@ -136,15 +138,15 @@ export async function persistPrintOpsWixForwardedBusinessEvent(input: PersistPri
     getTimestampString(getForwardedMetadata(input.forwarded).createdDate);
   const instanceId = getString(input.forwarded.instanceId) ?? getString(getForwardedMetadata(input.forwarded).instanceId);
   const eventData = getForwardedEventData(input.forwarded);
-  const dedupeKey = createDedupeKey([
+  const forwardedDedupeParts = [
     input.appKey,
     input.platform,
     instanceId,
     details.eventType,
     eventId,
     details.sourceEntityId,
-    input.rawBody,
-  ]);
+  ];
+  const dedupeKey = createDedupeKey(eventId ? forwardedDedupeParts : [...forwardedDedupeParts, input.rawBody]);
 
   const payload = {
     app_id: app.id,
@@ -181,10 +183,18 @@ export async function persistPrintOpsWixForwardedBusinessEvent(input: PersistPri
     .single();
 
   if (!error && data) {
+    const orderCache = await persistOrderCacheFromWixWebhook({
+      appKey: input.appKey,
+      eventType: details.eventType,
+      instanceId,
+      order: getForwardedOrder(input.forwarded),
+    });
+
     return {
       status: "received" as const,
       eventId: data.id as string,
       eventType: details.eventType,
+      orderCache,
     };
   }
 
@@ -335,6 +345,49 @@ function inferSourceEntityType(eventType: string, rawEventType: string) {
   return null;
 }
 
+async function persistOrderCacheFromWixWebhook(input: {
+  appKey: string;
+  eventType: string;
+  instanceId: string | null;
+  order: Record<string, unknown> | null;
+}): Promise<PrintOpsOrderCachePersistenceResult> {
+  if (!input.order || !looksLikePrintableOrder(input.order)) {
+    return {
+      status: "skipped",
+      persistedCount: 0,
+      reason: "Wix event did not include a full printable order payload",
+    };
+  }
+
+  const normalizedOrder = normalizeWixOrder(input.order as WixRawOrder);
+
+  if (!normalizedOrder.sourceOrderId) {
+    return {
+      status: "skipped",
+      persistedCount: 0,
+      reason: "Wix order payload did not include an order id",
+    };
+  }
+
+  const result = await persistPrintOpsWixOrders({
+    appKey: input.appKey,
+    eventType: input.eventType,
+    instanceId: input.instanceId,
+    orders: [normalizedOrder],
+  });
+
+  if (result.status === "error") {
+    console.warn("Failed to update PrintOps order cache from Wix webhook", {
+      appKey: input.appKey,
+      eventType: input.eventType,
+      instanceId: input.instanceId,
+      reason: result.reason,
+    });
+  }
+
+  return result;
+}
+
 async function upsertApp(app: AppRegistryEntry) {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
@@ -433,6 +486,35 @@ function getForwardedOrder(forwarded: PrintOpsWixForwardedEvent) {
   const event = getRecord(forwarded.event) ?? {};
   const data = getRecord(forwarded.data) ?? getRecord(event.data) ?? {};
   return getRecord(forwarded.order) ?? getRecord(data.order) ?? getRecord(data.entity) ?? getRecord(event.entity);
+}
+
+function getWixWebhookOrder(wix: WixDecodedWebhook) {
+  const eventData = wix.eventData;
+  const order =
+    getRecord(eventData.order) ??
+    getRecord(eventData.entity) ??
+    getRecord(eventData.data) ??
+    getRecord(eventData.orderData) ??
+    (looksLikePrintableOrder(eventData) ? eventData : null);
+
+  return order && looksLikePrintableOrder(order) ? order : null;
+}
+
+function looksLikePrintableOrder(value: unknown): value is Record<string, unknown> {
+  const record = getRecord(value);
+
+  if (!record) {
+    return false;
+  }
+
+  return Boolean(
+    Array.isArray(record.lineItems) ||
+      getRecord(record.billingInfo) ||
+      getRecord(record.shippingInfo) ||
+      getRecord(record.priceSummary) ||
+      getRecord(record.totals) ||
+      getRecord(record.buyerInfo),
+  );
 }
 
 function getString(value: unknown) {

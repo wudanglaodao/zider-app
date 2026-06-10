@@ -17,6 +17,8 @@ export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageP
   const params = await searchParams;
   const instanceContext = await resolveWixInstanceIdForApp(PRINTOPS_APP_KEY, params);
   const queryString = createQueryString(params);
+  const ordersEndpoint = `/api/apps/printops/wix/orders${queryString ? `?${queryString}` : ""}`;
+  const readinessEndpoint = `/api/apps/printops/wix/readiness${queryString ? `?${queryString}&verifyOAuth=1` : "?verifyOAuth=1"}`;
   const syncEndpoint = `/api/apps/printops/wix/orders/sync${queryString ? `?${queryString}` : ""}`;
 
   return (
@@ -26,7 +28,9 @@ export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageP
         appKey: PRINTOPS_APP_KEY,
         appName: "Zider PrintOps",
         instanceId: instanceContext.instanceId,
+        ordersEndpoint,
         platform: "wix",
+        readinessEndpoint,
         source: instanceContext.source,
         syncEndpoint,
         verified: instanceContext.verified,

@@ -7,6 +7,7 @@ export type WixDecodedWebhook = {
   decodedPayload: Record<string, unknown>;
   rawEventType: string | null;
   eventType: string;
+  webhookId: string | null;
   eventId: string | null;
   eventTime: string | null;
   instanceId: string | null;
@@ -181,7 +182,16 @@ export async function verifyWixWebhook(rawBody: string, appKey: string): Promise
   const rawEventType = getString(eventTypeRaw);
   const eventType = normalizeWixEventType(eventTypeRaw);
   const instanceId = getString(dataEnvelope.instanceId ?? decodedPayload.instanceId ?? nestedEventData.instanceId);
-  const eventId = getString(dataEnvelope.id ?? dataEnvelope.eventId ?? decodedPayload.id ?? decodedPayload.eventId);
+  const webhookId = getString(dataEnvelope.webhookId ?? nestedEventData.webhookId ?? decodedPayload.webhookId);
+  const eventId = getString(
+    dataEnvelope.id ??
+      dataEnvelope.eventId ??
+      nestedEventData.id ??
+      nestedEventData.eventId ??
+      decodedPayload.id ??
+      decodedPayload.eventId ??
+      webhookId,
+  );
   const eventTime = getTimestampString(dataEnvelope.eventTime ?? dataEnvelope.createdDate ?? decodedPayload.iat);
 
   return {
@@ -189,11 +199,20 @@ export async function verifyWixWebhook(rawBody: string, appKey: string): Promise
     decodedPayload,
     rawEventType,
     eventType,
+    webhookId,
     eventId,
     eventTime,
     instanceId,
     eventData: nestedEventData,
-    dedupeKey: createDedupeKey([appKey, instanceId, eventId, eventType, rawBody]),
+    dedupeKey: createWixWebhookDedupeKey({
+      appKey,
+      instanceId,
+      eventId,
+      rawEventType,
+      eventType,
+      dataEnvelope,
+      rawBody,
+    }),
   };
 }
 
@@ -328,6 +347,59 @@ function getTimestampString(value: unknown) {
 function timestampFromNumber(value: number) {
   const milliseconds = value > 10_000_000_000 ? value : value * 1000;
   return new Date(milliseconds).toISOString();
+}
+
+function createWixWebhookDedupeKey(input: {
+  appKey: string;
+  instanceId: string | null;
+  eventId: string | null;
+  rawEventType: string | null;
+  eventType: string;
+  dataEnvelope: Record<string, unknown>;
+  rawBody: string;
+}) {
+  if (input.eventId) {
+    return createDedupeKey([input.appKey, input.instanceId, input.eventType, input.eventId]);
+  }
+
+  const semanticPayload = stableStringify(omitVolatileJwtClaims(input.dataEnvelope));
+
+  return createDedupeKey([
+    input.appKey,
+    input.instanceId,
+    input.eventType,
+    input.rawEventType,
+    semanticPayload ?? input.rawBody,
+  ]);
+}
+
+function omitVolatileJwtClaims(value: Record<string, unknown>) {
+  const { iat: _issuedAt, exp: _expiresAt, nbf: _notBefore, ...rest } = value;
+  return rest;
+}
+
+function stableStringify(value: unknown): string | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  return JSON.stringify(sortJsonValue(value));
+}
+
+function sortJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortJsonValue);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nestedValue]) => [key, sortJsonValue(nestedValue)]),
+    );
+  }
+
+  return value;
 }
 
 function getRecord(value: unknown): Record<string, unknown> | null {

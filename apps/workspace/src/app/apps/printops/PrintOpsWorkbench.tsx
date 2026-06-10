@@ -7,10 +7,8 @@ import { Select } from "@base-ui/react/select";
 import { Switch } from "@base-ui/react/switch";
 import {
   AlertTriangle,
-  AtSign,
   Bell,
   BookOpen,
-  Camera,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -65,6 +63,13 @@ type Order = {
   language: string;
   warning?: string;
   items: string;
+  barcode?: string;
+  customFields?: Array<{
+    label: string;
+    value: string;
+  }>;
+  sku?: string;
+  source?: "cache" | "sample" | "sync";
 };
 
 type PrintOpsView = "orders" | "templates" | "settings";
@@ -72,22 +77,66 @@ type PrintOpsPluginContext = {
   appKey: string;
   appName: string;
   instanceId: string | null;
+  ordersEndpoint: string;
   platform: "wix";
+  readinessEndpoint: string;
   source: "instance" | "dev-instance-id" | "missing";
   syncEndpoint: string;
   verified: boolean;
 };
 type WixSyncOrderSummary = {
+  billingAddress?: unknown;
+  createdAt: string | null;
+  currency: string | null;
+  customer?: unknown;
+  deliveryMethod: string | null;
+  fulfillmentStatus: string | null;
+  note: string | null;
   orderNumber: string | null;
+  paymentMethod: string | null;
+  paymentStatus: string | null;
+  shippingAddress?: unknown;
   sourceOrderId: string;
+  tags: string[];
+  totalItemQuantity: number;
+  totals?: unknown;
   updatedAt: string | null;
   lineItems: Array<{
+    barcode: string | null;
+    imageUrl: string | null;
+    options: unknown[];
+    price?: unknown;
     title: string | null;
     sku: string | null;
+    totalPrice?: unknown;
+    variant: string | null;
     quantity: number | null;
     customFields: unknown[];
   }>;
   customFields: unknown[];
+};
+type PrintOpsCachedOrderSummary = {
+  sourceOrderId: string;
+  orderNumber: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  paymentStatus: string | null;
+  fulfillmentStatus: string | null;
+  currency: string | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  deliveryMethod: string | null;
+  paymentMethod: string | null;
+  totalItemQuantity: number;
+  totalAmount: number | null;
+  totalFormatted: string | null;
+  lineItemCount: number;
+  customFieldCount: number;
+  normalizedOrder: WixSyncOrderSummary | null;
+  lastSyncMode: string | null;
+  lastEventType: string | null;
+  syncedAt: string;
 };
 type WixSyncStatus = {
   customFieldCount: number;
@@ -98,12 +147,49 @@ type WixSyncStatus = {
   status: "idle" | "syncing" | "success" | "error";
   window: { from: string; to: string } | null;
 };
+type OrderCacheStatus = {
+  error: string | null;
+  orderCount: number;
+  status: "idle" | "loading" | "loaded" | "skipped" | "error";
+};
+type WixReadinessCheck = {
+  detail: string;
+  key: "instance" | "credentials" | "database" | "oauth";
+  label: string;
+  status: "ready" | "warning" | "error" | "skipped";
+};
+type WixReadinessStatus = {
+  checks: WixReadinessCheck[];
+  error: string | null;
+  status: "idle" | "loading" | "ready" | "warning" | "error";
+};
 type OrderTemplateVisualStyle = "atelier" | "market" | "mono";
-type OrderTemplateAccent = "charcoal" | "forest" | "slate";
+type OrderTemplateAccent = "charcoal" | "forest" | "slate" | "custom";
 type WorkspaceAccent = "forest" | "blue" | "violet" | "red" | "amber";
 type OrderTemplateDensity = "balanced" | "compact" | "spacious";
 type OrderTemplateLogoSource = "generated-svg" | "uploaded-image";
-type TemplateDateFormat = "MM-DD-YYYY" | "DD-MM-YYYY" | "YYYY-MM-DD" | "MM/DD/YYYY" | "DD/MM/YYYY" | "YYYY/MM/DD" | "MMM D, YYYY" | "D MMM, YYYY";
+type OrderTemplateLogoFont = "sans" | "serif" | "mono";
+type SocialPlatform = "instagram" | "facebook" | "x" | "website";
+type SocialLinkMode = "username" | "url";
+type SocialProfile = {
+  mode: SocialLinkMode;
+  value: string;
+  url: string;
+};
+type TemplateSocialProfiles = Record<SocialPlatform, SocialProfile>;
+type TemplateDateFormat =
+  | "MM-DD-YYYY"
+  | "DD-MM-YYYY"
+  | "YYYY-MM-DD"
+  | "MM/DD/YYYY"
+  | "DD/MM/YYYY"
+  | "YYYY/MM/DD"
+  | "MMM D, YYYY"
+  | "D MMM, YYYY"
+  | "MM.DD.YYYY"
+  | "DD.MM.YYYY"
+  | "YYYY.MM.DD"
+  | "YYYY MMM D";
 type TemplateAddressFormat = "western" | "china" | "compact" | "single-line";
 type TemplateLabelOverrides = Record<string, LocalizedText>;
 type TemplateLabelGroup = "Template" | "Order" | "Customer" | "Address" | "Items" | "Payment" | "Fulfillment" | "Store" | "Custom";
@@ -153,14 +239,18 @@ type TemplateRecord = {
   status: "Draft" | "Ready";
   brandName: string;
   logoText: string;
+  logoFont: OrderTemplateLogoFont;
+  logoFontSize: number;
   logoSource: OrderTemplateLogoSource;
   logoImageUrl: string;
   footerWebsite: string;
   footerContact: string;
   thankYouText: string;
   accentColor: OrderTemplateAccent;
+  customAccentColor: string;
   density: OrderTemplateDensity;
   socialLinks: string;
+  socialProfiles?: TemplateSocialProfiles;
   showLogoText: boolean;
   showStoreName: boolean;
   showInvoiceMeta: boolean;
@@ -207,14 +297,18 @@ type TemplateDraft = {
   labelOverrides: TemplateLabelOverrides;
   brandName: string;
   logoText: string;
+  logoFont: OrderTemplateLogoFont;
+  logoFontSize: number;
   logoSource: OrderTemplateLogoSource;
   logoImageUrl: string;
   footerWebsite: string;
   footerContact: string;
   thankYouText: string;
   accentColor: OrderTemplateAccent;
+  customAccentColor: string;
   density: OrderTemplateDensity;
   socialLinks: string;
+  socialProfiles: TemplateSocialProfiles;
   showLogoText: boolean;
   showStoreName: boolean;
   showInvoiceMeta: boolean;
@@ -234,7 +328,7 @@ type TemplateDraft = {
   dataRequirements: string;
 };
 
-const templateStorageKey = "printops-templates-v10";
+const templateStorageKey = "printops-templates-v11";
 const siteLocaleStorageKey = "printops-site-locale-v1";
 const printLocaleStorageKey = "printops-print-locale-v1";
 const timezoneStorageKey = "printops-timezone-v1";
@@ -272,6 +366,10 @@ const templateDateFormatOptions: Array<{ label: string; value: TemplateDateForma
   { label: "2026/05/30", value: "YYYY/MM/DD" },
   { label: "May 30, 2026", value: "MMM D, YYYY" },
   { label: "30 May, 2026", value: "D MMM, YYYY" },
+  { label: "05.30.2026", value: "MM.DD.YYYY" },
+  { label: "30.05.2026", value: "DD.MM.YYYY" },
+  { label: "2026.05.30", value: "YYYY.MM.DD" },
+  { label: "2026 May 30", value: "YYYY MMM D" },
 ];
 
 const templateAddressFormatOptions: Record<SiteLocale, Array<{ label: string; value: TemplateAddressFormat }>> = {
@@ -289,7 +387,7 @@ const templateAddressFormatOptions: Record<SiteLocale, Array<{ label: string; va
   ],
 };
 
-const orders: Order[] = [
+const sampleOrders: Order[] = [
   {
     id: "1008",
     number: "#1008",
@@ -302,8 +400,13 @@ const orders: Order[] = [
     print: "Generated",
     template: "Invoice",
     language: "English",
-    warning: "2 custom fields missing",
+    warning: "2 custom fields captured",
     items: "Custom hoodie x 2",
+    customFields: [
+      { label: "Buyer note", value: "Gift wrap if possible" },
+      { label: "Production note", value: "Keep front text centered" },
+    ],
+    source: "sample",
   },
   {
     id: "1007",
@@ -318,6 +421,7 @@ const orders: Order[] = [
     template: "Invoice",
     language: "English",
     items: "Gift box x 1",
+    source: "sample",
   },
   {
     id: "1006",
@@ -333,6 +437,7 @@ const orders: Order[] = [
     language: "German",
     warning: "VAT ID empty",
     items: "Wholesale sample pack x 6",
+    source: "sample",
   },
   {
     id: "1005",
@@ -347,6 +452,7 @@ const orders: Order[] = [
     template: "Invoice",
     language: "Traditional Chinese",
     items: "Pickup bouquet x 1",
+    source: "sample",
   },
   {
     id: "1004",
@@ -361,6 +467,7 @@ const orders: Order[] = [
     template: "Invoice",
     language: "English",
     items: "Event kit x 4",
+    source: "sample",
   },
 ];
 
@@ -368,17 +475,151 @@ const templates = [
   { label: "Invoice", value: "invoice" },
 ];
 
+const socialPlatformOptions = [
+  { label: "Instagram", platform: "instagram", baseUrl: "https://instagram.com/", placeholder: "greenstudio" },
+  { label: "Facebook", platform: "facebook", baseUrl: "https://facebook.com/", placeholder: "greenstudio" },
+  { label: "X", platform: "x", baseUrl: "https://x.com/", placeholder: "greenstudio" },
+  { label: "Website", platform: "website", baseUrl: "", placeholder: "https://greenstudio.com" },
+] satisfies Array<{ label: string; platform: SocialPlatform; baseUrl: string; placeholder: string }>;
+
+function ensureUrlProtocol(value: string) {
+  const cleanValue = value.trim();
+
+  if (!cleanValue) {
+    return "";
+  }
+
+  if (/^https?:\/\//i.test(cleanValue)) {
+    return cleanValue;
+  }
+
+  return `https://${cleanValue.replace(/^\/+/, "")}`;
+}
+
+function isValidHexColor(value: string) {
+  return /^#[0-9a-f]{6}$/i.test(value.trim());
+}
+
+function normalizeSocialUsername(value: string) {
+  return value.trim().replace(/^@+/, "").replace(/^\/+|\/+$/g, "");
+}
+
+function buildSocialUrl(platform: SocialPlatform, mode: SocialLinkMode, value: string) {
+  const cleanValue = value.trim();
+
+  if (!cleanValue) {
+    return "";
+  }
+
+  if (mode === "url" || platform === "website") {
+    return ensureUrlProtocol(cleanValue);
+  }
+
+  const platformOption = socialPlatformOptions.find((option) => option.platform === platform);
+  const username = normalizeSocialUsername(cleanValue);
+
+  return platformOption?.baseUrl ? `${platformOption.baseUrl}${username}` : ensureUrlProtocol(username);
+}
+
+function createSocialProfile(platform: SocialPlatform, mode: SocialLinkMode, value: string): SocialProfile {
+  return {
+    mode,
+    value,
+    url: buildSocialUrl(platform, mode, value),
+  };
+}
+
+const defaultTemplateSocialProfiles: TemplateSocialProfiles = {
+  facebook: createSocialProfile("facebook", "username", "greenstudio"),
+  instagram: createSocialProfile("instagram", "username", "greenstudio"),
+  website: createSocialProfile("website", "url", "https://greenstudio.com"),
+  x: createSocialProfile("x", "username", "greenstudio"),
+};
+
+function serializeSocialProfiles(profiles: TemplateSocialProfiles) {
+  return socialPlatformOptions
+    .map((option) => profiles[option.platform]?.url.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+function detectSocialPlatform(value: string): SocialPlatform | null {
+  const lowerValue = value.toLowerCase();
+
+  if (lowerValue.includes("instagram")) {
+    return "instagram";
+  }
+
+  if (lowerValue.includes("facebook") || lowerValue === "fb") {
+    return "facebook";
+  }
+
+  if (lowerValue.includes("twitter") || lowerValue.includes("x.com") || lowerValue === "x") {
+    return "x";
+  }
+
+  if (lowerValue.includes(".") || lowerValue.includes("http")) {
+    return "website";
+  }
+
+  return null;
+}
+
+function normalizeSocialProfiles(profiles?: TemplateSocialProfiles, legacyLinks?: string): TemplateSocialProfiles {
+  const normalizedProfiles: TemplateSocialProfiles = {
+    facebook: { ...defaultTemplateSocialProfiles.facebook },
+    instagram: { ...defaultTemplateSocialProfiles.instagram },
+    website: { ...defaultTemplateSocialProfiles.website },
+    x: { ...defaultTemplateSocialProfiles.x },
+  };
+
+  socialPlatformOptions.forEach(({ platform }) => {
+    const profile = profiles?.[platform];
+
+    if (!profile) {
+      return;
+    }
+
+    normalizedProfiles[platform] = createSocialProfile(platform, profile.mode ?? "url", profile.value || profile.url);
+  });
+
+  if (!profiles && legacyLinks) {
+    legacyLinks
+      .split(/(?:\s+\/\s+|,|\n)+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .forEach((item) => {
+        const platform = detectSocialPlatform(item);
+
+        if (!platform) {
+          return;
+        }
+
+        const isUrl = /^https?:\/\//i.test(item) || item.includes(".");
+        const value = isUrl ? item : item === platform ? "greenstudio" : item;
+
+        normalizedProfiles[platform] = createSocialProfile(platform, isUrl ? "url" : "username", value);
+      });
+  }
+
+  return normalizedProfiles;
+}
+
 const defaultTemplateBrandSettings = {
   brandName: "Green Studio",
   logoText: "Hello",
+  logoFont: "sans",
+  logoFontSize: 68,
   logoSource: "generated-svg",
   logoImageUrl: "",
   footerWebsite: "greenstudio.com",
   footerContact: "150 Elgin Street, 8th Floor / support@wixcn.net",
   thankYouText: "Thanks for your business!",
   accentColor: "charcoal",
+  customAccentColor: "#087a46",
   density: "balanced",
-  socialLinks: "@greenstudio / instagram / facebook / x",
+  socialLinks: serializeSocialProfiles(defaultTemplateSocialProfiles),
+  socialProfiles: defaultTemplateSocialProfiles,
   showLogoText: true,
   showStoreName: true,
   showInvoiceMeta: true,
@@ -407,8 +648,11 @@ const defaultTemplateBrandSettings = {
   | "addressFormat"
   | "dateFormat"
   | "logoImageUrl"
+  | "logoFont"
+  | "logoFontSize"
   | "logoSource"
   | "logoText"
+  | "customAccentColor"
   | "showBillTo"
   | "showContactFooter"
   | "showInvoiceMeta"
@@ -426,6 +670,7 @@ const defaultTemplateBrandSettings = {
   | "showThankYou"
   | "showTotals"
   | "socialLinks"
+  | "socialProfiles"
   | "thankYouText"
 >;
 
@@ -683,6 +928,20 @@ const fixedTemplateLabels = {
     it: "Totale articoli",
     ko: "총 상품 수",
   },
+  additionalDetails: {
+    default: "Additional details",
+    es: "Detalles adicionales",
+    de: "Zusaetzliche Details",
+    ja: "追加情報",
+    fr: "Details supplementaires",
+    pt: "Detalhes adicionais",
+    "zh-Hans": "附加信息",
+    "zh-Hant": "附加資訊",
+    ar: "تفاصيل إضافية",
+    nl: "Aanvullende details",
+    it: "Dettagli aggiuntivi",
+    ko: "추가 정보",
+  },
 } satisfies Record<string, LocalizedText>;
 
 const templateFixedLabelDefinitions: TemplateLabelDefinition[] = [
@@ -703,6 +962,7 @@ const templateFixedLabelDefinitions: TemplateLabelDefinition[] = [
   { key: "template.items", group: "Payment", label: fixedTemplateLabels.items, helper: "Subtotal line label." },
   { key: "template.tax", group: "Payment", label: fixedTemplateLabels.tax, helper: "Tax line label." },
   { key: "template.notes", group: "Template", label: fixedTemplateLabels.notes, helper: "Order notes heading." },
+  { key: "template.additional_details", group: "Custom", label: fixedTemplateLabels.additionalDetails, helper: "Custom fields section heading." },
   { key: "template.questions", group: "Template", label: fixedTemplateLabels.questions, helper: "Support line above the closing message." },
   { key: "template.total_items", group: "Items", label: fixedTemplateLabels.totalItems, helper: "Total item count label." },
 ];
@@ -1080,14 +1340,18 @@ function createBlankTemplateDraft(): TemplateDraft {
     labelOverrides: {},
     brandName: defaultTemplateBrandSettings.brandName,
     logoText: "GS",
+    logoFont: defaultTemplateBrandSettings.logoFont,
+    logoFontSize: defaultTemplateBrandSettings.logoFontSize,
     logoSource: defaultTemplateBrandSettings.logoSource,
     logoImageUrl: defaultTemplateBrandSettings.logoImageUrl,
     footerWebsite: defaultTemplateBrandSettings.footerWebsite,
     footerContact: defaultTemplateBrandSettings.footerContact,
     thankYouText: defaultTemplateBrandSettings.thankYouText,
     accentColor: defaultTemplateBrandSettings.accentColor,
+    customAccentColor: defaultTemplateBrandSettings.customAccentColor,
     density: defaultTemplateBrandSettings.density,
-    socialLinks: "@greenstudio / instagram / facebook / x",
+    socialProfiles: normalizeSocialProfiles(defaultTemplateBrandSettings.socialProfiles),
+    socialLinks: defaultTemplateBrandSettings.socialLinks,
     showLogoText: true,
     showStoreName: true,
     showInvoiceMeta: true,
@@ -1128,14 +1392,18 @@ function createDraftFromTemplate(templateRecord: TemplateRecord, mode: TemplateE
     labelOverrides: normalizeLabelOverrides(templateRecord.labelOverrides),
     brandName: templateRecord.brandName ?? defaultTemplateBrandSettings.brandName,
     logoText: templateRecord.logoText ?? "GS",
+    logoFont: templateRecord.logoFont ?? defaultTemplateBrandSettings.logoFont,
+    logoFontSize: templateRecord.logoFontSize ?? defaultTemplateBrandSettings.logoFontSize,
     logoSource: templateRecord.logoSource ?? defaultTemplateBrandSettings.logoSource,
     logoImageUrl: templateRecord.logoImageUrl ?? defaultTemplateBrandSettings.logoImageUrl,
     footerWebsite: templateRecord.footerWebsite ?? defaultTemplateBrandSettings.footerWebsite,
     footerContact: templateRecord.footerContact ?? defaultTemplateBrandSettings.footerContact,
     thankYouText: templateRecord.thankYouText ?? defaultTemplateBrandSettings.thankYouText,
     accentColor: templateRecord.accentColor ?? defaultTemplateBrandSettings.accentColor,
+    customAccentColor: templateRecord.customAccentColor ?? defaultTemplateBrandSettings.customAccentColor,
     density: templateRecord.density ?? defaultTemplateBrandSettings.density,
-    socialLinks: templateRecord.socialLinks ?? "@greenstudio / instagram / facebook",
+    socialProfiles: normalizeSocialProfiles(templateRecord.socialProfiles, templateRecord.socialLinks),
+    socialLinks: templateRecord.socialLinks ?? defaultTemplateBrandSettings.socialLinks,
     showLogoText: templateRecord.showLogoText ?? true,
     showStoreName: templateRecord.showStoreName ?? true,
     showInvoiceMeta: templateRecord.showInvoiceMeta ?? true,
@@ -1256,6 +1524,7 @@ function resolveTemplateLabel(key: string, locale: PrintLocale, overrides: Templ
 
 function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: TemplateRecord): TemplateRecord {
   const dataRequirements = parseDataRequirements(draft.dataRequirements);
+  const normalizedSocialProfiles = normalizeSocialProfiles(draft.socialProfiles, draft.socialLinks);
 
   return {
     id: existing?.id ?? createTemplateId(draft.name),
@@ -1278,14 +1547,18 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
     status: dataRequirements.length > 0 ? "Ready" : "Draft",
     brandName: draft.brandName.trim() || defaultTemplateBrandSettings.brandName,
     logoText: draft.logoText.trim() || "GS",
+    logoFont: draft.logoFont,
+    logoFontSize: Math.min(Math.max(Number(draft.logoFontSize) || defaultTemplateBrandSettings.logoFontSize, 28), 96),
     logoSource: draft.logoSource,
     logoImageUrl: draft.logoImageUrl.trim(),
     footerWebsite: draft.footerWebsite.trim() || defaultTemplateBrandSettings.footerWebsite,
     footerContact: draft.footerContact.trim() || defaultTemplateBrandSettings.footerContact,
     thankYouText: draft.thankYouText.trim() || defaultTemplateBrandSettings.thankYouText,
     accentColor: draft.accentColor,
+    customAccentColor: draft.customAccentColor.trim() || defaultTemplateBrandSettings.customAccentColor,
     density: draft.density,
-    socialLinks: draft.socialLinks.trim() || "@greenstudio / instagram / facebook",
+    socialProfiles: normalizedSocialProfiles,
+    socialLinks: serializeSocialProfiles(normalizedSocialProfiles),
     showLogoText: draft.showLogoText,
     showStoreName: draft.showStoreName,
     showInvoiceMeta: draft.showInvoiceMeta,
@@ -1311,6 +1584,12 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
 
 export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { initialView?: PrintOpsView; pluginContext?: PrintOpsPluginContext }) {
   const [selectedIds, setSelectedIds] = useState<string[]>(["1008", "1007", "1006"]);
+  const [cachedOrders, setCachedOrders] = useState<Order[]>([]);
+  const [orderCacheStatus, setOrderCacheStatus] = useState<OrderCacheStatus>({
+    error: null,
+    orderCount: 0,
+    status: "idle",
+  });
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -1338,16 +1617,33 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     status: "idle",
     window: null,
   });
+  const [wixReadinessStatus, setWixReadinessStatus] = useState<WixReadinessStatus>({
+    checks: [],
+    error: null,
+    status: "idle",
+  });
 
   const activeView = initialView;
   const messages = getPrintOpsMessages(siteLocale);
   const printLanguageOptions = useMemo(() => getPrintLocaleOptions(siteLocale), [siteLocale]);
+  const displayOrders = cachedOrders.length > 0 ? cachedOrders : sampleOrders;
+  const selectedOrders = useMemo(() => displayOrders.filter((order) => selectedIds.includes(order.id)), [displayOrders, selectedIds]);
+  const selectedCount = selectedOrders.length;
+  const orderMetrics = useMemo(
+    () => ({
+      failed: displayOrders.filter((order) => order.print === "Failed").length,
+      generated: displayOrders.filter((order) => order.print === "Generated").length,
+      sent: displayOrders.filter((order) => order.print === "Sent").length,
+      unprinted: displayOrders.filter((order) => order.print === "Unprinted").length,
+    }),
+    [displayOrders],
+  );
   const navigationSections = useMemo(
     () => [
       {
         label: messages.nav.menu,
         items: [
-          { icon: Package, label: messages.nav.orders, href: "/apps/printops", view: "orders", count: "128" },
+          { icon: Package, label: messages.nav.orders, href: "/apps/printops", view: "orders", count: String(displayOrders.length) },
           { icon: LayoutTemplate, label: messages.nav.templates, href: "/apps/printops/templates", view: "templates", count: "6" },
         ],
       },
@@ -1359,10 +1655,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         ],
       },
     ],
-    [messages],
+    [displayOrders.length, messages],
   );
-  const selectedOrders = useMemo(() => orders.filter((order) => selectedIds.includes(order.id)), [selectedIds]);
-  const selectedCount = selectedOrders.length;
   const filteredTemplates = useMemo(() => {
     const source = templateTab === "mine" ? "Store copy" : "Built-in";
     const normalizedSearch = templateSearch.trim().toLowerCase();
@@ -1418,10 +1712,10 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       : activeView === "settings"
         ? []
       : [
-          { label: messages.metrics.unprinted, value: "128" },
-          { label: messages.metrics.generated, value: "43" },
-          { label: messages.metrics.sent, value: "16" },
-          { label: messages.metrics.failed, value: "2", tone: "warning" as const },
+          { label: messages.metrics.unprinted, value: String(orderMetrics.unprinted) },
+          { label: messages.metrics.generated, value: String(orderMetrics.generated) },
+          { label: messages.metrics.sent, value: String(orderMetrics.sent) },
+          { label: messages.metrics.failed, value: String(orderMetrics.failed), tone: "warning" as const },
         ];
 
   useEffect(() => {
@@ -1519,12 +1813,38 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     }
   }, [templateRecords, templatesHydrated]);
 
+  useEffect(() => {
+    if (!pluginContext) {
+      return;
+    }
+
+    void loadWixReadiness();
+
+    if (pluginContext.instanceId) {
+      void loadCachedOrders();
+    }
+  }, [pluginContext?.instanceId, pluginContext?.ordersEndpoint, pluginContext?.readinessEndpoint]);
+
+  useEffect(() => {
+    const availableIds = new Set(displayOrders.map((order) => order.id));
+    const nextSelectedIds = selectedIds.filter((orderId) => availableIds.has(orderId));
+
+    if (nextSelectedIds.length > 0) {
+      if (nextSelectedIds.length !== selectedIds.length) {
+        setSelectedIds(nextSelectedIds);
+      }
+      return;
+    }
+
+    setSelectedIds(displayOrders.slice(0, 3).map((order) => order.id));
+  }, [displayOrders, selectedIds]);
+
   function toggleOrder(orderId: string, checked: boolean) {
     setSelectedIds((current) => (checked ? [...new Set([...current, orderId])] : current.filter((id) => id !== orderId)));
   }
 
   function toggleAll(checked: boolean) {
-    setSelectedIds(checked ? orders.map((order) => order.id) : []);
+    setSelectedIds(checked ? displayOrders.map((order) => order.id) : []);
   }
 
   function patchTemplateDraft(patch: Partial<TemplateDraft>) {
@@ -1588,6 +1908,11 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
         orders?: WixSyncOrderSummary[];
+        persistence?: {
+          persistedCount?: number;
+          reason?: string;
+          status?: "persisted" | "skipped" | "error";
+        };
         sync?: {
           customFieldCount?: number;
           orderCount?: number;
@@ -1608,6 +1933,14 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         status: "success",
         window: payload.sync?.window ?? null,
       });
+      const syncedOrders = (payload.orders ?? []).map((order) => mapWixSyncOrderToOrder(order));
+
+      if (syncedOrders.length > 0) {
+        setCachedOrders(syncedOrders);
+      }
+
+      void loadWixReadiness();
+      void loadCachedOrders();
     } catch (error) {
       setWixSyncStatus((current) => ({
         ...current,
@@ -1615,6 +1948,92 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         mode,
         status: "error",
       }));
+    }
+  }
+
+  async function loadWixReadiness() {
+    if (!pluginContext) {
+      return;
+    }
+
+    setWixReadinessStatus((current) => ({
+      ...current,
+      error: null,
+      status: current.status === "idle" ? "loading" : current.status,
+    }));
+
+    try {
+      const response = await fetch(pluginContext.readinessEndpoint);
+      const payload = (await response.json().catch(() => null)) as {
+        checks?: WixReadinessCheck[];
+        error?: string;
+        status?: "ready" | "warning" | "error";
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? `PrintOps readiness request failed with ${response.status}`);
+      }
+
+      setWixReadinessStatus({
+        checks: payload.checks ?? [],
+        error: null,
+        status: payload.status ?? "warning",
+      });
+    } catch (error) {
+      setWixReadinessStatus({
+        checks: [],
+        error: error instanceof Error ? error.message : "Failed to check PrintOps readiness",
+        status: "error",
+      });
+    }
+  }
+
+  async function loadCachedOrders() {
+    if (!pluginContext?.instanceId) {
+      setOrderCacheStatus({
+        error: messages.wixSync.missingInstance,
+        orderCount: 0,
+        status: "error",
+      });
+      return;
+    }
+
+    setOrderCacheStatus((current) => ({
+      ...current,
+      error: null,
+      status: current.status === "loaded" ? "loaded" : "loading",
+    }));
+
+    try {
+      const response = await fetch(pluginContext.ordersEndpoint);
+      const payload = (await response.json().catch(() => null)) as {
+        cache?: {
+          orderCount?: number;
+          reason?: string | null;
+          status?: "loaded" | "skipped" | "error";
+        };
+        error?: string;
+        orders?: PrintOpsCachedOrderSummary[];
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? `PrintOps order cache request failed with ${response.status}`);
+      }
+
+      const mappedOrders = (payload.orders ?? []).map(mapCachedPrintOpsOrderToOrder);
+
+      setCachedOrders(mappedOrders);
+      setOrderCacheStatus({
+        error: payload.cache?.reason ?? null,
+        orderCount: payload.cache?.orderCount ?? mappedOrders.length,
+        status: payload.cache?.status ?? "loaded",
+      });
+    } catch (error) {
+      setOrderCacheStatus({
+        error: error instanceof Error ? error.message : "Failed to load PrintOps orders",
+        orderCount: 0,
+        status: "error",
+      });
     }
   }
 
@@ -1764,7 +2183,11 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         ) : (
           <>
             {pluginContext ? (
-              <WixSyncPanel context={pluginContext} messages={messages} onSync={syncWixOrders} status={wixSyncStatus} />
+              <>
+                <WixSyncPanel context={pluginContext} messages={messages} onSync={syncWixOrders} status={wixSyncStatus} />
+                <WixReadinessNotice messages={messages} status={wixReadinessStatus} />
+                <WixOrderCacheNotice messages={messages} status={orderCacheStatus} />
+              </>
             ) : null}
             <div className={styles.mainGrid}>
           <section className={styles.ordersPanel}>
@@ -1782,8 +2205,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             <div className={styles.tableToolbar}>
               <div className={styles.bulkState}>
                 <BaseCheckbox
-                  checked={selectedCount === orders.length}
-                  indeterminate={selectedCount > 0 && selectedCount < orders.length}
+                  checked={selectedCount === displayOrders.length}
+                  indeterminate={selectedCount > 0 && selectedCount < displayOrders.length}
                   label="Select all"
                   onCheckedChange={toggleAll}
                 />
@@ -1811,7 +2234,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                   </tr>
                 </thead>
                 <tbody>
-                  {orders.map((order) => (
+                  {displayOrders.map((order) => (
                     <tr data-selected={selectedIds.includes(order.id)} key={order.id}>
                       <td>
                         <BaseCheckbox
@@ -2175,9 +2598,66 @@ function WixSyncPanel({
   );
 }
 
+function WixOrderCacheNotice({ messages, status }: { messages: PrintOpsMessages; status: OrderCacheStatus }) {
+  if (status.status === "idle" || status.status === "loading") {
+    return null;
+  }
+
+  return (
+    <div className={styles.syncResult} data-cache-status={status.status}>
+      {status.status === "loaded" ? (
+        <span>
+          <strong>{status.orderCount}</strong> {messages.wixSync.cachedOrdersLoaded}
+        </span>
+      ) : (
+        <span>{status.error ?? messages.wixSync.cacheUnavailable}</span>
+      )}
+    </div>
+  );
+}
+
+function WixReadinessNotice({ messages, status }: { messages: PrintOpsMessages; status: WixReadinessStatus }) {
+  if (status.status === "idle") {
+    return null;
+  }
+
+  const statusLabel =
+    status.status === "loading"
+      ? messages.wixReadiness.checking
+      : status.status === "ready"
+        ? messages.wixReadiness.ready
+        : messages.wixReadiness.needsAttention;
+
+  return (
+    <section className={styles.readinessPanel} data-state={status.status}>
+      <div className={styles.readinessHeader}>
+        <div>
+          <strong>{messages.wixReadiness.title}</strong>
+          <span>{messages.wixReadiness.description}</span>
+        </div>
+        <em>{statusLabel}</em>
+      </div>
+      {status.error ? <p>{status.error}</p> : null}
+      {status.checks.length > 0 ? (
+        <div className={styles.readinessGrid}>
+          {status.checks.map((check) => (
+            <div className={styles.readinessItem} data-state={check.status} key={check.key}>
+              <span aria-hidden>{check.status === "ready" ? "OK" : check.status === "warning" || check.status === "skipped" ? "!" : "X"}</span>
+              <div>
+                <strong>{check.label}</strong>
+                <small>{check.detail}</small>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function formatSyncedOrder(order: WixSyncOrderSummary) {
-  const itemCount = order.lineItems.reduce((total, lineItem) => total + (lineItem.quantity ?? 0), 0);
-  const customFieldCount = order.customFields.length + order.lineItems.reduce((total, lineItem) => total + lineItem.customFields.length, 0);
+  const itemCount = order.totalItemQuantity || order.lineItems.reduce((total, lineItem) => total + (lineItem.quantity ?? 0), 0);
+  const customFieldCount = countWixOrderCustomFields(order);
 
   return `${order.orderNumber ?? order.sourceOrderId} (${itemCount || order.lineItems.length} items, ${customFieldCount} custom)`;
 }
@@ -2195,6 +2675,276 @@ function formatSyncDate(value: string) {
     minute: "2-digit",
     month: "short",
   });
+}
+
+function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order {
+  if (order.normalizedOrder) {
+    const mappedOrder = mapWixSyncOrderToOrder(order.normalizedOrder, "cache");
+
+    return {
+      ...mappedOrder,
+      date: formatOrderDate(order.updatedAt ?? order.createdAt ?? order.syncedAt),
+      id: order.sourceOrderId,
+      number: formatOrderNumber(order.orderNumber ?? mappedOrder.number),
+      print: "Unprinted",
+      total: order.totalFormatted ?? mappedOrder.total,
+      warning: order.customFieldCount > 0 ? `${order.customFieldCount} custom fields` : mappedOrder.warning,
+    };
+  }
+
+  return {
+    customer: order.customerName ?? "Wix customer",
+    date: formatOrderDate(order.updatedAt ?? order.createdAt ?? order.syncedAt),
+    email: order.customerEmail ?? order.customerPhone ?? "No contact",
+    fulfillment: mapFulfillmentStatus(order.fulfillmentStatus),
+    id: order.sourceOrderId,
+    items: `${order.totalItemQuantity || order.lineItemCount || 0} items`,
+    language: "English",
+    number: formatOrderNumber(order.orderNumber ?? order.sourceOrderId),
+    payment: mapPaymentStatus(order.paymentStatus),
+    print: "Unprinted",
+    source: "cache",
+    template: "Invoice",
+    total: order.totalFormatted ?? formatMoney(order.totalAmount, order.currency),
+    warning: order.customFieldCount > 0 ? `${order.customFieldCount} custom fields` : undefined,
+  };
+}
+
+function mapWixSyncOrderToOrder(order: WixSyncOrderSummary, source: Order["source"] = "sync"): Order {
+  const firstLineItem = order.lineItems[0];
+  const customerRecord = getRecord(order.customer);
+  const customerName = getString(customerRecord?.name) ?? getString(customerRecord?.fullName) ?? "Wix customer";
+  const customerEmail = getString(customerRecord?.email) ?? getString(customerRecord?.phone) ?? "No contact";
+  const itemCount = order.totalItemQuantity || order.lineItems.reduce((total, lineItem) => total + (lineItem.quantity ?? 0), 0) || order.lineItems.length;
+  const customFieldCount = countWixOrderCustomFields(order);
+  const firstItemTitle = firstLineItem?.title ?? "Wix order item";
+  const firstItemQuantity = firstLineItem?.quantity ?? 1;
+  const customFields = collectWixOrderCustomFields(order);
+
+  return {
+    barcode: firstLineItem?.barcode ?? undefined,
+    customFields,
+    customer: customerName,
+    date: formatOrderDate(order.updatedAt ?? order.createdAt),
+    email: customerEmail,
+    fulfillment: mapFulfillmentStatus(order.fulfillmentStatus ?? order.deliveryMethod),
+    id: order.sourceOrderId,
+    items: itemCount > firstItemQuantity ? `${firstItemTitle} + ${Math.max(itemCount - firstItemQuantity, 0)} more` : `${firstItemTitle} x ${firstItemQuantity}`,
+    language: "English",
+    number: formatOrderNumber(order.orderNumber ?? order.sourceOrderId),
+    payment: mapPaymentStatus(order.paymentStatus ?? order.paymentMethod),
+    print: "Unprinted",
+    sku: firstLineItem?.sku ?? undefined,
+    source,
+    template: "Invoice",
+    total: getOrderTotal(order) ?? "$0.00",
+    warning: customFieldCount > 0 ? `${customFieldCount} custom fields` : undefined,
+  };
+}
+
+function countWixOrderCustomFields(order: WixSyncOrderSummary) {
+  return order.customFields.length + order.lineItems.reduce((total, lineItem) => total + lineItem.customFields.length + lineItem.options.length, 0);
+}
+
+function collectWixOrderCustomFields(order: WixSyncOrderSummary) {
+  const fields: Array<{ label: string; value: string }> = [];
+
+  order.customFields.forEach((field) => {
+    const formatted = formatWixCustomField(field);
+
+    if (formatted) {
+      fields.push(formatted);
+    }
+  });
+
+  order.lineItems.forEach((lineItem, index) => {
+    const itemLabel = lineItem.title ?? `Line item ${index + 1}`;
+
+    [...lineItem.options, ...lineItem.customFields].forEach((field) => {
+      const formatted = formatWixCustomField(field, itemLabel);
+
+      if (formatted) {
+        fields.push(formatted);
+      }
+    });
+  });
+
+  return fields.slice(0, 8);
+}
+
+function formatWixCustomField(field: unknown, prefix?: string) {
+  const record = getRecord(field);
+
+  if (!record) {
+    return null;
+  }
+
+  const label = getString(record.label) ?? getString(record.key) ?? getString(record.name) ?? getString(record.path) ?? "Custom field";
+  const value = formatCustomFieldValue(record.value ?? record.displayValue ?? record.text ?? record.name ?? record.label);
+
+  if (!value) {
+    return null;
+  }
+
+  return {
+    label: prefix ? `${prefix}: ${label}` : label,
+    value,
+  };
+}
+
+function formatCustomFieldValue(value: unknown): string | null {
+  if (typeof value === "string") {
+    return value.trim() || null;
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (Array.isArray(value)) {
+    const parts = value.map(formatCustomFieldValue).filter(Boolean);
+
+    return parts.length > 0 ? parts.join(", ") : null;
+  }
+
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const directValue = getString(record.formatted) ?? getString(record.label) ?? getString(record.name) ?? getString(record.value);
+
+    if (directValue) {
+      return directValue;
+    }
+
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
+function getOrderTotal(order: WixSyncOrderSummary) {
+  const totals = getRecord(order.totals);
+  const total = getRecord(totals?.total);
+  const formatted = getString(total?.formatted) ?? getString(total?.formattedAmount) ?? getString(total?.displayValue);
+  const amount = getNumber(total?.amount ?? total?.value);
+  const currency = getString(total?.currency) ?? order.currency;
+
+  return formatted ?? formatMoney(amount, currency);
+}
+
+function formatOrderNumber(value: string | null) {
+  if (!value) {
+    return "Wix order";
+  }
+
+  return value.startsWith("#") ? value : `#${value}`;
+}
+
+function formatOrderDate(value: string | null) {
+  if (!value) {
+    return "No date";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString(undefined, {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+  });
+}
+
+function mapPaymentStatus(value: string | null): Order["payment"] {
+  const normalized = value?.toLowerCase() ?? "";
+
+  if (normalized.includes("partial")) {
+    return "Partially paid";
+  }
+
+  if (normalized.includes("unpaid") || normalized.includes("not_paid")) {
+    return "Unpaid";
+  }
+
+  return "Paid";
+}
+
+function mapFulfillmentStatus(value: string | null): Order["fulfillment"] {
+  const normalized = value?.toLowerCase() ?? "";
+
+  if (normalized.includes("pickup")) {
+    return "Pickup";
+  }
+
+  if (normalized.includes("partial")) {
+    return "Partial";
+  }
+
+  if (normalized.includes("ready") || normalized.includes("fulfilled") || normalized.includes("complete")) {
+    return "Ready";
+  }
+
+  return "Unfulfilled";
+}
+
+function formatMoney(amount: number | null, currency: string | null) {
+  if (amount === null) {
+    return currency ? `${currency} 0.00` : "$0.00";
+  }
+
+  if (!currency) {
+    return amount.toFixed(2);
+  }
+
+  try {
+    return new Intl.NumberFormat(undefined, {
+      currency,
+      style: "currency",
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+}
+
+function getRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function getString(value: unknown) {
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return null;
+}
+
+function getNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
 }
 
 function Metric({ label, value, tone }: { label: string; value: string; tone?: "warning" }) {
@@ -2441,6 +3191,8 @@ function TemplateCenter({
                         labelOverrides={templateRecord.labelOverrides}
                         layoutPreset={templateRecord.layoutPreset}
                         logoImageUrl={templateRecord.logoImageUrl}
+                        logoFont={templateRecord.logoFont}
+                        logoFontSize={templateRecord.logoFontSize}
                         logoSource={templateRecord.logoSource}
                         logoText={templateRecord.logoText}
                         paperSize={templateRecord.paperSize}
@@ -2460,7 +3212,9 @@ function TemplateCenter({
                         showStoreName={templateRecord.showStoreName}
                         showThankYou={templateRecord.showThankYou}
                         showTotals={templateRecord.showTotals}
+                        customAccentColor={templateRecord.customAccentColor}
                         socialLinks={templateRecord.socialLinks}
+                        socialProfiles={templateRecord.socialProfiles}
                         thankYouText={templateRecord.thankYouText}
                         variant="card"
                         visualStyle={templateRecord.visualStyle}
@@ -2896,6 +3650,8 @@ function TemplatePreviewModal({
                 labelOverrides={templateRecord.labelOverrides}
                 layoutPreset={templateRecord.layoutPreset}
                 logoImageUrl={templateRecord.logoImageUrl}
+                logoFont={templateRecord.logoFont}
+                logoFontSize={templateRecord.logoFontSize}
                 logoSource={templateRecord.logoSource}
                 logoText={templateRecord.logoText}
                 paperSize={templateRecord.paperSize}
@@ -2915,7 +3671,9 @@ function TemplatePreviewModal({
                 showStoreName={templateRecord.showStoreName}
                 showThankYou={templateRecord.showThankYou}
                 showTotals={templateRecord.showTotals}
+                customAccentColor={templateRecord.customAccentColor}
                 socialLinks={templateRecord.socialLinks}
+                socialProfiles={templateRecord.socialProfiles}
                 thankYouText={templateRecord.thankYouText}
                 variant="editor"
                 visualStyle={templateRecord.visualStyle}
@@ -3005,10 +3763,20 @@ function TemplateEditorDrawer({
     { label: editorCopy.logoSourceGenerated, value: "generated-svg" },
     { label: editorCopy.logoSourceUploaded, value: "uploaded-image" },
   ];
+  const localizedLogoFontOptions = [
+    { label: editorCopy.logoFontSans, value: "sans" },
+    { label: editorCopy.logoFontSerif, value: "serif" },
+    { label: editorCopy.logoFontMono, value: "mono" },
+  ];
   const localizedAccentOptions = [
     { label: editorCopy.accentCharcoal, value: "charcoal" },
     { label: editorCopy.accentForest, value: "forest" },
     { label: editorCopy.accentSlate, value: "slate" },
+    { label: editorCopy.accentCustom, value: "custom" },
+  ];
+  const localizedSocialModeOptions = [
+    { label: editorCopy.socialLinkModeUsername, value: "username" },
+    { label: editorCopy.socialLinkModeUrl, value: "url" },
   ];
   const localizedDensityOptions = [
     { label: editorCopy.densityBalanced, value: "balanced" },
@@ -3133,6 +3901,20 @@ function TemplateEditorDrawer({
     reader.readAsDataURL(file);
   }
 
+  function updateSocialProfile(platform: SocialPlatform, patch: Partial<Pick<SocialProfile, "mode" | "value">>) {
+    const currentProfile = draft.socialProfiles[platform];
+    const nextProfile = createSocialProfile(platform, patch.mode ?? currentProfile.mode, patch.value ?? currentProfile.value);
+    const nextProfiles = {
+      ...draft.socialProfiles,
+      [platform]: nextProfile,
+    };
+
+    onDraftChange({
+      socialProfiles: nextProfiles,
+      socialLinks: serializeSocialProfiles(nextProfiles),
+    });
+  }
+
   function renderEditorSettings() {
     if (activeSection === "brand") {
       return (
@@ -3169,20 +3951,29 @@ function TemplateEditorDrawer({
                   onChange={(event) => onDraftChange({ logoText: event.target.value })}
                 />
               </label>
+              <SelectField
+                label={editorCopy.logoFont}
+                options={localizedLogoFontOptions}
+                value={draft.logoFont}
+                onValueChange={(value) => onDraftChange({ logoFont: value as OrderTemplateLogoFont })}
+              />
+              <label className={styles.fieldGroup}>
+                <span>{editorCopy.logoFontSize}</span>
+                <input
+                  className={styles.textInput}
+                  min={28}
+                  max={96}
+                  type="number"
+                  value={draft.logoFontSize}
+                  onChange={(event) => onDraftChange({ logoFontSize: Number(event.target.value) })}
+                />
+              </label>
               <label className={styles.fieldGroup}>
                 <span>{editorCopy.footerWebsite}</span>
                 <input
                   className={styles.textInput}
                   value={draft.footerWebsite}
                   onChange={(event) => onDraftChange({ footerWebsite: event.target.value })}
-                />
-              </label>
-              <label className={styles.fieldGroup}>
-                <span>{editorCopy.socialFooter}</span>
-                <input
-                  className={styles.textInput}
-                  value={draft.socialLinks}
-                  onChange={(event) => onDraftChange({ socialLinks: event.target.value })}
                 />
               </label>
             </div>
@@ -3196,7 +3987,7 @@ function TemplateEditorDrawer({
               />
               <label className={styles.logoUploadField}>
                 <span>{draft.logoImageUrl ? editorCopy.replaceLogoImage : editorCopy.uploadLogoImage}</span>
-                <input accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml,.svg" type="file" onChange={handleLogoUpload} />
+                <input accept="image/png,image/jpeg,image/webp,image/gif" type="file" onChange={handleLogoUpload} />
               </label>
             </div>
             {draft.logoSource === "uploaded-image" && draft.logoImageUrl ? (
@@ -3216,6 +4007,40 @@ function TemplateEditorDrawer({
               />
             </label>
 
+            <span className={styles.settingsGroupTitle}>{editorCopy.socialFooter}</span>
+            <div className={styles.socialConfigList}>
+              {socialPlatformOptions.map((option) => {
+                const profile = draft.socialProfiles[option.platform];
+
+                return (
+                  <div className={styles.socialConfigRow} key={option.platform}>
+                    <span className={styles.socialConfigIcon}>
+                      <SocialIcon platform={option.platform} />
+                    </span>
+                    <SelectField
+                      compact
+                      label={option.label}
+                      options={localizedSocialModeOptions}
+                      value={profile.mode}
+                      onValueChange={(value) => updateSocialProfile(option.platform, { mode: value as SocialLinkMode })}
+                    />
+                    <label className={styles.fieldGroup}>
+                      <span>{profile.mode === "url" || option.platform === "website" ? editorCopy.socialLinkModeUrl : editorCopy.socialLinkModeUsername}</span>
+                      <input
+                        className={styles.textInput}
+                        placeholder={option.placeholder}
+                        value={profile.value}
+                        onChange={(event) => updateSocialProfile(option.platform, { value: event.target.value })}
+                      />
+                      <small className={styles.labelKey}>
+                        {editorCopy.socialLinkSavedUrl}: {profile.url || "-"}
+                      </small>
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+
             <span className={styles.settingsGroupTitle}>{editorCopy.styleBasics}</span>
             <div className={styles.formTwoColumns}>
               <SelectField
@@ -3224,6 +4049,24 @@ function TemplateEditorDrawer({
                 value={draft.accentColor}
                 onValueChange={(value) => onDraftChange({ accentColor: value as OrderTemplateAccent })}
               />
+              <label className={styles.fieldGroup}>
+                <span>{editorCopy.customAccentHex}</span>
+                <span className={styles.colorInputRow}>
+                  <input
+                    aria-label={editorCopy.customAccent}
+                    className={styles.colorInput}
+                    type="color"
+                    value={isValidHexColor(draft.customAccentColor) ? draft.customAccentColor : defaultTemplateBrandSettings.customAccentColor}
+                    onChange={(event) => onDraftChange({ accentColor: "custom", customAccentColor: event.target.value })}
+                  />
+                  <input
+                    className={styles.textInput}
+                    placeholder="#087A46"
+                    value={draft.customAccentColor}
+                    onChange={(event) => onDraftChange({ accentColor: "custom", customAccentColor: event.target.value })}
+                  />
+                </span>
+              </label>
               <SelectField
                 label={editorCopy.density}
                 options={localizedDensityOptions}
@@ -3517,10 +4360,9 @@ function TemplateEditorDrawer({
                         <span className={styles.editorOptionIcon}>
                           <Icon size={20} aria-hidden />
                         </span>
-                        <span>
-                          <strong>{section.title}</strong>
-                          <small>{section.description}</small>
-                        </span>
+	                        <span>
+	                          <strong>{section.title}</strong>
+	                        </span>
                         <ChevronRight size={19} aria-hidden />
                       </button>
                     );
@@ -3574,6 +4416,8 @@ function TemplateEditorDrawer({
                     labelOverrides={draft.labelOverrides}
                     layoutPreset={draft.layoutPreset}
                     logoImageUrl={draft.logoImageUrl}
+                    logoFont={draft.logoFont}
+                    logoFontSize={draft.logoFontSize}
                     logoSource={draft.logoSource}
                     logoText={draft.logoText}
                     paperSize={draft.paperSize}
@@ -3593,7 +4437,9 @@ function TemplateEditorDrawer({
                     showStoreName={draft.showStoreName}
                     showThankYou={draft.showThankYou}
                     showTotals={draft.showTotals}
+                    customAccentColor={draft.customAccentColor}
                     socialLinks={draft.socialLinks}
+                    socialProfiles={draft.socialProfiles}
                     thankYouText={draft.thankYouText}
                     variant="editor"
                     visualStyle={draft.visualStyle}
@@ -3627,6 +4473,8 @@ function TemplatePaperPreview({
   labelOverrides = {},
   layoutPreset,
   logoImageUrl = defaultTemplateBrandSettings.logoImageUrl,
+  logoFont = defaultTemplateBrandSettings.logoFont,
+  logoFontSize = defaultTemplateBrandSettings.logoFontSize,
   logoSource = defaultTemplateBrandSettings.logoSource,
   logoText = "GS",
   paperSize,
@@ -3646,7 +4494,9 @@ function TemplatePaperPreview({
   showStoreName = true,
   showThankYou = true,
   showTotals = true,
+  customAccentColor = defaultTemplateBrandSettings.customAccentColor,
   socialLinks = "@greenstudio / instagram / facebook / x",
+  socialProfiles,
   thankYouText = defaultTemplateBrandSettings.thankYouText,
   variant = "detail",
   visualStyle,
@@ -3663,6 +4513,8 @@ function TemplatePaperPreview({
   labelOverrides?: TemplateLabelOverrides;
   layoutPreset: TemplateRecord["layoutPreset"];
   logoImageUrl?: string;
+  logoFont?: OrderTemplateLogoFont;
+  logoFontSize?: number;
   logoSource?: OrderTemplateLogoSource;
   logoText?: string;
   paperSize: TemplateRecord["paperSize"];
@@ -3682,7 +4534,9 @@ function TemplatePaperPreview({
   showStoreName?: boolean;
   showThankYou?: boolean;
   showTotals?: boolean;
+  customAccentColor?: string;
   socialLinks?: string;
+  socialProfiles?: TemplateSocialProfiles;
   thankYouText?: string;
   variant?: "card" | "detail" | "editor";
   visualStyle?: OrderTemplateVisualStyle;
@@ -3733,6 +4587,8 @@ function TemplatePaperPreview({
         labelOverrides={labelOverrides}
         layoutPreset={layoutPreset}
         logoImageUrl={logoImageUrl}
+        logoFont={logoFont}
+        logoFontSize={logoFontSize}
         logoSource={logoSource}
         logoText={logoText}
         paperSize={paperSize}
@@ -3752,7 +4608,9 @@ function TemplatePaperPreview({
         showStoreName={showStoreName}
         showThankYou={showThankYou}
         showTotals={showTotals}
+        customAccentColor={customAccentColor}
         socialLinks={socialLinks}
+        socialProfiles={socialProfiles}
         thankYouText={thankYouText}
         variant={variant}
         visualStyle={visualStyle ?? (layoutPreset === "Compact" ? "market" : "atelier")}
@@ -3889,7 +4747,20 @@ function TemplatePaperPreview({
   );
 }
 
-function getOrderTemplateAccentStyle(accentColor: OrderTemplateAccent): CSSProperties {
+function getOrderTemplateAccentStyle(accentColor: OrderTemplateAccent, customAccentColor = defaultTemplateBrandSettings.customAccentColor): CSSProperties {
+  if (accentColor === "custom") {
+    const customColor = isValidHexColor(customAccentColor) ? customAccentColor : defaultTemplateBrandSettings.customAccentColor;
+
+    return {
+      "--order-accent": customColor,
+      "--order-accent-2": customColor,
+      "--order-ink": "#151817",
+      "--order-line": "#d9dfdb",
+      "--order-muted": "#65706d",
+      "--order-soft": "#f4f6f4",
+    } as CSSProperties;
+  }
+
   const palettes: Record<OrderTemplateAccent, Record<string, string>> = {
     charcoal: {
       "--order-accent": "#151817",
@@ -3914,6 +4785,14 @@ function getOrderTemplateAccentStyle(accentColor: OrderTemplateAccent): CSSPrope
       "--order-line": "#d5dce6",
       "--order-muted": "#647084",
       "--order-soft": "#f2f5f8",
+    },
+    custom: {
+      "--order-accent": defaultTemplateBrandSettings.customAccentColor,
+      "--order-accent-2": defaultTemplateBrandSettings.customAccentColor,
+      "--order-ink": "#151817",
+      "--order-line": "#d9dfdb",
+      "--order-muted": "#65706d",
+      "--order-soft": "#f4f6f4",
     },
   };
 
@@ -3941,16 +4820,20 @@ function formatTemplateDate(format: TemplateDateFormat, locale: PrintLocale | Si
   const shortMonth = shortMonthByLocale[locale] ?? "May";
   const isCjkDate = locale === "zh-Hant" || locale === "zh-Hans" || locale === "ja" || locale === "ko";
 
-  const values: Record<TemplateDateFormat, string> = {
-    "MM-DD-YYYY": `${month}-${day}-${year}`,
-    "DD-MM-YYYY": `${day}-${month}-${year}`,
-    "YYYY-MM-DD": `${year}-${month}-${day}`,
-    "MM/DD/YYYY": `${month}/${day}/${year}`,
-    "DD/MM/YYYY": `${day}/${month}/${year}`,
-    "YYYY/MM/DD": `${year}/${month}/${day}`,
-    "MMM D, YYYY": isCjkDate ? `${shortMonth} ${day}, ${year}` : `${shortMonth} ${Number(day)}, ${year}`,
-    "D MMM, YYYY": isCjkDate ? `${year} ${shortMonth} ${Number(day)}` : `${Number(day)} ${shortMonth}, ${year}`,
-  };
+	  const values: Record<TemplateDateFormat, string> = {
+	    "MM-DD-YYYY": `${month}-${day}-${year}`,
+	    "DD-MM-YYYY": `${day}-${month}-${year}`,
+	    "YYYY-MM-DD": `${year}-${month}-${day}`,
+	    "MM/DD/YYYY": `${month}/${day}/${year}`,
+	    "DD/MM/YYYY": `${day}/${month}/${year}`,
+	    "YYYY/MM/DD": `${year}/${month}/${day}`,
+	    "MMM D, YYYY": isCjkDate ? `${shortMonth} ${day}, ${year}` : `${shortMonth} ${Number(day)}, ${year}`,
+	    "D MMM, YYYY": isCjkDate ? `${year} ${shortMonth} ${Number(day)}` : `${Number(day)} ${shortMonth}, ${year}`,
+	    "MM.DD.YYYY": `${month}.${day}.${year}`,
+	    "DD.MM.YYYY": `${day}.${month}.${year}`,
+	    "YYYY.MM.DD": `${year}.${month}.${day}`,
+	    "YYYY MMM D": isCjkDate ? `${year} ${shortMonth} ${Number(day)}` : `${year} ${shortMonth} ${Number(day)}`,
+	  };
 
   return values[format];
 }
@@ -3963,11 +4846,11 @@ function getTemplateDateFormatOptions(locale: SiteLocale): Array<{ label: string
 }
 
 function getSampleAddressLines(addressFormat: TemplateAddressFormat, type: "billing" | "shipping") {
-  const name = type === "billing" ? "Yancy tien" : "Yancy tien";
-  const street = "10018";
-  const city = "Shanghai";
-  const region = "Shanghai";
-  const country = "Taiwan";
+  const name = type === "billing" ? "Yancy Tien" : "Yancy Tien";
+  const street = type === "billing" ? "150 Elgin Street, 8th Floor" : "10018 Xuhui Road";
+  const city = type === "billing" ? "Ottawa" : "Shanghai";
+  const region = type === "billing" ? "ON K2P 1L4" : "Shanghai";
+  const country = type === "billing" ? "Canada" : "China";
   const phone = "18516526365";
 
   if (addressFormat === "single-line") {
@@ -3979,20 +4862,28 @@ function getSampleAddressLines(addressFormat: TemplateAddressFormat, type: "bill
   }
 
   if (addressFormat === "china") {
-    return [country, `${region}${city}`, street, name, phone];
+    return [country, region, city, street, name, phone];
   }
 
   return [name, street, city, region, country, phone];
 }
 
+function SocialIcon({ platform }: { platform: SocialPlatform }) {
+  return <span className={styles.orderSocialIcon} data-platform={platform} aria-hidden="true" />;
+}
+
 function BrandLogoAsset({
   brandName,
+  font,
+  fontSize,
   logoImageUrl,
   logoSource,
   mark,
   tagline = "Premium",
 }: {
   brandName: string;
+  font?: OrderTemplateLogoFont;
+  fontSize?: number;
   logoImageUrl: string;
   logoSource: OrderTemplateLogoSource;
   mark: string;
@@ -4001,6 +4892,14 @@ function BrandLogoAsset({
   const displayMark = mark.trim().slice(0, 4).toUpperCase() || "GS";
   const displayBrandName = brandName.trim().toUpperCase() || "GREEN STUDIO";
   const uploadedLogo = logoImageUrl.trim();
+  const fontFamilyByType: Record<OrderTemplateLogoFont, string> = {
+    mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+    sans: "Inter, Arial, sans-serif",
+    serif: "Georgia, 'Times New Roman', serif",
+  };
+  const logoFontFamily = fontFamilyByType[font ?? "sans"];
+  const logoFontSize = Math.min(Math.max(fontSize ?? defaultTemplateBrandSettings.logoFontSize, 28), 96);
+  const fittedLogoFontSize = Math.min(32, Math.max(14, Math.round(logoFontSize / 3.2)));
 
   if (logoSource === "uploaded-image" && uploadedLogo) {
     return <img className={styles.orderClassicLogoImage} alt={`${displayBrandName} logo`} src={uploadedLogo} />;
@@ -4015,7 +4914,7 @@ function BrandLogoAsset({
       <text x="38" y="31" textAnchor="middle" fill="#ffffff" fontFamily="Inter, Arial, sans-serif" fontSize="24" fontWeight="800" letterSpacing="0">
         {displayMark}
       </text>
-      <text x="180" y="28" textAnchor="middle" fill="#151817" fontFamily="Inter, Arial, sans-serif" fontSize="18" fontWeight="900" letterSpacing="7">
+      <text x="180" y="28" textAnchor="middle" fill="#151817" fontFamily={logoFontFamily} fontSize={fittedLogoFontSize} fontWeight="900" letterSpacing="7">
         {displayBrandName}
       </text>
       {tagline ? (
@@ -4039,6 +4938,8 @@ function OrderPaperPreview({
   labelOverrides,
   layoutPreset,
   logoImageUrl,
+  logoFont,
+  logoFontSize,
   logoSource,
   logoText,
   paperSize,
@@ -4058,7 +4959,9 @@ function OrderPaperPreview({
   showStoreName,
   showThankYou,
   showTotals,
+  customAccentColor,
   socialLinks,
+  socialProfiles,
   thankYouText,
   variant,
   visualStyle,
@@ -4074,6 +4977,8 @@ function OrderPaperPreview({
   labelOverrides: TemplateLabelOverrides;
   layoutPreset: TemplateRecord["layoutPreset"];
   logoImageUrl: string;
+  logoFont: OrderTemplateLogoFont;
+  logoFontSize: number;
   logoSource: OrderTemplateLogoSource;
   logoText: string;
   paperSize: TemplateRecord["paperSize"];
@@ -4093,15 +4998,24 @@ function OrderPaperPreview({
   showStoreName: boolean;
   showThankYou: boolean;
   showTotals: boolean;
+  customAccentColor: string;
   socialLinks: string;
+  socialProfiles?: TemplateSocialProfiles;
   thankYouText: string;
   variant: "card" | "detail" | "editor";
   visualStyle: OrderTemplateVisualStyle;
 }) {
-  const socialItems = socialLinks
-    .split(/[,/]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
+  const normalizedSocialProfiles = normalizeSocialProfiles(socialProfiles, socialLinks);
+  const socialItems = socialPlatformOptions
+    .map((option) => {
+      const profile = normalizedSocialProfiles[option.platform];
+      return {
+        label: option.label,
+        platform: option.platform,
+        url: profile.url,
+      };
+    })
+    .filter((item) => item.url)
     .slice(0, 4);
   const rawLogo = logoText.trim();
   const displayLogo = rawLogo.slice(0, 4) || "GS";
@@ -4115,6 +5029,7 @@ function OrderPaperPreview({
   const shipAddressLines = getSampleAddressLines(addressFormat, "shipping");
   const label = (key: string) => resolveTemplateLabel(key, defaultLanguage, labelOverrides);
   const labels = {
+    additionalDetails: label("template.additional_details"),
     billTo: label("template.bill_to"),
     invoiceDate: label("template.invoice_date"),
     invoiceNo: label("template.invoice_no"),
@@ -4148,7 +5063,7 @@ function OrderPaperPreview({
     "data-variant": variant,
     dir: getLocaleDirection(defaultLanguage),
     lang: defaultLanguage,
-    style: getOrderTemplateAccentStyle(accentColor),
+    style: getOrderTemplateAccentStyle(accentColor, customAccentColor),
   };
   const productImage = showProductImages ? (
     <span className={styles.orderProductPhoto} aria-hidden="true">
@@ -4171,6 +5086,19 @@ function OrderPaperPreview({
       <em>#10059</em>
     </span>
   ) : null;
+  const additionalDetailsBlock = (
+    <span className={styles.orderCustomFieldsBlock}>
+      <strong>{labels.additionalDetails}</strong>
+      <span>
+        <small>Buyer note</small>
+        <b>Gift wrap if possible</b>
+      </span>
+      <span>
+        <small>Production note</small>
+        <b>Keep front text centered</b>
+      </span>
+    </span>
+  );
   const socialFooter = showContactFooter || showSocialFooter ? (
     <span className={styles.orderSocialFooter}>
       {showContactFooter ? (
@@ -4182,7 +5110,9 @@ function OrderPaperPreview({
       {showSocialFooter ? (
         <span className={styles.orderSocialLinks}>
           {socialItems.map((item) => (
-            <small key={item}>{item}</small>
+            <a aria-label={item.label} href={item.url} key={item.platform} rel="noreferrer" target="_blank" title={item.url}>
+              <SocialIcon platform={item.platform} />
+            </a>
           ))}
         </span>
       ) : null}
@@ -4199,23 +5129,10 @@ function OrderPaperPreview({
       {showSocialFooter ? (
         <span className={styles.orderHeroSocialIcons} aria-label="Social links">
           {socialItems.map((item) => {
-            const normalizedItem = item.toLowerCase();
-            let icon: ReactNode = <Globe size={13} strokeWidth={2.4} aria-hidden />;
-
-            if (normalizedItem.includes("instagram")) {
-              icon = <Camera size={13} strokeWidth={2.4} aria-hidden />;
-            } else if (normalizedItem.startsWith("@")) {
-              icon = <AtSign size={13} strokeWidth={2.4} aria-hidden />;
-            } else if (normalizedItem.includes("facebook")) {
-              icon = <span className={styles.orderHeroSocialLetter}>f</span>;
-            } else if (normalizedItem === "x" || normalizedItem.includes("twitter")) {
-              icon = <span className={styles.orderHeroSocialLetter}>x</span>;
-            }
-
             return (
-              <small aria-label={item} key={item} title={item}>
-                {icon}
-              </small>
+              <a aria-label={item.label} href={item.url} key={item.platform} rel="noreferrer" target="_blank" title={item.url}>
+                <SocialIcon platform={item.platform} />
+              </a>
             );
           })}
         </span>
@@ -4228,7 +5145,6 @@ function OrderPaperPreview({
       <span {...paperProps}>
         {showLogoText || showInvoiceMeta ? (
           <span className={styles.orderHeroHeader}>
-            {showLogoText ? <span className={styles.orderHeroLogoText}>{displayWordmark}</span> : null}
             {showInvoiceMeta ? (
               <span className={styles.orderHeroMeta}>
                 {showStoreName ? <strong>{displayBrandName}</strong> : null}
@@ -4249,6 +5165,19 @@ function OrderPaperPreview({
                   </span>
                 ) : null}
                 {orderBarcode}
+              </span>
+            ) : null}
+            {showLogoText ? (
+              <span className={styles.orderHeroLogoSlot}>
+                <BrandLogoAsset
+                  brandName={displayWordmark}
+                  font={logoFont}
+                  fontSize={logoFontSize}
+                  logoImageUrl={logoImageUrl}
+                  logoSource={logoSource}
+                  mark={displayLogo}
+                  tagline=""
+                />
               </span>
             ) : null}
           </span>
@@ -4303,6 +5232,7 @@ function OrderPaperPreview({
               <span className={styles.orderNotesBlock}>
                 <strong>{labels.notes}</strong>
                 <span>Please gift wrap and include the printed order summary.</span>
+                {additionalDetailsBlock}
               </span>
             ) : null}
             {showTotals ? (
@@ -4352,7 +5282,7 @@ function OrderPaperPreview({
             {orderBarcode}
           </span>
           <span className={styles.orderClassicLogo}>
-            <BrandLogoAsset brandName={displayBrandName} logoImageUrl={logoImageUrl} logoSource={logoSource} mark={displayLogo} />
+            <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} mark={displayLogo} />
           </span>
         </span>
 
@@ -4397,6 +5327,7 @@ function OrderPaperPreview({
           <span className={styles.orderNotesBlock}>
             <strong>{labels.notes}</strong>
             <span>Please gift wrap and include the printed order summary.</span>
+            {additionalDetailsBlock}
           </span>
           <span className={styles.orderClassicTotals}>
             <span>
@@ -4440,7 +5371,7 @@ function OrderPaperPreview({
           {orderBarcode}
         </span>
         <span className={styles.orderClassicLogo}>
-          <BrandLogoAsset brandName={displayBrandName} logoImageUrl={logoImageUrl} logoSource={logoSource} mark={displayLogo} />
+          <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} mark={displayLogo} />
         </span>
       </span>
 
@@ -4480,6 +5411,7 @@ function OrderPaperPreview({
       <span className={styles.orderSlipNotes}>
         <strong>{labels.notes}</strong>
         <span>Please gift wrap and include the printed order summary.</span>
+        {additionalDetailsBlock}
       </span>
 
       <span className={styles.orderSlipThanks}>
@@ -4503,8 +5435,9 @@ function Spec({ label, value }: { label: string; value: string }) {
 }
 
 function PrintPreview({ selectedOrders, compact, printLocale }: { selectedOrders: Order[]; compact?: boolean; printLocale: PrintLocale }) {
-  const firstOrder = selectedOrders[0] ?? orders[0];
+  const firstOrder = selectedOrders[0] ?? sampleOrders[0];
   const copy = getPrintTemplateCopy(printLocale);
+  const customFields = (firstOrder.customFields ?? []).filter((field) => field.label && field.value).slice(0, 6);
 
   return (
     <div className={styles.previewStack} data-compact={compact}>
@@ -4545,13 +5478,25 @@ function PrintPreview({ selectedOrders, compact, printLocale }: { selectedOrders
           <div>
             <Package size={18} aria-hidden />
             <strong>{firstOrder.items}</strong>
-            <span>SKU HD-240 / color: sage / size: M</span>
+            <span>
+              {firstOrder.sku ? `SKU ${firstOrder.sku}` : "SKU pending"}
+              {firstOrder.barcode ? ` / barcode ${firstOrder.barcode}` : ""}
+            </span>
           </div>
           <div>
             <Languages size={18} aria-hidden />
             <strong>{copy.customText}</strong>
             <span>Delivery method 3232 / 12. Billing address follows delivery address.</span>
           </div>
+          {customFields.length > 0 ? (
+            <div>
+              <FileText size={18} aria-hidden />
+              <strong>{copy.customFields}</strong>
+              <span>
+                {customFields.map((field) => `${field.label}: ${field.value}`).join(" / ")}
+              </span>
+            </div>
+          ) : null}
           <div data-warning="true">
             <AlertTriangle size={18} aria-hidden />
             <strong>{copy.missingUpload}</strong>

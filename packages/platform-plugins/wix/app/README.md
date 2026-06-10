@@ -65,7 +65,7 @@ https://workspace.zider.ink/apps/printops/wix
 When opened by Wix, this page must receive the signed `instance` query parameter. Local development may use:
 
 ```text
-http://localhost:3102/apps/printops/wix?instanceId=wix-dev-preview
+http://localhost:3104/apps/printops/wix?instanceId=wix-dev-preview
 ```
 
 ### OAuth And Secrets
