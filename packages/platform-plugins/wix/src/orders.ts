@@ -19,13 +19,23 @@ export function buildWixOrdersSearchPayload(input: Omit<WixOrdersQueryInput, "ac
   return {
     search: {
       filter: {
-        status: {
-          $ne: "INITIALIZED",
-        },
-        updatedDate: {
-          $gte: input.window.from,
-          $lte: input.window.to,
-        },
+        $and: [
+          {
+            status: {
+              $ne: "INITIALIZED",
+            },
+          },
+          {
+            updatedDate: {
+              $gte: input.window.from,
+            },
+          },
+          {
+            updatedDate: {
+              $lte: input.window.to,
+            },
+          },
+        ],
       },
       sort: [
         {
