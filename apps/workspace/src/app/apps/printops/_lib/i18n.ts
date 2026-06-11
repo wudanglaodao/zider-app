@@ -133,6 +133,8 @@ export const printopsMessages = {
       customFieldsFound: "custom fields captured",
       cachedOrdersLoaded: "cached orders loaded from PrintOps",
       cacheUnavailable: "Order cache unavailable",
+      cachePersisted: "orders saved to PrintOps cache",
+      cacheNotPersisted: "Orders were received but not saved",
       window: "Window",
       syncedOrders: "Synced orders",
     },
@@ -172,7 +174,6 @@ export const printopsMessages = {
     metrics: {
       unprinted: "Unprinted",
       generated: "Generated",
-      sent: "Sent",
       failed: "Failed",
       myTemplates: "My templates",
       builtIn: "Built-in",
@@ -460,6 +461,8 @@ export const printopsMessages = {
       customFieldsFound: "個自訂欄位已接住",
       cachedOrdersLoaded: "筆快取訂單已從 PrintOps 載入",
       cacheUnavailable: "訂單快取暫不可用",
+      cachePersisted: "筆訂單已保存到 PrintOps 快取",
+      cacheNotPersisted: "訂單已接收但尚未保存",
       window: "時間範圍",
       syncedOrders: "已同步訂單",
     },
@@ -499,7 +502,6 @@ export const printopsMessages = {
     metrics: {
       unprinted: "未列印",
       generated: "已生成",
-      sent: "已送出",
       failed: "失敗",
       myTemplates: "我的模板",
       builtIn: "內建",

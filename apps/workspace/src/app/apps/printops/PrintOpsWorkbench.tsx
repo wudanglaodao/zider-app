@@ -57,7 +57,7 @@ type Order = {
   date: string;
   fulfillment: "Unfulfilled" | "Pickup" | "Partial" | "Ready";
   payment: "Paid" | "Unpaid" | "Partially paid";
-  print: "Unprinted" | "Generated" | "Sent" | "Printed" | "Failed";
+  print: "Unprinted" | "Generated" | "Printed" | "Failed";
   template: string;
   language: string;
   warning?: string;
@@ -69,6 +69,36 @@ type Order = {
   }>;
   sku?: string;
   source?: "cache" | "sync";
+  rawOrder?: WixSyncOrderSummary;
+};
+
+type OrderPrintLineItem = {
+  barcode?: string | null;
+  imageUrl?: string | null;
+  optionsText?: string;
+  price: string;
+  quantity: number;
+  sku?: string | null;
+  title: string;
+  total: string;
+};
+
+type OrderPrintDetails = {
+  billAddressLines: string[];
+  customFields: Array<{ label: string; value: string }>;
+  date: string;
+  deliveryMethod: string;
+  lineItems: OrderPrintLineItem[];
+  note: string;
+  number: string;
+  paymentMethod: string;
+  shipAddressLines: string[];
+  totals: {
+    items: string;
+    shipping: string;
+    tax: string;
+    total: string;
+  };
 };
 
 type PrintOpsView = "orders" | "templates" | "settings";
@@ -85,7 +115,6 @@ type PrintOpsPluginContext = {
   instanceId: string | null;
   ordersEndpoint: string;
   platform: "wix";
-  readinessEndpoint: string;
   source: "instance" | "dev-instance-id" | "missing";
   syncEndpoint: string;
   verified: boolean;
@@ -150,6 +179,11 @@ type WixSyncStatus = {
   mode: "latest" | "history" | null;
   orderCount: number;
   orders: WixSyncOrderSummary[];
+  persistence: {
+    persistedCount?: number;
+    reason?: string;
+    status?: "persisted" | "skipped" | "error";
+  } | null;
   status: "idle" | "syncing" | "success" | "error";
   window: { from: string; to: string } | null;
 };
@@ -157,17 +191,6 @@ type OrderCacheStatus = {
   error: string | null;
   orderCount: number;
   status: "idle" | "loading" | "loaded" | "skipped" | "error";
-};
-type WixReadinessCheck = {
-  detail: string;
-  key: "instance" | "credentials" | "database" | "oauth";
-  label: string;
-  status: "ready" | "warning" | "error" | "skipped";
-};
-type WixReadinessStatus = {
-  checks: WixReadinessCheck[];
-  error: string | null;
-  status: "idle" | "loading" | "ready" | "warning" | "error";
 };
 type OrderTemplateVisualStyle = "atelier" | "market" | "mono";
 type OrderTemplateAccent = "charcoal" | "forest" | "slate" | "custom";
@@ -1536,15 +1559,10 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     mode: null,
     orderCount: 0,
     orders: [],
+    persistence: null,
     status: "idle",
     window: null,
   });
-  const [wixReadinessStatus, setWixReadinessStatus] = useState<WixReadinessStatus>({
-    checks: [],
-    error: null,
-    status: "idle",
-  });
-
   const activeView = initialView;
   const messages = getPrintOpsMessages(siteLocale);
   const printLanguageOptions = useMemo(() => getPrintLocaleOptions(siteLocale), [siteLocale]);
@@ -1554,7 +1572,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const orderMetrics = useMemo(
     () => ({
       generated: displayOrders.filter((order) => order.print === "Generated").length,
-      sent: displayOrders.filter((order) => order.print === "Sent").length,
       unprinted: displayOrders.filter((order) => order.print === "Unprinted").length,
     }),
     [displayOrders],
@@ -1592,9 +1609,14 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       const matchesDocument = templateDocumentFilter === "all" || templateRecord.documentType === templateDocumentFilter;
       return matchesSource && matchesSearch && matchesDocument;
     });
-  }, [templateDocumentFilter, templateSearch, templateTab]);
+  }, [templateDocumentFilter, templateRecords, templateSearch, templateTab]);
 
   const selectedTemplate = filteredTemplates.find((templateRecord) => templateRecord.id === selectedTemplateId) ?? filteredTemplates[0] ?? templateRecords[0];
+  const defaultOrderTemplate =
+    templateRecords.find((templateRecord) => templateRecord.id === "store-order-clean") ??
+    templateRecords.find((templateRecord) => templateRecord.isDefault && templateRecord.documentType === "Invoice") ??
+    templateRecords.find((templateRecord) => templateRecord.documentType === "Invoice") ??
+    templateRecords[0];
   const templateStats = useMemo(
     () => ({
       mine: templateRecords.filter((templateRecord) => templateRecord.source === "Store copy").length,
@@ -1635,7 +1657,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       : [
           { label: messages.metrics.unprinted, value: String(orderMetrics.unprinted) },
           { label: messages.metrics.generated, value: String(orderMetrics.generated) },
-          { label: messages.metrics.sent, value: String(orderMetrics.sent) },
         ];
 
   useEffect(() => {
@@ -1738,12 +1759,10 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       return;
     }
 
-    void loadWixReadiness();
-
     if (pluginContext.instanceId) {
       void loadCachedOrders();
     }
-  }, [pluginContext?.instanceId, pluginContext?.ordersEndpoint, pluginContext?.readinessEndpoint]);
+  }, [pluginContext?.instanceId, pluginContext?.ordersEndpoint]);
 
   useEffect(() => {
     if (displayOrders.length === 0) {
@@ -1851,12 +1870,15 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         throw new Error(payload?.error ?? `Wix sync request failed with ${response.status}`);
       }
 
+      const persistence = payload.persistence ?? null;
+
       setWixSyncStatus({
         customFieldCount: payload.sync?.customFieldCount ?? 0,
         error: null,
         mode,
         orderCount: payload.sync?.orderCount ?? 0,
         orders: payload.orders ?? [],
+        persistence,
         status: "success",
         window: payload.sync?.window ?? null,
       });
@@ -1866,8 +1888,9 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         setCachedOrders(syncedOrders);
       }
 
-      void loadWixReadiness();
-      void loadCachedOrders();
+      if (!persistence || persistence.status === "persisted") {
+        void loadCachedOrders();
+      }
     } catch (error) {
       setWixSyncStatus((current) => ({
         ...current,
@@ -1875,43 +1898,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         mode,
         status: "error",
       }));
-    }
-  }
-
-  async function loadWixReadiness() {
-    if (!pluginContext) {
-      return;
-    }
-
-    setWixReadinessStatus((current) => ({
-      ...current,
-      error: null,
-      status: current.status === "idle" ? "loading" : current.status,
-    }));
-
-    try {
-      const response = await fetch(pluginContext.readinessEndpoint);
-      const payload = (await response.json().catch(() => null)) as {
-        checks?: WixReadinessCheck[];
-        error?: string;
-        status?: "ready" | "warning" | "error";
-      } | null;
-
-      if (!response.ok || !payload) {
-        throw new Error(payload?.error ?? `PrintOps readiness request failed with ${response.status}`);
-      }
-
-      setWixReadinessStatus({
-        checks: payload.checks ?? [],
-        error: null,
-        status: payload.status ?? "warning",
-      });
-    } catch (error) {
-      setWixReadinessStatus({
-        checks: [],
-        error: error instanceof Error ? error.message : "Failed to check PrintOps readiness",
-        status: "error",
-      });
     }
   }
 
@@ -2108,7 +2094,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             {pluginContext ? (
               <>
                 <WixSyncPanel context={pluginContext} messages={messages} onSync={syncWixOrders} status={wixSyncStatus} />
-                <WixReadinessNotice messages={messages} status={wixReadinessStatus} />
                 <WixOrderCacheNotice messages={messages} status={orderCacheStatus} />
               </>
             ) : null}
@@ -2216,7 +2201,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
           <aside className={styles.previewPanel}>
             <div className={styles.tabPanel}>
-              <PrintPreview printLocale={language} selectedOrders={selectedOrders} />
+              <PrintPreview previewId="side" printLocale={language} selectedOrders={selectedOrders} templateRecord={defaultOrderTemplate} />
             </div>
           </aside>
         </div>
@@ -2276,11 +2261,19 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                   </div>
 
                   <div className={styles.drawerActions}>
-                    <button className={styles.primaryButton} type="button">
+                    <button
+                      className={styles.primaryButton}
+                      type="button"
+                      onClick={() => document.querySelector<HTMLButtonElement>('[data-preview-id="drawer"][data-preview-action="download"]')?.click()}
+                    >
                       <FileText size={17} aria-hidden />
                       {messages.drawer.generatePdf}
                     </button>
-                    <button className={styles.secondaryButton} type="button">
+                    <button
+                      className={styles.secondaryButton}
+                      type="button"
+                      onClick={() => document.querySelector<HTMLButtonElement>('[data-preview-id="drawer"][data-preview-action="print"]')?.click()}
+                    >
                       <Printer size={17} aria-hidden />
                       {messages.drawer.browserPrint}
                     </button>
@@ -2288,7 +2281,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                 </section>
 
                 <section className={styles.drawerPreview}>
-                  <PrintPreview compact printLocale={language} selectedOrders={selectedOrders} />
+                  <PrintPreview compact previewId="drawer" printLocale={language} selectedOrders={selectedOrders} templateRecord={defaultOrderTemplate} />
                 </section>
               </div>
             </Drawer.Popup>
@@ -2527,6 +2520,16 @@ function WixSyncPanel({
               {messages.wixSync.syncedOrders}: {status.orders.slice(0, 3).map(formatSyncedOrder).join(", ")}
             </span>
           ) : null}
+          {status.persistence?.status === "persisted" ? (
+            <span data-tone="good">
+              <strong>{status.persistence.persistedCount ?? status.orderCount}</strong> {messages.wixSync.cachePersisted}
+            </span>
+          ) : null}
+          {status.persistence && status.persistence.status !== "persisted" ? (
+            <span data-tone="warning">
+              {messages.wixSync.cacheNotPersisted}: {status.persistence.reason ?? status.persistence.status}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -2548,45 +2551,6 @@ function WixOrderCacheNotice({ messages, status }: { messages: PrintOpsMessages;
         <span>{status.error ?? messages.wixSync.cacheUnavailable}</span>
       )}
     </div>
-  );
-}
-
-function WixReadinessNotice({ messages, status }: { messages: PrintOpsMessages; status: WixReadinessStatus }) {
-  if (status.status === "idle") {
-    return null;
-  }
-
-  const statusLabel =
-    status.status === "loading"
-      ? messages.wixReadiness.checking
-      : status.status === "ready"
-        ? messages.wixReadiness.ready
-        : messages.wixReadiness.needsAttention;
-
-  return (
-    <section className={styles.readinessPanel} data-state={status.status}>
-      <div className={styles.readinessHeader}>
-        <div>
-          <strong>{messages.wixReadiness.title}</strong>
-          <span>{messages.wixReadiness.description}</span>
-        </div>
-        <em>{statusLabel}</em>
-      </div>
-      {status.error ? <p>{status.error}</p> : null}
-      {status.checks.length > 0 ? (
-        <div className={styles.readinessGrid}>
-          {status.checks.map((check) => (
-            <div className={styles.readinessItem} data-state={check.status} key={check.key}>
-              <span aria-hidden>{check.status === "ready" ? "OK" : check.status === "warning" || check.status === "skipped" ? "!" : "X"}</span>
-              <div>
-                <strong>{check.label}</strong>
-                <small>{check.detail}</small>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </section>
   );
 }
 
@@ -2669,6 +2633,7 @@ function mapWixSyncOrderToOrder(order: WixSyncOrderSummary, source: Order["sourc
     number: formatOrderNumber(order.orderNumber ?? order.sourceOrderId),
     payment: mapPaymentStatus(order.paymentStatus ?? order.paymentMethod),
     print: "Unprinted",
+    rawOrder: order,
     sku: firstLineItem?.sku ?? undefined,
     source,
     template: "Invoice",
@@ -2998,7 +2963,7 @@ function StatusPill({ value, label }: { value: string; label?: string }) {
   const tone =
     value === "Paid" || value === "Printed" || value === "Ready"
       ? "good"
-      : value === "Generated" || value === "Sent" || value === "Partially paid" || value === "Partial"
+      : value === "Generated" || value === "Partially paid" || value === "Partial"
         ? "warn"
         : "neutral";
 
@@ -3240,6 +3205,10 @@ function getTemplatePreviewNode() {
   return paperNode ?? previewNode;
 }
 
+function getOrderPreviewPaperNode(previewNode: HTMLElement | null) {
+  return previewNode?.querySelector<HTMLElement>('[class*="templatePaper"]') ?? previewNode;
+}
+
 function applyTemplateExportTokens(element: HTMLElement) {
   const tokens = {
     "--ink": "#121817",
@@ -3268,6 +3237,7 @@ async function createOrderPdfBlob(sourceNode: HTMLElement, fileName: string) {
   const exportHost = document.createElement("div");
   const clonedPaper = sourceNode.cloneNode(true) as HTMLElement;
 
+  clonedPaper.setAttribute("data-order-paper", "true");
   applyTemplateExportTokens(exportHost);
   exportHost.setAttribute("aria-hidden", "true");
   exportHost.style.position = "fixed";
@@ -3346,6 +3316,8 @@ function openOrderPrintWindow(sourceNode: HTMLElement, title: string) {
     return;
   }
 
+  const clonedPaper = sourceNode.cloneNode(true) as HTMLElement;
+  clonedPaper.setAttribute("data-order-paper", "true");
   const stylesMarkup = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
     .map((node) => node.outerHTML)
     .join("\n");
@@ -3443,7 +3415,7 @@ function openOrderPrintWindow(sourceNode: HTMLElement, title: string) {
     </style>
   </head>
   <body>
-    <main class="printops-order-print-preview">${sourceNode.outerHTML}</main>
+    <main class="printops-order-print-preview">${clonedPaper.outerHTML}</main>
     <script>
       window.addEventListener("load", () => {
         window.focus();
@@ -4610,6 +4582,7 @@ function TemplatePaperPreview({
   logoFontSize = defaultTemplateBrandSettings.logoFontSize,
   logoSource = defaultTemplateBrandSettings.logoSource,
   logoText = "GS",
+  order,
   paperSize,
   showBillTo = true,
   showContactFooter = true,
@@ -4650,6 +4623,7 @@ function TemplatePaperPreview({
   logoFontSize?: number;
   logoSource?: OrderTemplateLogoSource;
   logoText?: string;
+  order?: Order | null;
   paperSize: TemplateRecord["paperSize"];
   showBillTo?: boolean;
   showContactFooter?: boolean;
@@ -4724,6 +4698,7 @@ function TemplatePaperPreview({
         logoFontSize={logoFontSize}
         logoSource={logoSource}
         logoText={logoText}
+        order={order}
         paperSize={paperSize}
         showBillTo={showBillTo}
         showContactFooter={showContactFooter}
@@ -5001,6 +4976,212 @@ function getSampleAddressLines(addressFormat: TemplateAddressFormat, type: "bill
   return [name, street, city, region, country, phone];
 }
 
+function getOrderPrintDetails(
+  order: Order | null | undefined,
+  options: {
+    addressFormat: TemplateAddressFormat;
+    dateFormat: TemplateDateFormat;
+    locale: PrintLocale;
+  },
+): OrderPrintDetails {
+  const rawOrder = order?.rawOrder;
+  const customerRecord = getRecord(rawOrder?.customer);
+  const customerName = order?.customer ?? getString(customerRecord?.name) ?? getString(customerRecord?.fullName) ?? "Yancy Tien";
+  const customerContact = order?.email ?? getString(customerRecord?.email) ?? getString(customerRecord?.phone) ?? "18516526365";
+  const billAddressLines = getOrderAddressLines(rawOrder?.billingAddress, {
+    addressFormat: options.addressFormat,
+    fallbackContact: customerContact,
+    fallbackLines: getSampleAddressLines(options.addressFormat, "billing"),
+    fallbackName: customerName,
+  });
+  const shipAddressLines = getOrderAddressLines(rawOrder?.shippingAddress, {
+    addressFormat: options.addressFormat,
+    fallbackContact: customerContact,
+    fallbackLines: getSampleAddressLines(options.addressFormat, "shipping"),
+    fallbackName: customerName,
+  });
+  const lineItems = getOrderPrintLineItems(order);
+  const totals = getOrderPrintTotals(rawOrder, order?.total);
+
+  return {
+    billAddressLines,
+    customFields: order?.customFields ?? [],
+    date: formatTemplateDateFromValue(rawOrder?.createdAt ?? rawOrder?.updatedAt ?? null, options.dateFormat, options.locale),
+    deliveryMethod: rawOrder?.deliveryMethod ?? order?.fulfillment ?? "Delivery method 3232",
+    lineItems,
+    note: rawOrder?.note ?? "Please gift wrap and include the printed order summary.",
+    number: order?.number ?? formatOrderNumber(rawOrder?.orderNumber ?? rawOrder?.sourceOrderId ?? "#10059"),
+    paymentMethod: rawOrder?.paymentMethod ?? order?.payment ?? "Gift card",
+    shipAddressLines,
+    totals,
+  };
+}
+
+function getOrderAddressLines(
+  address: unknown,
+  options: {
+    addressFormat: TemplateAddressFormat;
+    fallbackContact: string;
+    fallbackLines: string[];
+    fallbackName: string;
+  },
+) {
+  const record = getRecord(address);
+  const formatted = Array.isArray(record?.formatted) ? record.formatted.map((line) => getString(line)).filter((line): line is string => Boolean(line)) : [];
+  const fieldLines =
+    record && options.addressFormat === "china"
+      ? [
+          getString(record.country),
+          getString(record.subdivision),
+          getString(record.city),
+          getString(record.addressLine1),
+          getString(record.addressLine2),
+          getString(record.name),
+          getString(record.phone),
+        ].filter((line): line is string => Boolean(line))
+      : [
+          getString(record?.name),
+          getString(record?.company),
+          getString(record?.addressLine1),
+          getString(record?.addressLine2),
+          [getString(record?.city), getString(record?.subdivision), getString(record?.postalCode)].filter(Boolean).join(", "),
+          getString(record?.country),
+          getString(record?.phone),
+        ].filter((line): line is string => Boolean(line));
+  const lines = fieldLines.length > 0 ? fieldLines : formatted.length > 0 ? formatted : [options.fallbackName, options.fallbackContact].filter(Boolean);
+  const resolvedLines = lines.length > 0 ? lines : options.fallbackLines;
+
+  if (options.addressFormat === "single-line") {
+    return [resolvedLines.join(", ")];
+  }
+
+  if (options.addressFormat === "compact" && resolvedLines.length > 3) {
+    return [resolvedLines[0], resolvedLines.slice(1, -1).join(", "), resolvedLines[resolvedLines.length - 1]].filter(Boolean);
+  }
+
+  return resolvedLines;
+}
+
+function getOrderPrintLineItems(order: Order | null | undefined): OrderPrintLineItem[] {
+  const rawOrder = order?.rawOrder;
+  const currency = rawOrder?.currency ?? null;
+  const lineItems =
+    rawOrder?.lineItems
+      .map((lineItem, index) => {
+        const title = lineItem.title ?? order?.items ?? `Line item ${index + 1}`;
+        const quantity = lineItem.quantity ?? 1;
+        const price = formatMoneyValue(lineItem.price, currency, "");
+        const total = formatMoneyValue(lineItem.totalPrice, currency, price || order?.total || "$1.00");
+
+        return {
+          barcode: lineItem.barcode,
+          imageUrl: lineItem.imageUrl,
+          optionsText: formatLineItemOptions(lineItem),
+          price: price || total,
+          quantity,
+          sku: lineItem.sku,
+          title,
+          total,
+        };
+      })
+      .filter((lineItem) => lineItem.title) ?? [];
+
+  if (lineItems.length > 0) {
+    return lineItems.slice(0, 4);
+  }
+
+  return [
+    {
+      barcode: order?.barcode,
+      imageUrl: null,
+      optionsText: "",
+      price: order?.total ?? "$1.00",
+      quantity: 1,
+      sku: order?.sku,
+      title: order?.items ?? "示例商品A",
+      total: order?.total ?? "$1.00",
+    },
+  ];
+}
+
+function getOrderPrintTotals(rawOrder: WixSyncOrderSummary | undefined, fallbackTotal: string | undefined): OrderPrintDetails["totals"] {
+  const totals = getRecord(rawOrder?.totals);
+  const currency = rawOrder?.currency ?? null;
+  const subtotal = formatMoneyValue(totals?.subtotal, currency, fallbackTotal ?? "$1.00");
+  const shipping = formatMoneyValue(totals?.shipping, currency, "$0.00");
+  const tax = formatMoneyValue(totals?.tax, currency, "$0.00");
+  const total = formatMoneyValue(totals?.total, currency, fallbackTotal ?? subtotal);
+
+  return {
+    items: subtotal,
+    shipping,
+    tax,
+    total,
+  };
+}
+
+function formatMoneyValue(value: unknown, fallbackCurrency: string | null, fallback: string) {
+  const record = getRecord(value);
+  const formatted = getString(record?.formatted) ?? getString(record?.formattedAmount) ?? getString(record?.displayValue);
+  const amount = getNumber(record?.amount ?? record?.value);
+  const currency = getString(record?.currency) ?? fallbackCurrency;
+
+  return formatted ?? (amount !== null ? formatMoney(amount, currency) : fallback);
+}
+
+function formatLineItemOptions(lineItem: WixSyncOrderSummary["lineItems"][number]) {
+  return [...lineItem.options, ...lineItem.customFields]
+    .map((field) => formatWixCustomField(field))
+    .filter((field): field is { label: string; value: string } => Boolean(field))
+    .map((field) => `${field.label}: ${field.value}`)
+    .join(" / ");
+}
+
+function formatTemplateDateFromValue(value: string | null, format: TemplateDateFormat, locale: PrintLocale) {
+  if (!value) {
+    return formatTemplateDate(format, locale);
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const year = String(date.getFullYear());
+  const shortMonthByLocale: Partial<Record<PrintLocale, string[]>> = {
+    ar: ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"],
+    de: ["Jan", "Feb", "Mär", "Apr", "Mai", "Jun", "Jul", "Aug", "Sep", "Okt", "Nov", "Dez"],
+    en: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+    es: ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"],
+    fr: ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"],
+    ja: ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"],
+    ko: ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"],
+    "zh-Hans": ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"],
+    "zh-Hant": ["一月", "二月", "三月", "四月", "五月", "六月", "七月", "八月", "九月", "十月", "十一月", "十二月"],
+  };
+  const shortMonth = (shortMonthByLocale[locale] ?? shortMonthByLocale.en ?? [])[date.getMonth()] ?? "May";
+  const isCjkDate = locale === "zh-Hant" || locale === "zh-Hans" || locale === "ja" || locale === "ko";
+  const values: Record<TemplateDateFormat, string> = {
+    "MM-DD-YYYY": `${month}-${day}-${year}`,
+    "DD-MM-YYYY": `${day}-${month}-${year}`,
+    "YYYY-MM-DD": `${year}-${month}-${day}`,
+    "MM/DD/YYYY": `${month}/${day}/${year}`,
+    "DD/MM/YYYY": `${day}/${month}/${year}`,
+    "YYYY/MM/DD": `${year}/${month}/${day}`,
+    "MMM D, YYYY": isCjkDate ? `${shortMonth} ${Number(day)}, ${year}` : `${shortMonth} ${Number(day)}, ${year}`,
+    "D MMM, YYYY": isCjkDate ? `${year} ${shortMonth} ${Number(day)}` : `${Number(day)} ${shortMonth}, ${year}`,
+    "MM.DD.YYYY": `${month}.${day}.${year}`,
+    "DD.MM.YYYY": `${day}.${month}.${year}`,
+    "YYYY.MM.DD": `${year}.${month}.${day}`,
+    "YYYY MMM D": `${year} ${shortMonth} ${Number(day)}`,
+  };
+
+  return values[format];
+}
+
 function SocialIcon({ platform }: { platform: SocialPlatform }) {
   return <span className={styles.orderSocialIcon} data-platform={platform} aria-hidden="true" />;
 }
@@ -5075,6 +5256,7 @@ function OrderPaperPreview({
   logoFontSize,
   logoSource,
   logoText,
+  order,
   paperSize,
   showBillTo,
   showContactFooter,
@@ -5114,6 +5296,7 @@ function OrderPaperPreview({
   logoFontSize: number;
   logoSource: OrderTemplateLogoSource;
   logoText: string;
+  order?: Order | null;
   paperSize: TemplateRecord["paperSize"];
   showBillTo: boolean;
   showContactFooter: boolean;
@@ -5157,9 +5340,14 @@ function OrderPaperPreview({
   const displayFooterWebsite = footerWebsite.trim() || defaultTemplateBrandSettings.footerWebsite;
   const displayFooterContact = footerContact.trim() || defaultTemplateBrandSettings.footerContact;
   const displayThankYou = thankYouText.trim() || defaultTemplateBrandSettings.thankYouText;
-  const displayDate = formatTemplateDate(dateFormat, defaultLanguage);
-  const billAddressLines = getSampleAddressLines(addressFormat, "billing");
-  const shipAddressLines = getSampleAddressLines(addressFormat, "shipping");
+  const orderDetails = getOrderPrintDetails(order, {
+    addressFormat,
+    dateFormat,
+    locale: defaultLanguage,
+  });
+  const displayDate = orderDetails.date;
+  const billAddressLines = orderDetails.billAddressLines;
+  const shipAddressLines = orderDetails.shipAddressLines;
   const label = (key: string) => resolveTemplateLabel(key, defaultLanguage, labelOverrides);
   const labels = {
     additionalDetails: label("template.additional_details"),
@@ -5198,40 +5386,46 @@ function OrderPaperPreview({
     lang: defaultLanguage,
     style: getOrderTemplateAccentStyle(accentColor, customAccentColor),
   };
-  const productImage = showProductImages ? (
-    <span className={styles.orderProductPhoto} aria-hidden="true">
-      <svg className={styles.orderProductPhotoIcon} viewBox="0 0 64 64" focusable="false">
-        <path className={styles.orderProductPhotoHandle} d="M19 29c0-9 5.8-15 13-15s13 6 13 15" />
-        <path className={styles.orderProductPhotoBody} d="M11 30h42l4 22H7l4-22Z" />
-        <path className={styles.orderProductPhotoShine} d="M13 31h38l-3 7H16l-3-7Z" />
-      </svg>
-    </span>
-  ) : null;
-  const skuLine = showSku ? (
-    <small>
-      <b>{labels.sku}</b> GS-BAG-001
-    </small>
-  ) : null;
+  const renderProductImage = (lineItem: OrderPrintLineItem) =>
+    showProductImages ? (
+      <span className={styles.orderProductPhoto} aria-hidden="true">
+        {lineItem.imageUrl ? (
+          <img alt="" src={lineItem.imageUrl} />
+        ) : (
+          <svg className={styles.orderProductPhotoIcon} viewBox="0 0 64 64" focusable="false">
+            <path className={styles.orderProductPhotoHandle} d="M19 29c0-9 5.8-15 13-15s13 6 13 15" />
+            <path className={styles.orderProductPhotoBody} d="M11 30h42l4 22H7l4-22Z" />
+            <path className={styles.orderProductPhotoShine} d="M13 31h38l-3 7H16l-3-7Z" />
+          </svg>
+        )}
+      </span>
+    ) : null;
+  const renderSkuLine = (lineItem: OrderPrintLineItem) =>
+    showSku && lineItem.sku ? (
+      <small>
+        <b>{labels.sku}</b> {lineItem.sku}
+      </small>
+    ) : null;
+  const renderOptionsLine = (lineItem: OrderPrintLineItem) => (showItemOptions && lineItem.optionsText ? <small>{lineItem.optionsText}</small> : null);
   const orderBarcode = showOrderBarcode ? (
     <span className={styles.orderBarcodeBlock}>
       <small>{labels.orderBarcode}</small>
       <i aria-hidden="true" />
-      <em>#10059</em>
+      <em>{orderDetails.lineItems.find((lineItem) => lineItem.barcode)?.barcode ?? orderDetails.number}</em>
     </span>
   ) : null;
-  const additionalDetailsBlock = (
-    <span className={styles.orderCustomFieldsBlock}>
-      <strong>{labels.additionalDetails}</strong>
-      <span>
-        <small>Buyer note</small>
-        <b>Gift wrap if possible</b>
+  const additionalDetailsBlock =
+    orderDetails.customFields.length > 0 ? (
+      <span className={styles.orderCustomFieldsBlock}>
+        <strong>{labels.additionalDetails}</strong>
+        {orderDetails.customFields.slice(0, 4).map((field) => (
+          <span key={`${field.label}-${field.value}`}>
+            <small>{field.label}</small>
+            <b>{field.value}</b>
+          </span>
+        ))}
       </span>
-      <span>
-        <small>Production note</small>
-        <b>Keep front text centered</b>
-      </span>
-    </span>
-  );
+    ) : null;
   const socialFooter = showContactFooter || showSocialFooter ? (
     <span className={styles.orderSocialFooter}>
       {showContactFooter ? (
@@ -5282,19 +5476,19 @@ function OrderPaperPreview({
               <span className={styles.orderHeroMeta}>
                 {showStoreName ? <strong>{displayBrandName}</strong> : null}
                 <span>
-                  <b>{labels.invoiceNo}</b> #10059
+                  <b>{labels.invoiceNo}</b> {orderDetails.number}
                 </span>
                 <span>
                   <b>{labels.invoiceDate}</b> {displayDate}
                 </span>
                 {showPaymentMethod ? (
                   <span>
-                    <b>{labels.payment}</b> Gift card
+                    <b>{labels.payment}</b> {orderDetails.paymentMethod}
                   </span>
                 ) : null}
                 {showShippingMethod ? (
                   <span>
-                    <b>{labels.shipping}</b> Delivery method 3232
+                    <b>{labels.shipping}</b> {orderDetails.deliveryMethod}
                   </span>
                 ) : null}
                 {orderBarcode}
@@ -5344,19 +5538,21 @@ function OrderPaperPreview({
             <strong>{labels.price}</strong>
             <strong>{labels.total}</strong>
           </span>
-          <span className={styles.orderHeroRow}>
-            <span className={styles.orderHeroItem}>
-              {productImage}
-              <span>
-                <strong>示例商品A</strong>
-                {skuLine}
-                {showItemOptions ? <small>Size: 12 / Color: orange</small> : null}
+          {orderDetails.lineItems.map((lineItem, index) => (
+            <span className={styles.orderHeroRow} key={`${lineItem.title}-${index}`}>
+              <span className={styles.orderHeroItem}>
+                {renderProductImage(lineItem)}
+                <span>
+                  <strong>{lineItem.title}</strong>
+                  {renderSkuLine(lineItem)}
+                  {renderOptionsLine(lineItem)}
+                </span>
               </span>
+              <strong>x{lineItem.quantity}</strong>
+              <span>{lineItem.price}</span>
+              <strong>{lineItem.total}</strong>
             </span>
-            <strong>x1</strong>
-            <span>$1.00</span>
-            <strong>$1.00</strong>
-          </span>
+          ))}
         </span>
 
         {showNotes || showTotals ? (
@@ -5364,7 +5560,7 @@ function OrderPaperPreview({
             {showNotes ? (
               <span className={styles.orderNotesBlock}>
                 <strong>{labels.notes}</strong>
-                <span>Please gift wrap and include the printed order summary.</span>
+                <span>{orderDetails.note}</span>
                 {additionalDetailsBlock}
               </span>
             ) : null}
@@ -5372,19 +5568,19 @@ function OrderPaperPreview({
               <span className={styles.orderHeroTotals}>
                 <span>
                   <small>{labels.items}</small>
-                  <strong>$1.00</strong>
+                  <strong>{orderDetails.totals.items}</strong>
                 </span>
                 <span>
                   <small>{labels.shipping}</small>
-                  <strong>$1.00</strong>
+                  <strong>{orderDetails.totals.shipping}</strong>
                 </span>
                 <span>
                   <small>{labels.tax}</small>
-                  <strong>$0.00</strong>
+                  <strong>{orderDetails.totals.tax}</strong>
                 </span>
                 <span data-emphasis="true">
                   <small>{labels.total}</small>
-                  <strong>$2.00</strong>
+                  <strong>{orderDetails.totals.total}</strong>
                 </span>
               </span>
             ) : null}
@@ -5408,10 +5604,10 @@ function OrderPaperPreview({
         <span className={styles.orderClassicHeader}>
           <span>
             <strong>{labels.invoiceTitle}</strong>
-            <small>{labels.invoiceNo} #10059</small>
+            <small>{labels.invoiceNo} {orderDetails.number}</small>
             <small>{labels.orderDate} {displayDate}</small>
-            <small>{labels.payment} Gift card</small>
-            <small>{labels.shipping} Delivery method 3232</small>
+            <small>{labels.payment} {orderDetails.paymentMethod}</small>
+            <small>{labels.shipping} {orderDetails.deliveryMethod}</small>
             {orderBarcode}
           </span>
           <span className={styles.orderClassicLogo}>
@@ -5441,43 +5637,45 @@ function OrderPaperPreview({
             <strong>{labels.price}</strong>
             <strong>{labels.total}</strong>
           </span>
-          <span className={styles.orderClassicRow}>
-            <span className={styles.orderClassicItem}>
-              {productImage}
-              <span>
-                <strong>示例商品A</strong>
-                {skuLine}
-                {showItemOptions ? <small>Size: 12 / Color: orange</small> : null}
+          {orderDetails.lineItems.map((lineItem, index) => (
+            <span className={styles.orderClassicRow} key={`${lineItem.title}-${index}`}>
+              <span className={styles.orderClassicItem}>
+                {renderProductImage(lineItem)}
+                <span>
+                  <strong>{lineItem.title}</strong>
+                  {renderSkuLine(lineItem)}
+                  {renderOptionsLine(lineItem)}
+                </span>
               </span>
+              <strong>x{lineItem.quantity}</strong>
+              <span>{lineItem.price}</span>
+              <strong>{lineItem.total}</strong>
             </span>
-            <strong>x1</strong>
-            <span>$1.00</span>
-            <strong>$1.00</strong>
-          </span>
+          ))}
         </span>
 
         <span className={styles.orderClassicLower}>
           <span className={styles.orderNotesBlock}>
             <strong>{labels.notes}</strong>
-            <span>Please gift wrap and include the printed order summary.</span>
+            <span>{orderDetails.note}</span>
             {additionalDetailsBlock}
           </span>
           <span className={styles.orderClassicTotals}>
             <span>
               <strong>{labels.items}</strong>
-              <small>$1.00</small>
+              <small>{orderDetails.totals.items}</small>
             </span>
             <span>
               <strong>{labels.shipping}</strong>
-              <small>$1.00</small>
+              <small>{orderDetails.totals.shipping}</small>
             </span>
             <span>
               <strong>{labels.tax}</strong>
-              <small>$0.00</small>
+              <small>{orderDetails.totals.tax}</small>
             </span>
             <span data-emphasis="true">
               <strong>{labels.total}</strong>
-              <small>$2.00</small>
+              <small>{orderDetails.totals.total}</small>
             </span>
           </span>
         </span>
@@ -5498,9 +5696,9 @@ function OrderPaperPreview({
       <span className={styles.orderSlipHeader}>
         <span>
           <strong>{labels.invoiceTitle}</strong>
-          <small>{labels.invoiceNo} #10059</small>
+          <small>{labels.invoiceNo} {orderDetails.number}</small>
           <small>{labels.orderDate} {displayDate}</small>
-          <small>{labels.totalItems} 1</small>
+          <small>{labels.totalItems} {orderDetails.lineItems.reduce((total, lineItem) => total + lineItem.quantity, 0)}</small>
           {orderBarcode}
         </span>
         <span className={styles.orderClassicLogo}>
@@ -5528,22 +5726,24 @@ function OrderPaperPreview({
           <strong>{labels.itemDescription}</strong>
           <strong>{labels.qty}</strong>
         </span>
-        <span>
-          <span className={styles.orderClassicItem}>
-            {productImage}
-            <span>
-              <strong>示例商品A</strong>
-              {skuLine}
-              {showItemOptions ? <small>Size: 12 / Color: orange</small> : null}
+        {orderDetails.lineItems.map((lineItem, index) => (
+          <span key={`${lineItem.title}-${index}`}>
+            <span className={styles.orderClassicItem}>
+              {renderProductImage(lineItem)}
+              <span>
+                <strong>{lineItem.title}</strong>
+                {renderSkuLine(lineItem)}
+                {renderOptionsLine(lineItem)}
+              </span>
             </span>
+            <strong>x{lineItem.quantity}</strong>
           </span>
-          <strong>x1</strong>
-        </span>
+        ))}
       </span>
 
       <span className={styles.orderSlipNotes}>
         <strong>{labels.notes}</strong>
-        <span>Please gift wrap and include the printed order summary.</span>
+        <span>{orderDetails.note}</span>
         {additionalDetailsBlock}
       </span>
 
@@ -5567,15 +5767,83 @@ function Spec({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PrintPreview({ selectedOrders, compact, printLocale }: { selectedOrders: Order[]; compact?: boolean; printLocale: PrintLocale }) {
+function OrderTemplatePrintDocument({
+  order,
+  printLocale,
+  templateRecord,
+}: {
+  order: Order;
+  printLocale: PrintLocale;
+  templateRecord: TemplateRecord;
+}) {
+  return (
+    <TemplatePaperPreview
+      accentColor={templateRecord.accentColor}
+      addressFormat={templateRecord.addressFormat}
+      brandName={templateRecord.brandName}
+      dateFormat={templateRecord.dateFormat}
+      defaultLanguage={printLocale}
+      density={templateRecord.density}
+      documentType={templateRecord.documentType}
+      footerContact={templateRecord.footerContact}
+      footerWebsite={templateRecord.footerWebsite}
+      labelOverrides={templateRecord.labelOverrides}
+      layoutPreset={templateRecord.layoutPreset}
+      logoImageUrl={templateRecord.logoImageUrl}
+      logoFont={templateRecord.logoFont}
+      logoFontSize={templateRecord.logoFontSize}
+      logoSource={templateRecord.logoSource}
+      logoText={templateRecord.logoText}
+      order={order}
+      paperSize={templateRecord.paperSize}
+      showBillTo={templateRecord.showBillTo}
+      showContactFooter={templateRecord.showContactFooter}
+      showInvoiceMeta={templateRecord.showInvoiceMeta}
+      showItemOptions={templateRecord.showItemOptions}
+      showLogoText={templateRecord.showLogoText}
+      showNotes={templateRecord.showNotes}
+      showOrderBarcode={templateRecord.showOrderBarcode}
+      showPaymentMethod={templateRecord.showPaymentMethod}
+      showProductImages={templateRecord.showProductImages}
+      showShipTo={templateRecord.showShipTo}
+      showShippingMethod={templateRecord.showShippingMethod}
+      showSocialFooter={templateRecord.showSocialFooter}
+      showSku={templateRecord.showSku}
+      showStoreName={templateRecord.showStoreName}
+      showThankYou={templateRecord.showThankYou}
+      showTotals={templateRecord.showTotals}
+      customAccentColor={templateRecord.customAccentColor}
+      socialLinks={templateRecord.socialLinks}
+      socialProfiles={templateRecord.socialProfiles}
+      thankYouText={templateRecord.thankYouText}
+      variant="detail"
+      visualStyle={templateRecord.visualStyle}
+    />
+  );
+}
+
+function PrintPreview({
+  selectedOrders,
+  compact,
+  previewId,
+  printLocale,
+  templateRecord,
+}: {
+  selectedOrders: Order[];
+  compact?: boolean;
+  previewId: string;
+  printLocale: PrintLocale;
+  templateRecord: TemplateRecord;
+}) {
   const paperRef = useRef<HTMLDivElement | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
   const firstOrder = selectedOrders[0] ?? null;
   const copy = getPrintTemplateCopy(printLocale);
-  const customFields = (firstOrder?.customFields ?? []).filter((field) => field.label && field.value).slice(0, 6);
 
   const handleDownloadPdf = async () => {
-    if (!firstOrder || !paperRef.current || isExportingPdf) {
+    const paperNode = getOrderPreviewPaperNode(paperRef.current);
+
+    if (!firstOrder || !paperNode || isExportingPdf) {
       return;
     }
 
@@ -5583,7 +5851,7 @@ function PrintPreview({ selectedOrders, compact, printLocale }: { selectedOrders
 
     try {
       const fileName = getOrderFileName(firstOrder);
-      const pdfBlob = await createOrderPdfBlob(paperRef.current, fileName);
+      const pdfBlob = await createOrderPdfBlob(paperNode, fileName);
 
       downloadPdfBlob(pdfBlob, fileName);
     } finally {
@@ -5592,11 +5860,13 @@ function PrintPreview({ selectedOrders, compact, printLocale }: { selectedOrders
   };
 
   const handlePrint = () => {
-    if (!firstOrder || !paperRef.current) {
+    const paperNode = getOrderPreviewPaperNode(paperRef.current);
+
+    if (!firstOrder || !paperNode) {
       return;
     }
 
-    openOrderPrintWindow(paperRef.current, `${copy.title} ${firstOrder.number}`);
+    openOrderPrintWindow(paperNode, `${copy.title} ${firstOrder.number}`);
   };
 
   if (!firstOrder) {
@@ -5615,75 +5885,29 @@ function PrintPreview({ selectedOrders, compact, printLocale }: { selectedOrders
     <div className={styles.previewStack} data-compact={compact}>
       <div className={styles.previewHeader}>
         <div>
-          <span>{copy.title}</span>
+          <span>{templateRecord.name}</span>
           <strong>{firstOrder.number}</strong>
         </div>
-        <span>A4</span>
+        <span>{templateRecord.paperSize}</span>
       </div>
-      <div className={styles.paper} data-order-paper="true" ref={paperRef}>
-        <header>
-          <div className={styles.paperLogo}>GS</div>
-          <div>
-            <h2>Green Studio</h2>
-            <p>{copy.title}</p>
-          </div>
-        </header>
-        <section className={styles.paperGrid}>
-          <div>
-            <span>{copy.order}</span>
-            <strong>{firstOrder.number}</strong>
-          </div>
-          <div>
-            <span>{copy.customer}</span>
-            <strong>{firstOrder.customer}</strong>
-          </div>
-          <div>
-            <span>{copy.due}</span>
-            <strong>{firstOrder.date}</strong>
-          </div>
-          <div>
-            <span>{copy.language}</span>
-            <strong>{printLocale}</strong>
-          </div>
-        </section>
-        <section className={styles.lineItems}>
-          <div>
-            <Package size={18} aria-hidden />
-            <strong>{firstOrder.items}</strong>
-            <span>
-              {firstOrder.sku ? `SKU ${firstOrder.sku}` : "SKU pending"}
-              {firstOrder.barcode ? ` / barcode ${firstOrder.barcode}` : ""}
-            </span>
-          </div>
-          <div>
-            <Languages size={18} aria-hidden />
-            <strong>{copy.customText}</strong>
-            <span>Delivery method 3232 / 12. Billing address follows delivery address.</span>
-          </div>
-          {customFields.length > 0 ? (
-            <div>
-              <FileText size={18} aria-hidden />
-              <strong>{copy.customFields}</strong>
-              <span>
-                {customFields.map((field) => `${field.label}: ${field.value}`).join(" / ")}
-              </span>
-            </div>
-          ) : null}
-          <div data-warning="true">
-            <AlertTriangle size={18} aria-hidden />
-            <strong>{copy.missingUpload}</strong>
-            <span>Items $1.00, shipping $1.00, tax $0.00, paid with gift card.</span>
-          </div>
-        </section>
+      <div className={styles.orderTemplateStage} data-compact={compact} ref={paperRef}>
+        <OrderTemplatePrintDocument order={firstOrder} printLocale={printLocale} templateRecord={templateRecord} />
       </div>
       <div className={styles.previewFooter}>
         <span>{selectedOrders.length || 1} orders in batch</span>
         <div className={styles.previewFooterActions}>
-          <button className={styles.iconTextButton} type="button" disabled={isExportingPdf} onClick={handleDownloadPdf}>
+          <button
+            className={styles.iconTextButton}
+            data-preview-action="download"
+            data-preview-id={previewId}
+            type="button"
+            disabled={isExportingPdf}
+            onClick={handleDownloadPdf}
+          >
             <Download size={16} aria-hidden />
             {copy.pdf}
           </button>
-          <button className={styles.iconTextButton} type="button" onClick={handlePrint}>
+          <button className={styles.iconTextButton} data-preview-action="print" data-preview-id={previewId} type="button" onClick={handlePrint}>
             <Printer size={16} aria-hidden />
             {copy.print}
           </button>
