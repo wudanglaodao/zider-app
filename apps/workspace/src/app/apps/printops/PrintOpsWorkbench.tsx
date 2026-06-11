@@ -26,6 +26,8 @@ import {
   Printer,
   Search,
   Settings,
+  Star,
+  Trash2,
   X,
 } from "lucide-react";
 import { type ChangeEvent, type CSSProperties, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -1649,6 +1651,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       return matchesSource && matchesSearch && matchesDocument;
     });
   }, [templateDocumentFilter, templateRecords, templateSearch, templateTab]);
+  const storeTemplateCount = useMemo(() => templateRecords.filter((templateRecord) => templateRecord.source === "Store copy").length, [templateRecords]);
 
   const selectedTemplate = filteredTemplates.find((templateRecord) => templateRecord.id === selectedTemplateId) ?? filteredTemplates[0] ?? templateRecords[0];
   const defaultOrderTemplate =
@@ -1935,6 +1938,60 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     setTemplateEditorOpen(false);
   }
 
+  function setDefaultTemplate(templateId: string) {
+    setTemplateRecords((currentTemplates) =>
+      currentTemplates.map((templateRecord) => ({
+        ...templateRecord,
+        isDefault: templateRecord.id === templateId,
+      })),
+    );
+    setSelectedTemplateId(templateId);
+  }
+
+  function deleteTemplate(templateId: string) {
+    setTemplateRecords((currentTemplates) => {
+      const targetTemplate = currentTemplates.find((templateRecord) => templateRecord.id === templateId);
+
+      if (!targetTemplate || targetTemplate.source === "Built-in") {
+        return currentTemplates;
+      }
+
+      const storeTemplates = currentTemplates.filter((templateRecord) => templateRecord.source === "Store copy");
+
+      if (storeTemplates.length <= 1) {
+        return currentTemplates;
+      }
+
+      const remainingTemplates = currentTemplates.filter((templateRecord) => templateRecord.id !== templateId);
+
+      if (remainingTemplates.some((templateRecord) => templateRecord.isDefault)) {
+        return remainingTemplates;
+      }
+
+      const nextDefault =
+        remainingTemplates.find((templateRecord) => templateRecord.source === "Store copy" && templateRecord.documentType === targetTemplate.documentType) ??
+        remainingTemplates.find((templateRecord) => templateRecord.source === "Store copy");
+
+      return remainingTemplates.map((templateRecord) => ({
+        ...templateRecord,
+        isDefault: templateRecord.id === nextDefault?.id,
+      }));
+    });
+
+    setSelectedTemplateId((currentTemplateId) => {
+      if (currentTemplateId !== templateId) {
+        return currentTemplateId;
+      }
+
+      const fallbackTemplate =
+        templateRecords.find((templateRecord) => templateRecord.id !== templateId && templateRecord.source === "Store copy") ??
+        templateRecords.find((templateRecord) => templateRecord.id !== templateId) ??
+        templateRecords[0];
+
+      return fallbackTemplate?.id ?? currentTemplateId;
+    });
+  }
+
   async function syncWixOrders(mode: "latest" | "history") {
     if (!pluginContext?.instanceId) {
       setWixSyncStatus((current) => ({
@@ -2198,10 +2255,13 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             onSelectedTemplateChange={setSelectedTemplateId}
             onTabChange={setTemplateTab}
             onCreateTemplate={openCreateTemplate}
+            onDeleteTemplate={deleteTemplate}
             onEditTemplate={openTemplateEditor}
             messages={messages}
+            onSetDefaultTemplate={setDefaultTemplate}
             search={templateSearch}
             selectedTemplate={selectedTemplate}
+            storeTemplateCount={storeTemplateCount}
             tab={templateTab}
           />
         ) : (
@@ -3312,10 +3372,13 @@ function TemplateCenter({
   onSelectedTemplateChange,
   onTabChange,
   onCreateTemplate,
+  onDeleteTemplate,
   onEditTemplate,
   messages,
+  onSetDefaultTemplate,
   search,
   selectedTemplate,
+  storeTemplateCount,
   tab,
 }: {
   documentFilter: string;
@@ -3325,10 +3388,13 @@ function TemplateCenter({
   onSelectedTemplateChange: (id: string) => void;
   onTabChange: (value: "mine" | "library") => void;
   onCreateTemplate: () => void;
+  onDeleteTemplate: (id: string) => void;
   onEditTemplate: (templateRecord: TemplateRecord) => void;
   messages: PrintOpsMessages;
+  onSetDefaultTemplate: (id: string) => void;
   search: string;
   selectedTemplate: TemplateRecord;
+  storeTemplateCount: number;
   tab: "mine" | "library";
 }) {
   const hasTemplates = filteredTemplates.length > 0;
@@ -3374,17 +3440,32 @@ function TemplateCenter({
           {hasTemplates ? (
             filteredTemplates.map((templateRecord) => {
               const localizedTemplate = getLocalizedTemplateRecord(templateRecord, messages);
+              const isStoreTemplate = templateRecord.source === "Store copy";
+              const canDeleteTemplate = isStoreTemplate && storeTemplateCount > 1;
+              const canSetDefaultTemplate = isStoreTemplate && !templateRecord.isDefault && templateRecord.status === "Ready";
+              const openTemplatePreview = () => {
+                onSelectedTemplateChange(templateRecord.id);
+                setPreviewTemplate(templateRecord);
+              };
 
               return (
-                <button
+                <article
                   className={styles.templateCard}
                   data-mode={tab}
                   data-selected={templateRecord.id === selectedTemplate.id}
                   key={templateRecord.id}
-                  type="button"
-                  onClick={() => {
-                    onSelectedTemplateChange(templateRecord.id);
-                    setPreviewTemplate(templateRecord);
+                  role="button"
+                  tabIndex={0}
+                  onClick={openTemplatePreview}
+                  onKeyDown={(event) => {
+                    if (event.target !== event.currentTarget) {
+                      return;
+                    }
+
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      openTemplatePreview();
+                    }
                   }}
                 >
                   {isLibrary ? (
@@ -3445,10 +3526,58 @@ function TemplateCenter({
                     </span>
                     <span className={styles.templateCardFooter}>
                       <small>{localizedTemplate.updatedAt}</small>
-                      <span className={styles.templateCardAction}>{messages.templates.preview}</span>
+                      <span className={styles.templateCardActions}>
+                        {templateRecord.isDefault ? <strong className={styles.defaultBadge}>{messages.templates.default}</strong> : null}
+                        {isStoreTemplate ? (
+                          <>
+                            {!templateRecord.isDefault ? (
+                              <button
+                                className={styles.templateCardAction}
+                                type="button"
+                                disabled={!canSetDefaultTemplate}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  if (canSetDefaultTemplate) {
+                                    onSetDefaultTemplate(templateRecord.id);
+                                  }
+                                }}
+                              >
+                                <Star size={14} aria-hidden />
+                                {messages.templates.setDefaultTemplate}
+                              </button>
+                            ) : null}
+                            <button
+                              className={styles.templateCardAction}
+                              data-tone="danger"
+                              type="button"
+                              disabled={!canDeleteTemplate}
+                              title={canDeleteTemplate ? messages.templates.deleteTemplate : messages.templates.keepOneTemplate}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (canDeleteTemplate && window.confirm(messages.templates.deleteConfirm)) {
+                                  onDeleteTemplate(templateRecord.id);
+                                }
+                              }}
+                            >
+                              <Trash2 size={14} aria-hidden />
+                              {messages.templates.deleteTemplate}
+                            </button>
+                          </>
+                        ) : null}
+                        <button
+                          className={styles.templateCardAction}
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openTemplatePreview();
+                          }}
+                        >
+                          {messages.templates.preview}
+                        </button>
+                      </span>
                     </span>
                   </span>
-                </button>
+                </article>
               );
             })
           ) : (
