@@ -16,19 +16,48 @@ type RouteContext = {
 };
 
 export async function POST(request: NextRequest, context: RouteContext) {
+  const startedAt = Date.now();
   const { platform, appKey } = await context.params;
+  const requestId = request.headers.get("x-vercel-id") ?? request.headers.get("x-request-id");
+
+  logWebhook("info", "wix_webhook_request_received", {
+    requestId,
+    platform,
+    appKey,
+  });
 
   if (!isSupportedPlatform(platform)) {
+    logWebhook("warn", "wix_webhook_rejected", {
+      requestId,
+      platform,
+      appKey,
+      reason: "unsupported_platform",
+      ms: Date.now() - startedAt,
+    });
     return NextResponse.json({ ok: false, error: "Unsupported platform" }, { status: 404 });
   }
 
   const app = getAppRegistryEntry(platform, appKey);
 
   if (!app) {
+    logWebhook("warn", "wix_webhook_rejected", {
+      requestId,
+      platform,
+      appKey,
+      reason: "unknown_app_key",
+      ms: Date.now() - startedAt,
+    });
     return NextResponse.json({ ok: false, error: "Unknown app_key for platform" }, { status: 404 });
   }
 
   if (platform !== "wix") {
+    logWebhook("warn", "wix_webhook_rejected", {
+      requestId,
+      platform,
+      appKey: app.appKey,
+      reason: "platform_not_implemented",
+      ms: Date.now() - startedAt,
+    });
     return NextResponse.json({ ok: false, error: "Platform receiver is not implemented yet" }, { status: 501 });
   }
 
@@ -39,7 +68,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
   try {
     const wix = await verifyWixWebhook(rawBody, canonicalAppKey);
 
+    logWebhook("info", "wix_webhook_verified", {
+      requestId,
+      platform,
+      appKey: canonicalAppKey,
+      eventType: wix.eventType,
+      rawEventType: wix.rawEventType,
+      eventId: redactIdentifier(wix.eventId),
+      instanceId: redactIdentifier(wix.instanceId),
+      bodyBytes: Buffer.byteLength(rawBody),
+      ms: Date.now() - startedAt,
+    });
+
     if (!isWixAppManagementEventType(wix.eventType)) {
+      logWebhook("warn", "wix_webhook_rejected", {
+        requestId,
+        platform,
+        appKey: canonicalAppKey,
+        eventType: wix.eventType,
+        rawEventType: wix.rawEventType,
+        reason: "non_app_management_event",
+        ms: Date.now() - startedAt,
+      });
       return NextResponse.json(
         {
           ok: false,
@@ -67,6 +117,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
         instanceId: wix.instanceId,
         error,
       });
+      logWebhook("error", "wix_webhook_persist_failed", {
+        requestId,
+        platform,
+        appKey: canonicalAppKey,
+        eventType: wix.eventType,
+        rawEventType: wix.rawEventType,
+        instanceId: redactIdentifier(wix.instanceId),
+        error: error instanceof Error ? error.message : String(error),
+      });
     });
 
     waitUntil(persistence);
@@ -86,12 +145,31 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
+    logWebhook("info", "wix_webhook_accepted", {
+      requestId,
+      platform,
+      appKey: canonicalAppKey,
+      eventType: wix.eventType,
+      rawEventType: wix.rawEventType,
+      eventId: redactIdentifier(wix.eventId),
+      instanceId: redactIdentifier(wix.instanceId),
+      ms: Date.now() - startedAt,
+    });
+
     return new Response(null, { status: 200 });
   } catch (error) {
     console.error("Failed to process webhook", {
       platform,
       appKey: app?.appKey ?? appKey,
       error,
+    });
+    logWebhook("error", "wix_webhook_failed", {
+      requestId,
+      platform,
+      appKey: app?.appKey ?? appKey,
+      error: error instanceof Error ? error.message : String(error),
+      statusCode: error instanceof WixWebhookVerificationError ? error.statusCode : 500,
+      ms: Date.now() - startedAt,
     });
 
     if (error instanceof WixWebhookVerificationError) {
@@ -113,4 +191,33 @@ export function GET() {
     ok: true,
     receiver: "zider-events",
   });
+}
+
+function logWebhook(level: "info" | "warn" | "error", message: string, details: Record<string, unknown>) {
+  const payload = JSON.stringify({
+    level,
+    message,
+    route: "/events/[platform]/[appKey]",
+    ...details,
+  });
+
+  if (level === "error") {
+    console.error(payload);
+    return;
+  }
+
+  if (level === "warn") {
+    console.warn(payload);
+    return;
+  }
+
+  console.info(payload);
+}
+
+function redactIdentifier(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  return value.length <= 14 ? value : `${value.slice(0, 8)}...${value.slice(-6)}`;
 }

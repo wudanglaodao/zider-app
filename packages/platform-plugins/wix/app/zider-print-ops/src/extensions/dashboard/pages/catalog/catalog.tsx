@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import '@wix/design-system/styles.global.css';
 import { withProviders } from '../../withProviders';
 
@@ -6,52 +6,49 @@ const workspaceUrl = 'https://workspace.zider.ink/apps/printops/wix';
 const localWorkspaceUrl = 'http://localhost:3104/apps/printops/wix';
 
 function PrintOpsDashboard() {
-  const openWorkspace = () => {
-    window.open(buildWorkspaceUrl(), '_blank', 'noopener,noreferrer');
-  };
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasFrameError, setHasFrameError] = useState(false);
+  const embeddedWorkspaceUrl = useMemo(() => buildWorkspaceUrl(), []);
 
   return (
     <main style={styles.page}>
-      <section style={styles.hero}>
-        <div>
-          <p style={styles.eyebrow}>Zider PrintOps</p>
-          <h1 style={styles.title}>Order printing for Wix merchants</h1>
-          <p style={styles.copy}>
-            Sync recent Wix orders, preview A4 invoice templates, download PDFs, and print customer documents from Zider Workspace.
-          </p>
+      <style>{`@keyframes printops-spin { to { transform: rotate(360deg); } }`}</style>
+      {isLoading ? (
+        <div style={styles.loadingShell} aria-live="polite">
+          <div style={styles.spinner} />
+          <span>Loading PrintOps...</span>
         </div>
-        <button type="button" style={styles.primaryButton} onClick={openWorkspace}>
-          Open PrintOps
-        </button>
-      </section>
+      ) : null}
 
-      <section style={styles.grid} aria-label="PrintOps setup status">
-        <article style={styles.card}>
-          <span style={styles.cardLabel}>Orders</span>
-          <h2 style={styles.cardTitle}>Latest + 7-day sync</h2>
-          <p style={styles.cardText}>Use the workspace sync panel to pull the newest Wix order first, then backfill recent orders for testing.</p>
-        </article>
-        <article style={styles.card}>
-          <span style={styles.cardLabel}>Templates</span>
-          <h2 style={styles.cardTitle}>A4 invoice templates</h2>
-          <p style={styles.cardText}>Start with the Big Brand invoice layout and keep custom order fields available for printing.</p>
-        </article>
-        <article style={styles.card}>
-          <span style={styles.cardLabel}>Output</span>
-          <h2 style={styles.cardTitle}>PDF + browser print</h2>
-          <p style={styles.cardText}>Download PDFs or open print preview from the same invoice renderer used in the workspace.</p>
-        </article>
-      </section>
+      {hasFrameError ? (
+        <div style={styles.fallbackShell}>
+          <h1 style={styles.fallbackTitle}>PrintOps could not load inside this dashboard.</h1>
+          <p style={styles.fallbackText}>Open the workspace in a new tab to continue managing order printing.</p>
+          <a href={embeddedWorkspaceUrl} target="_blank" rel="noreferrer" style={styles.fallbackButton}>
+            Open PrintOps
+          </a>
+        </div>
+      ) : null}
 
-      <section style={styles.devPanel}>
-        <strong>Local test URL</strong>
-        <code style={styles.code}>{`${localWorkspaceUrl}?instanceId=wix-dev-preview`}</code>
-      </section>
+      <iframe
+        title="Zider PrintOps"
+        src={embeddedWorkspaceUrl}
+        style={styles.frame}
+        onLoad={() => setIsLoading(false)}
+        onError={() => {
+          setIsLoading(false);
+          setHasFrameError(true);
+        }}
+      />
     </main>
   );
 }
 
 function buildWorkspaceUrl() {
+  if (typeof window === 'undefined') {
+    return workspaceUrl;
+  }
+
   const baseUrl = window.location.hostname === 'localhost' ? localWorkspaceUrl : workspaceUrl;
   const target = new URL(baseUrl);
   const currentParams = new URLSearchParams(window.location.search);
@@ -60,108 +57,89 @@ function buildWorkspaceUrl() {
     target.searchParams.set(key, value);
   });
 
+  if (window.location.hostname === 'localhost' && !target.searchParams.has('instance') && !target.searchParams.has('instanceId')) {
+    target.searchParams.set('instanceId', 'wix-dev-preview');
+  }
+
   return target.toString();
 }
 
 const styles: Record<string, React.CSSProperties> = {
   page: {
+    position: 'relative',
     minHeight: '100vh',
-    padding: '40px',
-    background: '#f7faf8',
-    color: '#0d1b16',
+    margin: 0,
+    background: '#f8faf9',
+    color: '#121817',
+    overflow: 'hidden',
     fontFamily: 'Inter, Arial, sans-serif',
   },
-  hero: {
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: '32px',
-    padding: '36px',
-    border: '1px solid #d9e7df',
-    borderRadius: '16px',
-    background: '#ffffff',
-  },
-  eyebrow: {
-    margin: '0 0 12px',
-    color: '#067a46',
-    fontSize: '13px',
-    fontWeight: 800,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-  },
-  title: {
-    margin: 0,
-    maxWidth: '720px',
-    fontSize: '44px',
-    lineHeight: 1,
-    fontWeight: 800,
-    letterSpacing: 0,
-  },
-  copy: {
-    margin: '18px 0 0',
-    maxWidth: '680px',
-    color: '#51635c',
-    fontSize: '18px',
-    lineHeight: 1.55,
-  },
-  primaryButton: {
-    flex: '0 0 auto',
+  frame: {
+    display: 'block',
+    width: '100%',
+    minHeight: '100vh',
     border: 0,
+    background: '#f8faf9',
+  },
+  loadingShell: {
+    position: 'absolute',
+    inset: 0,
+    zIndex: 2,
+    display: 'grid',
+    placeItems: 'center',
+    gap: '14px',
+    alignContent: 'center',
+    background: '#f8faf9',
+    color: '#53645d',
+    fontSize: '14px',
+    fontWeight: 700,
+  },
+  spinner: {
+    width: '34px',
+    height: '34px',
+    border: '4px solid #d9e7df',
+    borderTopColor: '#087d47',
+    borderRadius: '999px',
+    animation: 'printops-spin 900ms linear infinite',
+  },
+  fallbackShell: {
+    position: 'absolute',
+    inset: 0,
+    zIndex: 3,
+    display: 'grid',
+    placeItems: 'center',
+    alignContent: 'center',
+    gap: '16px',
+    padding: '32px',
+    background: '#f8faf9',
+    textAlign: 'center',
+  },
+  fallbackTitle: {
+    margin: 0,
+    color: '#121817',
+    fontSize: '24px',
+    lineHeight: 1.2,
+    fontWeight: 800,
+  },
+  fallbackText: {
+    margin: 0,
+    maxWidth: '480px',
+    color: '#53645d',
+    fontSize: '15px',
+    lineHeight: 1.5,
+  },
+  fallbackButton: {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '44px',
+    padding: '0 18px',
     borderRadius: '10px',
     background: '#087d47',
     color: '#ffffff',
-    padding: '14px 20px',
-    fontSize: '16px',
-    fontWeight: 800,
-    cursor: 'pointer',
-    boxShadow: '0 14px 28px rgba(8, 125, 71, 0.18)',
-  },
-  grid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-    gap: '16px',
-    marginTop: '20px',
-  },
-  card: {
-    minHeight: '172px',
-    padding: '24px',
-    border: '1px solid #d9e7df',
-    borderRadius: '14px',
-    background: '#ffffff',
-  },
-  cardLabel: {
-    color: '#087d47',
-    fontSize: '12px',
-    fontWeight: 800,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-  },
-  cardTitle: {
-    margin: '14px 0 10px',
-    fontSize: '22px',
-    lineHeight: 1.15,
-  },
-  cardText: {
-    margin: 0,
-    color: '#53645d',
     fontSize: '15px',
-    lineHeight: 1.55,
-  },
-  devPanel: {
-    display: 'grid',
-    gap: '10px',
-    marginTop: '20px',
-    padding: '20px 24px',
-    border: '1px solid #d9e7df',
-    borderRadius: '14px',
-    background: '#edf5f0',
-  },
-  code: {
-    display: 'block',
-    maxWidth: '100%',
-    overflowX: 'auto',
-    color: '#12352a',
-    fontSize: '14px',
+    fontWeight: 800,
+    textDecoration: 'none',
   },
 };
 
