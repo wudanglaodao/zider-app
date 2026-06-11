@@ -4242,14 +4242,6 @@ function TemplatePreviewModal({
                 <Spec label={messages.templates.audience} value={localizedTemplate.audience} />
                 <Spec label={messages.templates.scenario} value={templateRecord.scenario} />
               </div>
-              <div className={styles.requirementList}>
-                <strong>{messages.templates.requiredData}</strong>
-                <div>
-                  {templateRecord.dataRequirements.map((requirement) => (
-                    <span key={requirement}>{requirement}</span>
-                  ))}
-                </div>
-              </div>
               <div className={styles.validationBox} data-tone={templateRecord.validation.tone}>
                 <div>
                   {templateRecord.validation.tone === "ok" ? <CheckCircle2 size={18} aria-hidden /> : <AlertTriangle size={18} aria-hidden />}
@@ -4315,6 +4307,7 @@ function TemplateEditorDrawer({
   const canSave = draft.name.trim().length > 0 && draft.description.trim().length > 0;
   const [activeSection, setActiveSection] = useState<TemplateEditorSectionId>("brand");
   const [socialPlatformToAdd, setSocialPlatformToAdd] = useState<SocialPlatform>("instagram");
+  const [isExportingTestPdf, setIsExportingTestPdf] = useState(false);
   const localizedLogoSourceOptions = [
     { label: editorCopy.logoSourceGenerated, value: "generated-svg" },
     { label: editorCopy.logoSourceUploaded, value: "uploaded-image" },
@@ -4514,6 +4507,37 @@ function TemplateEditorDrawer({
     const nextProfiles = { ...draft.socialProfiles };
     delete nextProfiles[platform];
     commitSocialProfiles(normalizeSocialProfiles(nextProfiles));
+  }
+
+  function getDraftPreviewRecord() {
+    return createTemplateRecordFromDraft({
+      ...draft,
+      description: draft.description.trim() || editorCopy.sampleOrderPreviewDescription,
+      name: draft.name.trim() || editorCopy.untitledTemplate,
+    });
+  }
+
+  async function handleTestDownloadPdf() {
+    if (isExportingTestPdf) {
+      return;
+    }
+
+    setIsExportingTestPdf(true);
+
+    try {
+      const templateRecord = getDraftPreviewRecord();
+      const pdfBlob = await createTemplatePdfBlob(templateRecord);
+
+      if (pdfBlob) {
+        downloadPdfBlob(pdfBlob, getTemplateFileName(templateRecord));
+      }
+    } finally {
+      setIsExportingTestPdf(false);
+    }
+  }
+
+  function handleTestPrintPreview() {
+    openTemplatePrintWindow(getDraftPreviewRecord());
   }
 
   function renderEditorSettings() {
@@ -4919,21 +4943,15 @@ function TemplateEditorDrawer({
             <small>{editorCopy.sampleOrderPreviewDescription}</small>
           </span>
         </div>
-        <label className={styles.fieldGroup}>
-          <span>{editorCopy.requiredData}</span>
-          <textarea
-            className={styles.textarea}
-            rows={4}
-            value={draft.dataRequirements}
-            onChange={(event) => onDraftChange({ dataRequirements: event.target.value })}
-          />
-          <small className={styles.helperText}>{editorCopy.requiredDataHelp}</small>
-        </label>
-        <div className={styles.requirementList}>
-          <strong>{editorCopy.currentRequiredData}</strong>
-          <div>
-            {parsedRequirements.length > 0 ? parsedRequirements.map((requirement) => <span key={requirement}>{requirement}</span>) : <span>{editorCopy.noFieldsYet}</span>}
-          </div>
+        <div className={styles.testActionGrid}>
+          <button className={styles.secondaryButton} disabled={isExportingTestPdf} type="button" onClick={handleTestDownloadPdf}>
+            <Download size={17} aria-hidden />
+            {messages.templates.downloadPdf}
+          </button>
+          <button className={styles.secondaryButton} type="button" onClick={handleTestPrintPreview}>
+            <Printer size={17} aria-hidden />
+            {messages.templates.printPreview}
+          </button>
         </div>
       </>
     );
@@ -5003,13 +5021,15 @@ function TemplateEditorDrawer({
                   {renderEditorSettings()}
                 </div>
 
-                <div className={styles.validationBox} data-tone={parsedRequirements.length > 0 ? "ok" : "warning"}>
-                  <div>
-                    {parsedRequirements.length > 0 ? <CheckCircle2 size={18} aria-hidden /> : <AlertTriangle size={18} aria-hidden />}
-                    <strong>{parsedRequirements.length} {editorCopy.readyFields}</strong>
+                {activeSection === "test" ? null : (
+                  <div className={styles.validationBox} data-tone={parsedRequirements.length > 0 ? "ok" : "warning"}>
+                    <div>
+                      {parsedRequirements.length > 0 ? <CheckCircle2 size={18} aria-hidden /> : <AlertTriangle size={18} aria-hidden />}
+                      <strong>{parsedRequirements.length} {editorCopy.readyFields}</strong>
+                    </div>
+                    <p>{parsedRequirements.length > 0 ? editorCopy.canSave : editorCopy.needsRequiredField}</p>
                   </div>
-                  <p>{parsedRequirements.length > 0 ? editorCopy.canSave : editorCopy.needsRequiredField}</p>
-                </div>
+                )}
 
                 <div className={styles.drawerActions}>
                   <button className={styles.primaryButton} type="button" disabled={!canSave} onClick={onSave}>
@@ -5028,7 +5048,7 @@ function TemplateEditorDrawer({
                   </div>
                   <span>{localizedDraftOrientation}</span>
                 </div>
-                <div className={styles.templatePreviewShell}>
+                <div className={styles.templatePreviewShell} data-template-print-preview="true">
                   <TemplatePaperPreview
                     accentColor={draft.accentColor}
                     addressFormat={draft.addressFormat}
@@ -5070,12 +5090,6 @@ function TemplateEditorDrawer({
                     variant="editor"
                     visualStyle={draft.visualStyle}
                   />
-                </div>
-                <div className={styles.requirementList}>
-                  <strong>{editorCopy.requiredData}</strong>
-                  <div>
-                    {parsedRequirements.length > 0 ? parsedRequirements.map((requirement) => <span key={requirement}>{requirement}</span>) : <span>{editorCopy.noFieldsYet}</span>}
-                  </div>
                 </div>
               </aside>
             </div>
