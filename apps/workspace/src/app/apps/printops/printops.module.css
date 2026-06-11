@@ -1395,6 +1395,29 @@
   line-height: 1.35;
 }
 
+.emptyOrdersState {
+  min-height: 240px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.emptyOrdersState strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.emptyOrdersState span {
+  max-width: 360px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .warningText {
   color: var(--yellow-text) !important;
 }
@@ -1478,6 +1501,35 @@
 
 .previewStack[data-compact="true"] {
   max-width: 420px;
+}
+
+.emptyPreviewState {
+  min-height: 360px;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  padding: 24px;
+  text-align: center;
+}
+
+.emptyPreviewState svg {
+  color: var(--green);
+}
+
+.emptyPreviewState strong {
+  color: var(--ink);
+  font-size: 16px;
+}
+
+.emptyPreviewState span {
+  max-width: 240px;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .previewHeader {

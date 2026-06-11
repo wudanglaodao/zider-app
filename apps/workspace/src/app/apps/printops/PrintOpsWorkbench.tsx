@@ -69,7 +69,7 @@ type Order = {
     value: string;
   }>;
   sku?: string;
-  source?: "cache" | "sample" | "sync";
+  source?: "cache" | "sync";
 };
 
 type PrintOpsView = "orders" | "templates" | "settings";
@@ -386,90 +386,6 @@ const templateAddressFormatOptions: Record<SiteLocale, Array<{ label: string; va
     { label: "單行格式", value: "single-line" },
   ],
 };
-
-const sampleOrders: Order[] = [
-  {
-    id: "1008",
-    number: "#1008",
-    customer: "Mika Chen",
-    email: "mika@example.com",
-    total: "$128.40",
-    date: "May 26, 09:42",
-    fulfillment: "Unfulfilled",
-    payment: "Paid",
-    print: "Generated",
-    template: "Invoice",
-    language: "English",
-    warning: "2 custom fields captured",
-    items: "Custom hoodie x 2",
-    customFields: [
-      { label: "Buyer note", value: "Gift wrap if possible" },
-      { label: "Production note", value: "Keep front text centered" },
-    ],
-    source: "sample",
-  },
-  {
-    id: "1007",
-    number: "#1007",
-    customer: "Noah Lee",
-    email: "noah@example.com",
-    total: "$74.00",
-    date: "May 26, 08:17",
-    fulfillment: "Pickup",
-    payment: "Paid",
-    print: "Sent",
-    template: "Invoice",
-    language: "English",
-    items: "Gift box x 1",
-    source: "sample",
-  },
-  {
-    id: "1006",
-    number: "#1006",
-    customer: "Sofia Martin",
-    email: "sofia@example.com",
-    total: "€212.10",
-    date: "May 25, 18:04",
-    fulfillment: "Unfulfilled",
-    payment: "Partially paid",
-    print: "Unprinted",
-    template: "Invoice",
-    language: "German",
-    warning: "VAT ID empty",
-    items: "Wholesale sample pack x 6",
-    source: "sample",
-  },
-  {
-    id: "1005",
-    number: "#1005",
-    customer: "Avery Wu",
-    email: "avery@example.com",
-    total: "$42.90",
-    date: "May 25, 16:31",
-    fulfillment: "Ready",
-    payment: "Paid",
-    print: "Printed",
-    template: "Invoice",
-    language: "Traditional Chinese",
-    items: "Pickup bouquet x 1",
-    source: "sample",
-  },
-  {
-    id: "1004",
-    number: "#1004",
-    customer: "Chris Young",
-    email: "chris@example.com",
-    total: "$318.60",
-    date: "May 25, 11:22",
-    fulfillment: "Partial",
-    payment: "Paid",
-    print: "Unprinted",
-    template: "Invoice",
-    language: "English",
-    items: "Event kit x 4",
-    source: "sample",
-  },
-];
 
 const templates = [
   { label: "Invoice", value: "invoice" },
@@ -1583,7 +1499,7 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
 }
 
 export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { initialView?: PrintOpsView; pluginContext?: PrintOpsPluginContext }) {
-  const [selectedIds, setSelectedIds] = useState<string[]>(["1008", "1007", "1006"]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [cachedOrders, setCachedOrders] = useState<Order[]>([]);
   const [orderCacheStatus, setOrderCacheStatus] = useState<OrderCacheStatus>({
     error: null,
@@ -1626,7 +1542,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const activeView = initialView;
   const messages = getPrintOpsMessages(siteLocale);
   const printLanguageOptions = useMemo(() => getPrintLocaleOptions(siteLocale), [siteLocale]);
-  const displayOrders = cachedOrders.length > 0 ? cachedOrders : sampleOrders;
+  const displayOrders = cachedOrders;
   const selectedOrders = useMemo(() => displayOrders.filter((order) => selectedIds.includes(order.id)), [displayOrders, selectedIds]);
   const selectedCount = selectedOrders.length;
   const orderMetrics = useMemo(
@@ -1826,6 +1742,13 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   }, [pluginContext?.instanceId, pluginContext?.ordersEndpoint, pluginContext?.readinessEndpoint]);
 
   useEffect(() => {
+    if (displayOrders.length === 0) {
+      if (selectedIds.length > 0) {
+        setSelectedIds([]);
+      }
+      return;
+    }
+
     const availableIds = new Set(displayOrders.map((order) => order.id));
     const nextSelectedIds = selectedIds.filter((orderId) => availableIds.has(orderId));
 
@@ -2204,15 +2127,17 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
             <div className={styles.tableToolbar}>
               <div className={styles.bulkState}>
-                <BaseCheckbox
-                  checked={selectedCount === displayOrders.length}
-                  indeterminate={selectedCount > 0 && selectedCount < displayOrders.length}
-                  label="Select all"
-                  onCheckedChange={toggleAll}
-                />
+                {displayOrders.length > 0 ? (
+                  <BaseCheckbox
+                    checked={selectedCount === displayOrders.length}
+                    indeterminate={selectedCount > 0 && selectedCount < displayOrders.length}
+                    label="Select all"
+                    onCheckedChange={toggleAll}
+                  />
+                ) : null}
                 <span>{selectedCount} selected</span>
               </div>
-              <button className={styles.secondaryButton} type="button" onClick={() => setDrawerOpen(true)}>
+              <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => setDrawerOpen(true)}>
                 <Eye size={16} aria-hidden />
                 Preview batch
               </button>
@@ -2234,46 +2159,57 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                   </tr>
                 </thead>
                 <tbody>
-                  {displayOrders.map((order) => (
-                    <tr data-selected={selectedIds.includes(order.id)} key={order.id}>
-                      <td>
-                        <BaseCheckbox
-                          checked={selectedIds.includes(order.id)}
-                          label={`Select order ${order.number}`}
-                          onCheckedChange={(checked) => toggleOrder(order.id, checked)}
-                        />
-                      </td>
-                      <td>
-                        <strong>{order.number}</strong>
-                        <span>{order.date}</span>
-                      </td>
-                      <td>
-                        <strong>{order.customer}</strong>
-                        <span>{order.email}</span>
-                      </td>
-                      <td>
-                        <span>{order.items}</span>
-                        <small>{order.total}</small>
-                      </td>
-                      <td>
-                        <StatusPill value={order.payment} />
-                      </td>
-                      <td>
-                        <StatusPill value={order.fulfillment} />
-                      </td>
-                      <td>
-                        <StatusPill value={order.print} />
-                        {order.warning ? <small className={styles.warningText}>{order.warning}</small> : null}
-                      </td>
-                      <td>
-                        <strong>{order.template}</strong>
-                        <span>{order.language}</span>
-                      </td>
-                      <td>
-                        <OrderMenu />
+                  {displayOrders.length > 0 ? (
+                    displayOrders.map((order) => (
+                      <tr data-selected={selectedIds.includes(order.id)} key={order.id}>
+                        <td>
+                          <BaseCheckbox
+                            checked={selectedIds.includes(order.id)}
+                            label={`Select order ${order.number}`}
+                            onCheckedChange={(checked) => toggleOrder(order.id, checked)}
+                          />
+                        </td>
+                        <td>
+                          <strong>{order.number}</strong>
+                          <span>{order.date}</span>
+                        </td>
+                        <td>
+                          <strong>{order.customer}</strong>
+                          <span>{order.email}</span>
+                        </td>
+                        <td>
+                          <span>{order.items}</span>
+                          <small>{order.total}</small>
+                        </td>
+                        <td>
+                          <StatusPill value={order.payment} />
+                        </td>
+                        <td>
+                          <StatusPill value={order.fulfillment} />
+                        </td>
+                        <td>
+                          <StatusPill value={order.print} />
+                          {order.warning ? <small className={styles.warningText}>{order.warning}</small> : null}
+                        </td>
+                        <td>
+                          <strong>{order.template}</strong>
+                          <span>{order.language}</span>
+                        </td>
+                        <td>
+                          <OrderMenu />
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={9}>
+                        <div className={styles.emptyOrdersState}>
+                          <strong>{messages.orders.emptyTitle}</strong>
+                          <span>{pluginContext ? messages.orders.emptySyncedDescription : messages.orders.emptyDescription}</span>
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2589,7 +2525,7 @@ function WixSyncPanel({
           ) : null}
           {status.orders.length > 0 ? (
             <span>
-              {messages.wixSync.sampleOrders}: {status.orders.slice(0, 3).map(formatSyncedOrder).join(", ")}
+              {messages.wixSync.syncedOrders}: {status.orders.slice(0, 3).map(formatSyncedOrder).join(", ")}
             </span>
           ) : null}
         </div>
@@ -5435,9 +5371,21 @@ function Spec({ label, value }: { label: string; value: string }) {
 }
 
 function PrintPreview({ selectedOrders, compact, printLocale }: { selectedOrders: Order[]; compact?: boolean; printLocale: PrintLocale }) {
-  const firstOrder = selectedOrders[0] ?? sampleOrders[0];
+  const firstOrder = selectedOrders[0] ?? null;
   const copy = getPrintTemplateCopy(printLocale);
-  const customFields = (firstOrder.customFields ?? []).filter((field) => field.label && field.value).slice(0, 6);
+  const customFields = (firstOrder?.customFields ?? []).filter((field) => field.label && field.value).slice(0, 6);
+
+  if (!firstOrder) {
+    return (
+      <div className={styles.previewStack} data-compact={compact}>
+        <div className={styles.emptyPreviewState}>
+          <FileText size={22} aria-hidden />
+          <strong>{copy.title}</strong>
+          <span>{copy.emptySelection}</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.previewStack} data-compact={compact}>

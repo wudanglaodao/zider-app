@@ -113,6 +113,11 @@ export const printopsMessages = {
       settingsTitle: "Settings",
       settingsDescription: "Manage appearance, language, timezone, and print defaults.",
     },
+    orders: {
+      emptyTitle: "No synced orders yet",
+      emptyDescription: "Connect a Wix store and sync orders to start preparing invoices.",
+      emptySyncedDescription: "Click Sync latest or Sync last 7 days to load real Wix orders into PrintOps.",
+    },
     wixSync: {
       title: "Wix order connection",
       description: "Pull latest Wix orders for invoice previews. History sync is limited to the last 7 days in this first version.",
@@ -130,7 +135,7 @@ export const printopsMessages = {
       cachedOrdersLoaded: "cached orders loaded from PrintOps",
       cacheUnavailable: "Order cache unavailable",
       window: "Window",
-      sampleOrders: "Sample orders",
+      syncedOrders: "Synced orders",
     },
     wixReadiness: {
       title: "Setup readiness",
@@ -436,6 +441,11 @@ export const printopsMessages = {
       settingsTitle: "設定",
       settingsDescription: "管理外觀、語言、時區和列印預設。",
     },
+    orders: {
+      emptyTitle: "尚未同步訂單",
+      emptyDescription: "連接 Wix 店鋪並同步訂單後，即可開始準備發票。",
+      emptySyncedDescription: "點擊同步最新訂單或同步最近 7 天，將真實 Wix 訂單載入 PrintOps。",
+    },
     wixSync: {
       title: "Wix 訂單連接",
       description: "拉取最新 Wix 訂單用於發票預覽。第一版歷史同步限制為最近 7 天。",
@@ -453,7 +463,7 @@ export const printopsMessages = {
       cachedOrdersLoaded: "筆快取訂單已從 PrintOps 載入",
       cacheUnavailable: "訂單快取暫不可用",
       window: "時間範圍",
-      sampleOrders: "樣例訂單",
+      syncedOrders: "已同步訂單",
     },
     wixReadiness: {
       title: "設定就緒檢查",
@@ -731,7 +741,21 @@ export function getPrintOpsMessages(locale: SiteLocale): PrintOpsMessages {
 
 export function getPrintTemplateCopy(locale: PrintLocale) {
   const copy: Partial<
-    Record<PrintLocale, { title: string; order: string; customer: string; due: string; language: string; customText: string; customFields: string; missingUpload: string; pdf: string }>
+    Record<
+      PrintLocale,
+      {
+        title: string;
+        order: string;
+        customer: string;
+        due: string;
+        language: string;
+        customText: string;
+        customFields: string;
+        missingUpload: string;
+        pdf: string;
+        emptySelection: string;
+      }
+    >
   > = {
     en: {
       title: "Invoice",
@@ -743,6 +767,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Custom fields",
       missingUpload: "Payment summary",
       pdf: "PDF",
+      emptySelection: "No synced orders selected.",
     },
     "zh-Hans": {
       title: "发票",
@@ -754,6 +779,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "自定义字段",
       missingUpload: "付款摘要",
       pdf: "PDF",
+      emptySelection: "尚未选择已同步订单。",
     },
     "zh-Hant": {
       title: "發票",
@@ -765,6 +791,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "自訂欄位",
       missingUpload: "付款摘要",
       pdf: "PDF",
+      emptySelection: "尚未選擇已同步訂單。",
     },
     de: {
       title: "Rechnung",
@@ -776,6 +803,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Benutzerdefinierte Felder",
       missingUpload: "Zahlungsuebersicht",
       pdf: "PDF",
+      emptySelection: "Keine synchronisierten Bestellungen ausgewahlt.",
     },
     nl: {
       title: "Factuur",
@@ -787,6 +815,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Aangepaste velden",
       missingUpload: "Betaaloverzicht",
       pdf: "PDF",
+      emptySelection: "Geen gesynchroniseerde bestellingen geselecteerd.",
     },
     fr: {
       title: "Facture",
@@ -798,6 +827,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Champs personnalises",
       missingUpload: "Synthese du paiement",
       pdf: "PDF",
+      emptySelection: "Aucune commande synchronisee selectionnee.",
     },
     es: {
       title: "Factura",
@@ -809,6 +839,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Campos personalizados",
       missingUpload: "Resumen de pago",
       pdf: "PDF",
+      emptySelection: "No hay pedidos sincronizados seleccionados.",
     },
     ja: {
       title: "請求書",
@@ -820,6 +851,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "カスタム項目",
       missingUpload: "支払い概要",
       pdf: "PDF",
+      emptySelection: "同期済み注文が選択されていません。",
     },
     pt: {
       title: "Fatura",
@@ -831,6 +863,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Campos personalizados",
       missingUpload: "Resumo de pagamento",
       pdf: "PDF",
+      emptySelection: "Nenhum pedido sincronizado selecionado.",
     },
     ar: {
       title: "فاتورة",
@@ -842,6 +875,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "حقول مخصصة",
       missingUpload: "ملخص الدفع",
       pdf: "PDF",
+      emptySelection: "لم يتم تحديد طلبات تمت مزامنتها.",
     },
     it: {
       title: "Fattura",
@@ -853,6 +887,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Campi personalizzati",
       missingUpload: "Riepilogo pagamento",
       pdf: "PDF",
+      emptySelection: "Nessun ordine sincronizzato selezionato.",
     },
     ko: {
       title: "인보이스",
@@ -864,6 +899,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "사용자 정의 필드",
       missingUpload: "결제 요약",
       pdf: "PDF",
+      emptySelection: "동기화된 주문이 선택되지 않았습니다.",
     },
   };
 
