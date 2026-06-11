@@ -1346,6 +1346,14 @@
   font-weight: 750;
 }
 
+.bulkActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .checkbox {
   width: 20px;
   height: 20px;
@@ -1401,6 +1409,10 @@
   border-bottom: 1px solid var(--table-line);
   vertical-align: middle;
   font-size: 13px;
+}
+
+.ordersTable tbody tr {
+  cursor: pointer;
 }
 
 .ordersTable tr[data-selected="true"] {

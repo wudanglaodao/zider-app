@@ -72,6 +72,12 @@ type Order = {
   rawOrder?: WixSyncOrderSummary;
 };
 
+type OrderActionRequest = {
+  action: "download" | "print";
+  id: number;
+  orders: Order[];
+};
+
 type OrderPrintLineItem = {
   barcode?: string | null;
   imageUrl?: string | null;
@@ -1559,6 +1565,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     orderCount: 0,
     status: "idle",
   });
+  const [orderActionRequest, setOrderActionRequest] = useState<OrderActionRequest | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -1823,14 +1830,9 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     const availableIds = new Set(displayOrders.map((order) => order.id));
     const nextSelectedIds = selectedIds.filter((orderId) => availableIds.has(orderId));
 
-    if (nextSelectedIds.length > 0) {
-      if (nextSelectedIds.length !== selectedIds.length) {
-        setSelectedIds(nextSelectedIds);
-      }
-      return;
+    if (nextSelectedIds.length !== selectedIds.length) {
+      setSelectedIds(nextSelectedIds);
     }
-
-    setSelectedIds(displayOrders.slice(0, 3).map((order) => order.id));
   }, [displayOrders, selectedIds]);
 
   function toggleOrder(orderId: string, checked: boolean) {
@@ -1841,14 +1843,42 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     setSelectedIds(checked ? displayOrders.map((order) => order.id) : []);
   }
 
-  function switchWorkspaceView(view: PrintOpsView, href: string, event: MouseEvent<HTMLAnchorElement>) {
-    setMobileSidebarOpen(false);
+  function selectOrders(orders: Order[]) {
+    setSelectedIds(orders.map((order) => order.id));
+  }
 
-    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+  function openOrdersPreview(orders: Order[]) {
+    if (orders.length === 0) {
       return;
     }
 
-    event.preventDefault();
+    selectOrders(orders);
+    setDrawerOpen(true);
+  }
+
+  function requestOrderExport(action: OrderActionRequest["action"], orders: Order[]) {
+    if (orders.length === 0) {
+      return;
+    }
+
+    selectOrders(orders);
+    setOrderActionRequest({
+      action,
+      id: Date.now(),
+      orders,
+    });
+  }
+
+  function markOrdersAsPrinted(orderIds: string[]) {
+    if (orderIds.length === 0) {
+      return;
+    }
+
+    const printableIds = new Set(orderIds);
+    setCachedOrders((currentOrders) => currentOrders.map((order) => (printableIds.has(order.id) ? { ...order, print: "Printed" } : order)));
+  }
+
+  function updateWorkspaceView(view: PrintOpsView, href: string) {
     setActiveView(view);
 
     if (href && href !== "#") {
@@ -1858,6 +1888,17 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         window.history.pushState({ printOpsView: view }, "", href);
       }
     }
+  }
+
+  function switchWorkspaceView(view: PrintOpsView, href: string, event: MouseEvent<HTMLAnchorElement>) {
+    setMobileSidebarOpen(false);
+
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+
+    event.preventDefault();
+    updateWorkspaceView(view, href);
   }
 
   function patchTemplateDraft(patch: Partial<TemplateDraft>) {
@@ -2189,16 +2230,32 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                   <BaseCheckbox
                     checked={selectedCount === displayOrders.length}
                     indeterminate={selectedCount > 0 && selectedCount < displayOrders.length}
-                    label="Select all"
+                    label={messages.orderPanel.selectAll}
                     onCheckedChange={toggleAll}
                   />
                 ) : null}
-                <span>{selectedCount} selected</span>
+                <span>
+                  {selectedCount} {messages.orderPanel.selectedOrders}
+                </span>
               </div>
-              <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => setDrawerOpen(true)}>
-                <Eye size={16} aria-hidden />
-                Preview batch
-              </button>
+              <div className={styles.bulkActions}>
+                <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => openOrdersPreview(selectedOrders)}>
+                  <Eye size={16} aria-hidden />
+                  {messages.orderPanel.previewBatch}
+                </button>
+                <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => requestOrderExport("download", selectedOrders)}>
+                  <Download size={16} aria-hidden />
+                  {messages.orderPanel.downloadPdf}
+                </button>
+                <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => requestOrderExport("print", selectedOrders)}>
+                  <Printer size={16} aria-hidden />
+                  {messages.orderPanel.printPreview}
+                </button>
+                <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => markOrdersAsPrinted(selectedOrders.map((order) => order.id))}>
+                  <CheckCircle2 size={16} aria-hidden />
+                  {messages.orderPanel.markAsPrinted}
+                </button>
+              </div>
             </div>
 
             <div className={styles.tableWrap}>
@@ -2218,46 +2275,72 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                 </thead>
                 <tbody>
                   {displayOrders.length > 0 ? (
-                    displayOrders.map((order) => (
-                      <tr data-selected={selectedIds.includes(order.id)} key={order.id}>
-                        <td>
-                          <BaseCheckbox
-                            checked={selectedIds.includes(order.id)}
-                            label={`Select order ${order.number}`}
-                            onCheckedChange={(checked) => toggleOrder(order.id, checked)}
-                          />
-                        </td>
-                        <td>
-                          <strong>{order.number}</strong>
-                          <span>{order.date}</span>
-                        </td>
-                        <td>
-                          <strong>{order.customer}</strong>
-                          <span>{order.email}</span>
-                        </td>
-                        <td>
-                          <span>{order.items}</span>
-                          <small>{order.total}</small>
-                        </td>
-                        <td>
-                          <StatusPill value={order.payment} />
-                        </td>
-                        <td>
-                          <StatusPill value={order.fulfillment} />
-                        </td>
-                        <td>
-                          <StatusPill value={order.print} />
-                          {order.warning ? <small className={styles.warningText}>{order.warning}</small> : null}
-                        </td>
-                        <td>
-                          <strong>{order.template}</strong>
-                          <span>{order.language}</span>
-                        </td>
-                        <td>
-                          <OrderMenu />
-                        </td>
-                      </tr>
-                    ))
+                    displayOrders.map((order) => {
+                      const isSelected = selectedIds.includes(order.id);
+
+                      return (
+                        <tr
+                          data-selected={isSelected}
+                          key={order.id}
+                          onClick={(event) => {
+                            const target = event.target as HTMLElement;
+
+                            if (target.closest("button,a,input,label,[role='menuitem'],[data-ignore-row-select='true']")) {
+                              return;
+                            }
+
+                            toggleOrder(order.id, !isSelected);
+                          }}
+                        >
+                          <td>
+                            <BaseCheckbox
+                              checked={isSelected}
+                              label={`Select order ${order.number}`}
+                              onCheckedChange={(checked) => toggleOrder(order.id, checked)}
+                            />
+                          </td>
+                          <td>
+                            <strong>{order.number}</strong>
+                            <span>{order.date}</span>
+                          </td>
+                          <td>
+                            <strong>{order.customer}</strong>
+                            <span>{order.email}</span>
+                          </td>
+                          <td>
+                            <span>{order.items}</span>
+                            <small>{order.total}</small>
+                          </td>
+                          <td>
+                            <StatusPill value={order.payment} />
+                          </td>
+                          <td>
+                            <StatusPill value={order.fulfillment} />
+                          </td>
+                          <td>
+                            <StatusPill value={order.print} />
+                            {order.warning ? <small className={styles.warningText}>{order.warning}</small> : null}
+                          </td>
+                          <td>
+                            <strong>{order.template}</strong>
+                            <span>{order.language}</span>
+                          </td>
+                          <td>
+                            <OrderMenu
+                              messages={messages}
+                              onChangeTemplate={() => {
+                                selectOrders([order]);
+                                updateWorkspaceView("templates", viewLinks.templates);
+                              }}
+                              onDownload={() => requestOrderExport("download", [order])}
+                              onMarkPrinted={() => markOrdersAsPrinted([order.id])}
+                              onPreview={() => openOrdersPreview([order])}
+                              onPrint={() => requestOrderExport("print", [order])}
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
                       <td colSpan={9}>
@@ -2276,7 +2359,9 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
           <aside className={styles.previewPanel}>
             <div className={styles.tabPanel}>
               <OrderActionPanel
+                actionRequest={orderActionRequest}
                 messages={messages}
+                onActionHandled={() => setOrderActionRequest(null)}
                 onOpenPreview={() => setDrawerOpen(true)}
                 printLocale={language}
                 selectedOrders={selectedOrders}
@@ -3174,7 +3259,21 @@ function StatusPill({ value, label }: { value: string; label?: string }) {
   );
 }
 
-function OrderMenu() {
+function OrderMenu({
+  messages,
+  onChangeTemplate,
+  onDownload,
+  onMarkPrinted,
+  onPreview,
+  onPrint,
+}: {
+  messages: PrintOpsMessages;
+  onChangeTemplate: () => void;
+  onDownload: () => void;
+  onMarkPrinted: () => void;
+  onPreview: () => void;
+  onPrint: () => void;
+}) {
   return (
     <Menu.Root>
       <Menu.Trigger className={styles.iconButton} aria-label="Order actions">
@@ -3183,9 +3282,21 @@ function OrderMenu() {
       <Menu.Portal>
         <Menu.Positioner sideOffset={6}>
           <Menu.Popup className={styles.menuPopup}>
-            <Menu.Item className={styles.menuItem}>Preview</Menu.Item>
-            <Menu.Item className={styles.menuItem}>Change template</Menu.Item>
-            <Menu.Item className={styles.menuItem}>Mark as printed</Menu.Item>
+            <Menu.Item className={styles.menuItem} onClick={onPreview}>
+              {messages.orderPanel.openPreview}
+            </Menu.Item>
+            <Menu.Item className={styles.menuItem} onClick={onDownload}>
+              {messages.orderPanel.downloadPdf}
+            </Menu.Item>
+            <Menu.Item className={styles.menuItem} onClick={onPrint}>
+              {messages.orderPanel.printPreview}
+            </Menu.Item>
+            <Menu.Item className={styles.menuItem} onClick={onChangeTemplate}>
+              {messages.orderPanel.changeTemplate}
+            </Menu.Item>
+            <Menu.Item className={styles.menuItem} onClick={onMarkPrinted}>
+              {messages.orderPanel.markAsPrinted}
+            </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>
       </Menu.Portal>
@@ -6118,13 +6229,17 @@ function PrintPreview({
 }
 
 function OrderActionPanel({
+  actionRequest,
   messages,
+  onActionHandled,
   onOpenPreview,
   printLocale,
   selectedOrders,
   templateRecord,
 }: {
+  actionRequest?: OrderActionRequest | null;
   messages: PrintOpsMessages;
+  onActionHandled?: () => void;
   onOpenPreview: () => void;
   printLocale: PrintLocale;
   selectedOrders: Order[];
@@ -6132,7 +6247,8 @@ function OrderActionPanel({
 }) {
   const paperRef = useRef<HTMLDivElement | null>(null);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const firstOrder = selectedOrders[0] ?? null;
+  const activeOrders = actionRequest?.orders.length ? actionRequest.orders : selectedOrders;
+  const firstOrder = activeOrders[0] ?? null;
   const copy = getPrintTemplateCopy(printLocale);
   const orderDetails = firstOrder
     ? getOrderPrintDetails(firstOrder, {
@@ -6172,6 +6288,35 @@ function OrderActionPanel({
 
     openOrderPrintWindow(paperNode, `${copy.title} ${firstOrder.number}`);
   };
+
+  useEffect(() => {
+    if (!actionRequest) {
+      return;
+    }
+
+    const currentRequest = actionRequest;
+    let cancelled = false;
+
+    async function runActionRequest() {
+      try {
+        if (currentRequest.action === "download") {
+          await handleDownloadPdf();
+        } else {
+          handlePrint();
+        }
+      } finally {
+        if (!cancelled) {
+          onActionHandled?.();
+        }
+      }
+    }
+
+    void runActionRequest();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [actionRequest?.id]);
 
   if (!firstOrder) {
     return (
