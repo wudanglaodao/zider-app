@@ -1543,6 +1543,112 @@
   padding: 14px;
 }
 
+.orderActionPanel {
+  position: relative;
+  display: grid;
+  gap: 12px;
+}
+
+.orderActionHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
+.orderActionHeader span,
+.orderActionSummary small,
+.orderActionCard small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.orderActionHeader strong {
+  display: block;
+  margin-top: 2px;
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.05;
+}
+
+.orderActionHeader > small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.orderActionSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.orderActionSummary > span,
+.orderActionCard {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 12px;
+}
+
+.orderActionSummary strong,
+.orderActionCard strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.orderActionCard {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.orderActionCard svg {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  color: var(--green);
+}
+
+.orderActionCard span {
+  min-width: 0;
+}
+
+.orderActionCard em {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.orderPanelActions {
+  display: grid;
+  gap: 8px;
+}
+
+.orderPanelActions button {
+  width: 100%;
+}
+
+.exportOnlyStage {
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  width: 794px;
+  height: 1123px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .previewStack {
   min-width: 0;
 }

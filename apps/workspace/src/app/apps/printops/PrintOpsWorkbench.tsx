@@ -2211,7 +2211,13 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
           <aside className={styles.previewPanel}>
             <div className={styles.tabPanel}>
-              <PrintPreview previewId="side" printLocale={language} selectedOrders={selectedOrders} templateRecord={defaultOrderTemplate} />
+              <OrderActionPanel
+                messages={messages}
+                onOpenPreview={() => setDrawerOpen(true)}
+                printLocale={language}
+                selectedOrders={selectedOrders}
+                templateRecord={defaultOrderTemplate}
+              />
             </div>
           </aside>
         </div>
@@ -2653,7 +2659,7 @@ function mapWixSyncOrderToOrder(order: WixSyncOrderSummary, source: Order["sourc
 }
 
 function countWixOrderCustomFields(order: WixSyncOrderSummary) {
-  return order.customFields.length + order.lineItems.reduce((total, lineItem) => total + lineItem.customFields.length + lineItem.options.length, 0);
+  return collectWixOrderCustomFields(order).length;
 }
 
 function collectWixOrderCustomFields(order: WixSyncOrderSummary) {
@@ -2670,11 +2676,16 @@ function collectWixOrderCustomFields(order: WixSyncOrderSummary) {
   order.lineItems.forEach((lineItem, index) => {
     const itemLabel = lineItem.title ?? `Line item ${index + 1}`;
 
-    [...lineItem.options, ...lineItem.customFields].forEach((field) => {
-      const formatted = formatWixCustomField(field, itemLabel);
+    lineItem.customFields.forEach((field) => {
+      const formatted = formatWixCustomField(field);
 
       if (formatted) {
-        fields.push(formatted);
+        if (!isGenericWixOptionLabel(formatted.label)) {
+          fields.push({
+            label: `${itemLabel}: ${formatted.label}`,
+            value: formatted.value,
+          });
+        }
       }
     });
   });
@@ -2686,13 +2697,38 @@ function formatWixCustomField(field: unknown, prefix?: string) {
   const record = getRecord(field);
 
   if (!record) {
+    const value = formatCustomFieldValue(field);
+
+    if (!value || isInternalWixCustomField("Custom field", value)) {
+      return null;
+    }
+
+    return {
+      label: prefix ? `${prefix}: Custom field` : "Custom field",
+      value,
+    };
+  }
+
+  const rawLabel =
+    getString(record.label) ??
+    getString(record.key) ??
+    getString(record.name) ??
+    getString(record.path) ??
+    getString(record.optionName) ??
+    getString(record.option) ??
+    "Options";
+  const optionName = getString(record.optionName) ?? getString(record.option);
+  const value = formatCustomFieldValue(
+    record.value ?? record.displayValue ?? record.formattedValue ?? record.text ?? record.selection ?? record.selectedValue ?? record.choice ?? record.name ?? record.label,
+  );
+
+  if (!value) {
     return null;
   }
 
-  const label = getString(record.label) ?? getString(record.key) ?? getString(record.name) ?? getString(record.path) ?? "Custom field";
-  const value = formatCustomFieldValue(record.value ?? record.displayValue ?? record.text ?? record.name ?? record.label);
+  const label = formatCustomFieldLabel(optionName ?? rawLabel);
 
-  if (!value) {
+  if (isInternalWixCustomField(label, value)) {
     return null;
   }
 
@@ -2704,7 +2740,26 @@ function formatWixCustomField(field: unknown, prefix?: string) {
 
 function formatCustomFieldValue(value: unknown): string | null {
   if (typeof value === "string") {
-    return value.trim() || null;
+    const trimmedValue = value.trim();
+
+    if (!trimmedValue) {
+      return null;
+    }
+
+    if ((trimmedValue.startsWith("{") && trimmedValue.endsWith("}")) || (trimmedValue.startsWith("[") && trimmedValue.endsWith("]"))) {
+      try {
+        const parsedValue = JSON.parse(trimmedValue) as unknown;
+        const formattedValue = formatCustomFieldValue(parsedValue);
+
+        if (formattedValue) {
+          return formattedValue;
+        }
+      } catch {
+        return trimmedValue;
+      }
+    }
+
+    return trimmedValue;
   }
 
   if (typeof value === "number" || typeof value === "boolean") {
@@ -2723,20 +2778,91 @@ function formatCustomFieldValue(value: unknown): string | null {
 
   if (value && typeof value === "object") {
     const record = value as Record<string, unknown>;
-    const directValue = getString(record.formatted) ?? getString(record.label) ?? getString(record.name) ?? getString(record.value);
+    const directValue = getString(record.formatted) ?? getString(record.formattedValue) ?? getString(record.displayValue) ?? getString(record.text) ?? getString(record.value);
 
     if (directValue) {
-      return directValue;
+      return formatCustomFieldValue(directValue);
     }
 
-    try {
-      return JSON.stringify(value);
-    } catch {
-      return null;
-    }
+    const fieldParts = Object.entries(record)
+      .map(([key, nestedValue]) => {
+        if (isCustomFieldMetadataKey(key)) {
+          return null;
+        }
+
+        const formattedValue = formatCustomFieldValue(nestedValue);
+
+        if (!formattedValue || isInternalWixCustomField(key, formattedValue)) {
+          return null;
+        }
+
+        return `${formatCustomFieldLabel(key)}: ${formattedValue}`;
+      })
+      .filter((part): part is string => Boolean(part));
+
+    return fieldParts.length > 0 ? fieldParts.join(" / ") : null;
   }
 
   return null;
+}
+
+function formatCustomFieldLabel(label: string) {
+  const normalizedLabel = label
+    .replace(/[._-]+/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .trim();
+
+  if (!normalizedLabel) {
+    return "Custom field";
+  }
+
+  return normalizedLabel
+    .split(/\s+/)
+    .map((word) => {
+      const upperWord = word.toUpperCase();
+
+      if (["ID", "SKU", "VAT", "URL"].includes(upperWord)) {
+        return upperWord;
+      }
+
+      return `${word.charAt(0).toUpperCase()}${word.slice(1)}`;
+    })
+    .join(" ");
+}
+
+function normalizeCustomFieldKey(value: string) {
+  return value.replace(/[^a-z0-9]/gi, "").toLowerCase();
+}
+
+function isCustomFieldMetadataKey(key: string) {
+  const normalizedKey = normalizeCustomFieldKey(key);
+
+  return ["label", "name", "key", "path", "type", "typename", "formatted", "formattedvalue", "displayvalue", "text"].includes(normalizedKey);
+}
+
+function isGenericWixOptionLabel(label: string) {
+  return ["option", "options", "itemoption", "itemoptions", "choice", "choices", "customfield"].includes(normalizeCustomFieldKey(label));
+}
+
+function isInternalWixCustomField(label: string, value: string) {
+  const normalizedLabel = normalizeCustomFieldKey(label);
+  const normalizedValue = value.trim();
+
+  if (
+    /variant.*id/.test(normalizedLabel) ||
+    /lineitem.*id/.test(normalizedLabel) ||
+    /source.*id/.test(normalizedLabel) ||
+    /catalog.*reference/.test(normalizedLabel) ||
+    /product.*id/.test(normalizedLabel) ||
+    /option.*id/.test(normalizedLabel) ||
+    /choice.*id/.test(normalizedLabel)
+  ) {
+    return true;
+  }
+
+  const isUuidValue = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(normalizedValue);
+
+  return isUuidValue && (normalizedLabel === "id" || isGenericWixOptionLabel(label));
 }
 
 function getOrderTotal(order: WixSyncOrderSummary) {
@@ -5143,7 +5269,7 @@ function formatLineItemOptions(lineItem: WixSyncOrderSummary["lineItems"][number
   return [...lineItem.options, ...lineItem.customFields]
     .map((field) => formatWixCustomField(field))
     .filter((field): field is { label: string; value: string } => Boolean(field))
-    .map((field) => `${field.label}: ${field.value}`)
+    .map((field) => (isGenericWixOptionLabel(field.label) ? field.value : `${field.label}: ${field.value}`))
     .join(" / ");
 }
 
@@ -5922,6 +6048,146 @@ function PrintPreview({
             {copy.print}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function OrderActionPanel({
+  messages,
+  onOpenPreview,
+  printLocale,
+  selectedOrders,
+  templateRecord,
+}: {
+  messages: PrintOpsMessages;
+  onOpenPreview: () => void;
+  printLocale: PrintLocale;
+  selectedOrders: Order[];
+  templateRecord: TemplateRecord;
+}) {
+  const paperRef = useRef<HTMLDivElement | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const firstOrder = selectedOrders[0] ?? null;
+  const copy = getPrintTemplateCopy(printLocale);
+  const orderDetails = firstOrder
+    ? getOrderPrintDetails(firstOrder, {
+        addressFormat: templateRecord.addressFormat,
+        dateFormat: templateRecord.dateFormat,
+        locale: printLocale,
+      })
+    : null;
+  const firstLineItem = orderDetails?.lineItems[0] ?? null;
+  const printableCustomFields = orderDetails?.customFields ?? [];
+
+  const handleDownloadPdf = async () => {
+    const paperNode = getOrderPreviewPaperNode(paperRef.current);
+
+    if (!firstOrder || !paperNode || isExportingPdf) {
+      return;
+    }
+
+    setIsExportingPdf(true);
+
+    try {
+      const fileName = getOrderFileName(firstOrder);
+      const pdfBlob = await createOrderPdfBlob(paperNode, fileName);
+
+      downloadPdfBlob(pdfBlob, fileName);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handlePrint = () => {
+    const paperNode = getOrderPreviewPaperNode(paperRef.current);
+
+    if (!firstOrder || !paperNode) {
+      return;
+    }
+
+    openOrderPrintWindow(paperNode, `${copy.title} ${firstOrder.number}`);
+  };
+
+  if (!firstOrder) {
+    return (
+      <div className={styles.orderActionPanel}>
+        <div className={styles.emptyPreviewState}>
+          <FileText size={22} aria-hidden />
+          <strong>{messages.orderPanel.emptyTitle}</strong>
+          <span>{messages.orderPanel.emptyBody}</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.orderActionPanel}>
+      <div className={styles.orderActionHeader}>
+        <div>
+          <span>{templateRecord.name}</span>
+          <strong>{firstOrder.number}</strong>
+        </div>
+        <small>{templateRecord.paperSize}</small>
+      </div>
+
+      <div className={styles.orderActionSummary}>
+        <span>
+          <small>{messages.orderPanel.firstOrder}</small>
+          <strong>{firstOrder.number}</strong>
+        </span>
+        <span>
+          <small>{messages.orderPanel.customer}</small>
+          <strong>{firstOrder.customer}</strong>
+        </span>
+        <span>
+          <small>{messages.orderPanel.placed}</small>
+          <strong>{firstOrder.date}</strong>
+        </span>
+        <span>
+          <small>{messages.orderPanel.payment}</small>
+          <StatusPill value={firstOrder.payment} />
+        </span>
+      </div>
+
+      {firstLineItem ? (
+        <div className={styles.orderActionCard}>
+          <Package size={18} aria-hidden />
+          <span>
+            <small>{messages.orderPanel.item}</small>
+            <strong>
+              {firstLineItem.title} x {firstLineItem.quantity}
+            </strong>
+            {firstLineItem.sku ? <em>SKU {firstLineItem.sku}</em> : null}
+          </span>
+        </div>
+      ) : null}
+
+      <div className={styles.orderActionCard}>
+        <FileText size={18} aria-hidden />
+        <span>
+          <small>{messages.orderPanel.customFields}</small>
+          <strong>{printableCustomFields.length > 0 ? printableCustomFields.slice(0, 2).map((field) => `${field.label}: ${field.value}`).join(" / ") : messages.orderPanel.noCustomFields}</strong>
+        </span>
+      </div>
+
+      <div className={styles.orderPanelActions}>
+        <button className={styles.secondaryButton} type="button" onClick={onOpenPreview}>
+          <Eye size={16} aria-hidden />
+          {messages.orderPanel.openPreview}
+        </button>
+        <button className={styles.secondaryButton} disabled={isExportingPdf} type="button" onClick={handleDownloadPdf}>
+          <Download size={16} aria-hidden />
+          {messages.orderPanel.downloadPdf}
+        </button>
+        <button className={styles.primaryButton} type="button" onClick={handlePrint}>
+          <Printer size={16} aria-hidden />
+          {messages.orderPanel.printPreview}
+        </button>
+      </div>
+
+      <div aria-hidden className={styles.exportOnlyStage} ref={paperRef}>
+        <OrderTemplatePrintDocument order={firstOrder} printLocale={printLocale} templateRecord={templateRecord} />
       </div>
     </div>
   );
