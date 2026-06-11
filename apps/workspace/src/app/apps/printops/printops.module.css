@@ -1367,7 +1367,8 @@
 .ordersTable {
   width: 100%;
   min-width: 980px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .ordersTable th {
@@ -1393,6 +1394,26 @@
 }
 
 .ordersTable tr[data-selected="true"] {
+  background: var(--row-selected);
+}
+
+.ordersTable th:last-child,
+.ordersTable td:last-child {
+  position: sticky;
+  right: 0;
+  width: 74px;
+  min-width: 74px;
+  background: var(--surface);
+  box-shadow: -12px 0 18px rgba(18, 24, 23, 0.06);
+  text-align: center;
+  z-index: 2;
+}
+
+.ordersTable th:last-child {
+  z-index: 3;
+}
+
+.ordersTable tr[data-selected="true"] td:last-child {
   background: var(--row-selected);
 }
 
@@ -1687,11 +1708,26 @@
 
 .previewFooter {
   margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.previewFooterActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .iconTextButton {
   min-height: 34px;
   padding: 0 10px;
+}
+
+.iconTextButton:disabled {
+  opacity: 0.52;
+  cursor: wait;
 }
 
 .historyList {

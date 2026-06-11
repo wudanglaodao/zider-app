@@ -28,7 +28,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { type ChangeEvent, type CSSProperties, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ChangeEvent, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   defaultPrintLocale,
   defaultSiteLocale,
@@ -3223,6 +3223,12 @@ function getTemplateFileName(templateRecord: TemplateRecord) {
   return `${normalizedName || "printops-template"}.pdf`;
 }
 
+function getOrderFileName(order: Order) {
+  const normalizedNumber = order.number.replace(/[^a-z0-9]+/gi, "-").replace(/(^-|-$)/g, "");
+
+  return `invoice-${normalizedNumber || order.id || "order"}.pdf`;
+}
+
 function getTemplatePreviewNode() {
   const previewNode = document.querySelector<HTMLElement>('[data-template-print-preview="true"]');
   const paperNode = previewNode?.querySelector<HTMLElement>('[class*="templatePaper"]');
@@ -3251,6 +3257,198 @@ function applyTemplateExportTokens(element: HTMLElement) {
   Object.entries(tokens).forEach(([name, value]) => {
     element.style.setProperty(name, value);
   });
+}
+
+async function createOrderPdfBlob(sourceNode: HTMLElement, fileName: string) {
+  const { default: html2pdf } = await import("html2pdf.js");
+  const exportHost = document.createElement("div");
+  const clonedPaper = sourceNode.cloneNode(true) as HTMLElement;
+
+  applyTemplateExportTokens(exportHost);
+  exportHost.setAttribute("aria-hidden", "true");
+  exportHost.style.position = "fixed";
+  exportHost.style.top = "0";
+  exportHost.style.left = "-10000px";
+  exportHost.style.width = `${A4_EXPORT_WIDTH_PX}px`;
+  exportHost.style.height = `${A4_EXPORT_HEIGHT_PX}px`;
+  exportHost.style.boxSizing = "border-box";
+  exportHost.style.background = "#ffffff";
+  exportHost.style.overflow = "hidden";
+  exportHost.style.pointerEvents = "none";
+
+  clonedPaper.style.width = `${A4_EXPORT_WIDTH_PX}px`;
+  clonedPaper.style.maxWidth = "none";
+  clonedPaper.style.minHeight = `${A4_EXPORT_HEIGHT_PX}px`;
+  clonedPaper.style.height = `${A4_EXPORT_HEIGHT_PX}px`;
+  clonedPaper.style.boxSizing = "border-box";
+  clonedPaper.style.boxShadow = "none";
+  clonedPaper.style.border = "0";
+  clonedPaper.style.borderRadius = "0";
+  clonedPaper.style.margin = "0";
+  clonedPaper.style.overflow = "hidden";
+  clonedPaper.style.padding = "64px";
+  clonedPaper.querySelectorAll<HTMLElement>("*").forEach((node) => {
+    node.style.boxSizing = "border-box";
+  });
+
+  exportHost.appendChild(clonedPaper);
+  document.body.appendChild(exportHost);
+
+  try {
+    return (await html2pdf()
+      .set({
+        margin: 0,
+        filename: fileName,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: {
+          backgroundColor: "#ffffff",
+          height: A4_EXPORT_HEIGHT_PX,
+          logging: false,
+          scale: 3,
+          useCORS: true,
+          width: A4_EXPORT_WIDTH_PX,
+          windowHeight: A4_EXPORT_HEIGHT_PX,
+          windowWidth: A4_EXPORT_WIDTH_PX,
+        },
+        jsPDF: {
+          format: "a4",
+          orientation: "portrait",
+          unit: "mm",
+        },
+      })
+      .from(clonedPaper)
+      .outputPdf("blob")) as Blob;
+  } finally {
+    exportHost.remove();
+  }
+}
+
+function downloadPdfBlob(pdfBlob: Blob, fileName: string) {
+  const objectUrl = URL.createObjectURL(pdfBlob);
+  const link = document.createElement("a");
+
+  link.href = objectUrl;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
+
+function openOrderPrintWindow(sourceNode: HTMLElement, title: string) {
+  const printWindow = window.open("", "_blank", "width=980,height=1200");
+
+  if (!printWindow) {
+    return;
+  }
+
+  const stylesMarkup = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
+    .map((node) => node.outerHTML)
+    .join("\n");
+
+  printWindow.document.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>${escapeTemplatePrintHtml(title)}</title>
+    ${stylesMarkup}
+    <style>
+      :root,
+      body,
+      .printops-order-print-preview {
+        --ink: #121817;
+        --muted: #65706d;
+        --line: #dde5df;
+        --line-strong: #c7d4cc;
+        --surface: #ffffff;
+        --surface-elevated: #ffffff;
+        --surface-soft: #f5f7f3;
+        --workspace-bg: #f8faf9;
+        --green: #087a46;
+        --green-strong: #046137;
+        --green-soft: #e6f4ec;
+        --paper-surface: #ffffff;
+        --paper-ink: #121817;
+        --paper-muted: #65706d;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      .printops-order-print-preview,
+      .printops-order-print-preview * {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: #eef1ef;
+        color: var(--ink);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .printops-order-print-preview {
+        display: grid;
+        justify-items: center;
+        min-height: 100vh;
+        padding: 32px;
+      }
+
+      .printops-order-print-preview [data-order-paper="true"] {
+        width: ${A4_EXPORT_WIDTH_PX}px !important;
+        max-width: none !important;
+        min-height: ${A4_EXPORT_HEIGHT_PX}px !important;
+        height: ${A4_EXPORT_HEIGHT_PX}px !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 64px !important;
+      }
+
+      @page {
+        size: A4 portrait;
+        margin: 0;
+      }
+
+      @media print {
+        body {
+          background: #ffffff;
+        }
+
+        .printops-order-print-preview {
+          min-height: auto;
+          padding: 0;
+        }
+
+        .printops-order-print-preview [data-order-paper="true"] {
+          width: 210mm !important;
+          max-width: none !important;
+          min-height: 297mm !important;
+          height: 297mm !important;
+          border: 0 !important;
+          border-radius: 0 !important;
+          box-shadow: none !important;
+          padding: 17mm !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="printops-order-print-preview">${sourceNode.outerHTML}</main>
+    <script>
+      window.addEventListener("load", () => {
+        window.focus();
+        window.setTimeout(() => window.print(), 250);
+      });
+    </script>
+  </body>
+</html>`);
+  printWindow.document.close();
 }
 
 async function createTemplatePdfBlob(templateRecord: TemplateRecord) {
@@ -5366,9 +5564,36 @@ function Spec({ label, value }: { label: string; value: string }) {
 }
 
 function PrintPreview({ selectedOrders, compact, printLocale }: { selectedOrders: Order[]; compact?: boolean; printLocale: PrintLocale }) {
+  const paperRef = useRef<HTMLDivElement | null>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const firstOrder = selectedOrders[0] ?? null;
   const copy = getPrintTemplateCopy(printLocale);
   const customFields = (firstOrder?.customFields ?? []).filter((field) => field.label && field.value).slice(0, 6);
+
+  const handleDownloadPdf = async () => {
+    if (!firstOrder || !paperRef.current || isExportingPdf) {
+      return;
+    }
+
+    setIsExportingPdf(true);
+
+    try {
+      const fileName = getOrderFileName(firstOrder);
+      const pdfBlob = await createOrderPdfBlob(paperRef.current, fileName);
+
+      downloadPdfBlob(pdfBlob, fileName);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handlePrint = () => {
+    if (!firstOrder || !paperRef.current) {
+      return;
+    }
+
+    openOrderPrintWindow(paperRef.current, `${copy.title} ${firstOrder.number}`);
+  };
 
   if (!firstOrder) {
     return (
@@ -5391,7 +5616,7 @@ function PrintPreview({ selectedOrders, compact, printLocale }: { selectedOrders
         </div>
         <span>A4</span>
       </div>
-      <div className={styles.paper}>
+      <div className={styles.paper} data-order-paper="true" ref={paperRef}>
         <header>
           <div className={styles.paperLogo}>GS</div>
           <div>
@@ -5449,10 +5674,16 @@ function PrintPreview({ selectedOrders, compact, printLocale }: { selectedOrders
       </div>
       <div className={styles.previewFooter}>
         <span>{selectedOrders.length || 1} orders in batch</span>
-        <button className={styles.iconTextButton} type="button">
-          <Download size={16} aria-hidden />
-          {copy.pdf}
-        </button>
+        <div className={styles.previewFooterActions}>
+          <button className={styles.iconTextButton} type="button" disabled={isExportingPdf} onClick={handleDownloadPdf}>
+            <Download size={16} aria-hidden />
+            {copy.pdf}
+          </button>
+          <button className={styles.iconTextButton} type="button" onClick={handlePrint}>
+            <Printer size={16} aria-hidden />
+            {copy.print}
+          </button>
+        </div>
       </div>
     </div>
   );

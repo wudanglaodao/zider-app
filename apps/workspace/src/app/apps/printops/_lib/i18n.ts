@@ -751,6 +751,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
         customFields: string;
         missingUpload: string;
         pdf: string;
+        print: string;
         emptySelection: string;
       }
     >
@@ -765,6 +766,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Custom fields",
       missingUpload: "Payment summary",
       pdf: "PDF",
+      print: "Print",
       emptySelection: "No synced orders selected.",
     },
     "zh-Hans": {
@@ -777,6 +779,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "自定义字段",
       missingUpload: "付款摘要",
       pdf: "PDF",
+      print: "打印",
       emptySelection: "尚未选择已同步订单。",
     },
     "zh-Hant": {
@@ -789,6 +792,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "自訂欄位",
       missingUpload: "付款摘要",
       pdf: "PDF",
+      print: "列印",
       emptySelection: "尚未選擇已同步訂單。",
     },
     de: {
@@ -801,6 +805,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Benutzerdefinierte Felder",
       missingUpload: "Zahlungsuebersicht",
       pdf: "PDF",
+      print: "Drucken",
       emptySelection: "Keine synchronisierten Bestellungen ausgewahlt.",
     },
     nl: {
@@ -813,6 +818,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Aangepaste velden",
       missingUpload: "Betaaloverzicht",
       pdf: "PDF",
+      print: "Afdrukken",
       emptySelection: "Geen gesynchroniseerde bestellingen geselecteerd.",
     },
     fr: {
@@ -825,6 +831,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Champs personnalises",
       missingUpload: "Synthese du paiement",
       pdf: "PDF",
+      print: "Imprimer",
       emptySelection: "Aucune commande synchronisee selectionnee.",
     },
     es: {
@@ -837,6 +844,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Campos personalizados",
       missingUpload: "Resumen de pago",
       pdf: "PDF",
+      print: "Imprimir",
       emptySelection: "No hay pedidos sincronizados seleccionados.",
     },
     ja: {
@@ -849,6 +857,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "カスタム項目",
       missingUpload: "支払い概要",
       pdf: "PDF",
+      print: "印刷",
       emptySelection: "同期済み注文が選択されていません。",
     },
     pt: {
@@ -861,6 +870,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Campos personalizados",
       missingUpload: "Resumo de pagamento",
       pdf: "PDF",
+      print: "Imprimir",
       emptySelection: "Nenhum pedido sincronizado selecionado.",
     },
     ar: {
@@ -873,6 +883,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "حقول مخصصة",
       missingUpload: "ملخص الدفع",
       pdf: "PDF",
+      print: "طباعة",
       emptySelection: "لم يتم تحديد طلبات تمت مزامنتها.",
     },
     it: {
@@ -885,6 +896,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "Campi personalizzati",
       missingUpload: "Riepilogo pagamento",
       pdf: "PDF",
+      print: "Stampa",
       emptySelection: "Nessun ordine sincronizzato selezionato.",
     },
     ko: {
@@ -897,6 +909,7 @@ export function getPrintTemplateCopy(locale: PrintLocale) {
       customFields: "사용자 정의 필드",
       missingUpload: "결제 요약",
       pdf: "PDF",
+      print: "인쇄",
       emptySelection: "동기화된 주문이 선택되지 않았습니다.",
     },
   };
