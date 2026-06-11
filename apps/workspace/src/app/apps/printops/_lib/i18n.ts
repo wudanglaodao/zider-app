@@ -101,8 +101,7 @@ export const printopsMessages = {
       searchOrders: "Search orders",
       searchTemplates: "Search templates",
       searchSettings: "Search settings",
-      messages: "Messages",
-      notifications: "Notifications",
+      notifications: "Product updates",
       siteLanguage: "Site language",
     },
     pages: {
@@ -429,8 +428,7 @@ export const printopsMessages = {
       searchOrders: "搜尋訂單",
       searchTemplates: "搜尋模板",
       searchSettings: "搜尋設定",
-      messages: "訊息",
-      notifications: "通知",
+      notifications: "功能更新通知",
       siteLanguage: "站點語言",
     },
     pages: {

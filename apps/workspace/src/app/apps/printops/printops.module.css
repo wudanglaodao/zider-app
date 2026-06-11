@@ -478,12 +478,17 @@
   height: 42px;
   display: grid;
   place-items: center;
-  border: 0;
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
-  color: var(--muted);
+  color: var(--green-strong);
   box-shadow: 0 8px 24px rgba(18, 24, 23, 0.05);
   cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
 }
 
 .localeTrigger {
@@ -513,13 +518,25 @@
 
 .roundAction span {
   position: absolute;
-  top: 9px;
-  right: 10px;
-  width: 7px;
-  height: 7px;
+  top: 8px;
+  right: 9px;
+  width: 8px;
+  height: 8px;
   border: 2px solid var(--surface);
   border-radius: 999px;
   background: #ef4444;
+}
+
+.roundAction:hover {
+  border-color: color-mix(in srgb, var(--green) 48%, var(--line));
+  background: var(--green-soft);
+  box-shadow: 0 12px 28px rgba(7, 128, 75, 0.12);
+  transform: translateY(-1px);
+}
+
+.roundAction:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--green) 24%, transparent);
+  outline-offset: 3px;
 }
 
 .profileButton {

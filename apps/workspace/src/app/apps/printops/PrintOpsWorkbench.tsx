@@ -7,7 +7,7 @@ import { Select } from "@base-ui/react/select";
 import { Switch } from "@base-ui/react/switch";
 import {
   AlertTriangle,
-  Bell,
+  BellRing,
   BookOpen,
   CheckCircle2,
   ChevronDown,
@@ -18,7 +18,6 @@ import {
   Globe,
   Languages,
   LayoutTemplate,
-  Mail,
   Menu as MenuIcon,
   MoreHorizontal,
   Package,
@@ -2039,13 +2038,9 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             </button>
           </div>
           <div className={styles.topbarActions}>
-            <button className={styles.roundAction} type="button" aria-label={messages.topbar.messages}>
-              <Mail size={18} aria-hidden />
-              <span />
-            </button>
-            <button className={styles.roundAction} type="button" aria-label={messages.topbar.notifications}>
-              <Bell size={18} aria-hidden />
-              <span />
+            <button className={styles.roundAction} type="button" aria-label={messages.topbar.notifications} title={messages.topbar.notifications}>
+              <BellRing size={18} aria-hidden />
+              <span aria-hidden />
             </button>
             <button className={styles.profileButton} type="button">
               <span className={styles.avatar}>GS</span>
