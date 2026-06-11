@@ -72,6 +72,13 @@ type Order = {
 };
 
 type PrintOpsView = "orders" | "templates" | "settings";
+
+type PageMetric = {
+  label: string;
+  value: string;
+  tone?: "warning";
+};
+
 type PrintOpsPluginContext = {
   appKey: string;
   appName: string;
@@ -1546,7 +1553,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const selectedCount = selectedOrders.length;
   const orderMetrics = useMemo(
     () => ({
-      failed: displayOrders.filter((order) => order.print === "Failed").length,
       generated: displayOrders.filter((order) => order.print === "Generated").length,
       sent: displayOrders.filter((order) => order.print === "Sent").length,
       unprinted: displayOrders.filter((order) => order.print === "Unprinted").length,
@@ -1616,7 +1622,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       : activeView === "settings"
         ? messages.pages.settingsDescription
         : messages.pages.ordersDescription;
-  const pageMetrics =
+  const pageMetrics: PageMetric[] =
     activeView === "templates"
       ? [
           { label: messages.metrics.myTemplates, value: String(templateStats.mine) },
@@ -1630,7 +1636,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
           { label: messages.metrics.unprinted, value: String(orderMetrics.unprinted) },
           { label: messages.metrics.generated, value: String(orderMetrics.generated) },
           { label: messages.metrics.sent, value: String(orderMetrics.sent) },
-          { label: messages.metrics.failed, value: String(orderMetrics.failed), tone: "warning" as const },
         ];
 
   useEffect(() => {
@@ -2117,7 +2122,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
               <FilterChip label="30 days" active />
               <FilterChip label="Unfulfilled" />
               <FilterChip label="Unprinted" />
-              <FilterChip label="Failed" />
             </div>
 
             <div className={styles.tableToolbar}>
