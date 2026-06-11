@@ -28,7 +28,7 @@ import {
   Settings,
   X,
 } from "lucide-react";
-import { type ChangeEvent, type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, type CSSProperties, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   defaultPrintLocale,
   defaultSiteLocale,
@@ -102,6 +102,28 @@ type OrderPrintDetails = {
 };
 
 type PrintOpsView = "orders" | "templates" | "settings";
+
+function getPrintOpsViewFromLocation(fallback: PrintOpsView): PrintOpsView {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  const viewParam = new URLSearchParams(window.location.search).get("view");
+
+  if (viewParam === "templates" || viewParam === "settings") {
+    return viewParam;
+  }
+
+  if (window.location.pathname.endsWith("/templates")) {
+    return "templates";
+  }
+
+  if (window.location.pathname.endsWith("/settings")) {
+    return "settings";
+  }
+
+  return "orders";
+}
 
 type PageMetric = {
   label: string;
@@ -1529,6 +1551,7 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
 }
 
 export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { initialView?: PrintOpsView; pluginContext?: PrintOpsPluginContext }) {
+  const [activeView, setActiveView] = useState<PrintOpsView>(initialView);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [cachedOrders, setCachedOrders] = useState<Order[]>([]);
   const [orderCacheStatus, setOrderCacheStatus] = useState<OrderCacheStatus>({
@@ -1564,7 +1587,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     status: "idle",
     window: null,
   });
-  const activeView = initialView;
   const messages = getPrintOpsMessages(siteLocale);
   const printLanguageOptions = useMemo(() => getPrintLocaleOptions(siteLocale), [siteLocale]);
   const displayOrders = cachedOrders;
@@ -1668,6 +1690,22 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
           { label: messages.metrics.unprinted, value: String(orderMetrics.unprinted) },
           { label: messages.metrics.generated, value: String(orderMetrics.generated) },
         ];
+
+  useEffect(() => {
+    setActiveView(initialView);
+  }, [initialView]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setActiveView(getPrintOpsViewFromLocation(initialView));
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [initialView]);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("printops-theme");
@@ -1801,6 +1839,25 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
   function toggleAll(checked: boolean) {
     setSelectedIds(checked ? displayOrders.map((order) => order.id) : []);
+  }
+
+  function switchWorkspaceView(view: PrintOpsView, href: string, event: MouseEvent<HTMLAnchorElement>) {
+    setMobileSidebarOpen(false);
+
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+
+    event.preventDefault();
+    setActiveView(view);
+
+    if (href && href !== "#") {
+      const currentHref = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+
+      if (href !== currentHref) {
+        window.history.pushState({ printOpsView: view }, "", href);
+      }
+    }
   }
 
   function patchTemplateDraft(patch: Partial<TemplateDraft>) {
@@ -2009,7 +2066,14 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                     data-active={isActive}
                     href={item.href}
                     key={item.label}
-                    onClick={() => setMobileSidebarOpen(false)}
+                    onClick={(event) => {
+                      if (item.view !== "orders" && item.view !== "templates" && item.view !== "settings") {
+                        setMobileSidebarOpen(false);
+                        return;
+                      }
+
+                      switchWorkspaceView(item.view, item.href, event);
+                    }}
                     title={sidebarCollapsed ? item.label : undefined}
                   >
                     <span className={styles.navIcon}>
