@@ -1,231 +1,305 @@
-# Vercel Multi-Project Release
+# Zider 三项目发布手册
 
-This repo is prepared as three separate Vercel projects that share one GitHub repository. Each Vercel project must point to a different root directory.
+本文档用于发布 Zider 当前三个 Vercel 项目。三个项目共享同一个 GitHub 仓库 `wudanglaodao/zider-app`，但在 Vercel 中使用不同 Root Directory 和不同生产域名。
 
-## Project Map
+## 1. 发布原则
 
-| Vercel project | Root Directory | Production domains | Purpose |
-|---|---|---|---|
-| `zider-ink` | `apps/site` | `zider.ink` | Public site, Blog, Forum, global account sign-in, CMS admin |
-| `zider-app` | `apps/app` | `app.zider.ink` | Wix integration service, webhooks, analytics ingestion |
-| `zider-workspace` | `apps/workspace` | `workspace.zider.ink` | Workspace apps, widget runtime, and solution pages |
+- 生产发布以 `main` 分支为准。代码合并或推送到 `main` 后，由 Vercel Git 集成分别触发三个项目构建。
+- 不要把三个项目手动部署到错误的 Vercel scope。CLI 只能在确认当前账号能看到 `zider-ink`、`zider-app`、`zider-workspace` 三个正式项目时使用。
+- 不要移动已经配置到 Wix 的公网回调地址，尤其是 `app.zider.ink/events/...` 和 `app.zider.ink/webhooks/...`。
+- 发布提交只包含产品代码、文档、迁移和正式素材。外部参考模板、临时截图、本地 `.env`、`.vercel` 不进 Git。
 
-Use `workspace.zider.ink` for the solutions workspace. Do not configure `solutions.zider.ink` for this release.
+## 2. 项目映射
 
-## Project Scenarios
+| Vercel project | Root Directory | Production domain | 职责 |
+| --- | --- | --- | --- |
+| `zider-ink` | `apps/site` | `https://zider.ink` | 官网、Blog、Forum、Account、CMS |
+| `zider-app` | `apps/app` | `https://app.zider.ink` | Wix 事件、Webhook、OAuth/API、安装和分析数据 |
+| `zider-workspace` | `apps/workspace` | `https://workspace.zider.ink` | PrintOps 工作台、插件页面、Widget 运行时 |
 
-### `zider-ink`
+边界约束：
 
-This is the public ZIDER site.
+- `zider.ink` 不承载 Wix webhook、插件工作台或 widget embed。
+- `app.zider.ink` 不承载官网页面或 PrintOps UI，只承载服务端事件入口。
+- `workspace.zider.ink` 不承载 Wix webhook，只承载商家工作台和 widget 相关页面/API。
 
-Use it for:
+## 3. 关键生产 URL
 
-- Marketing/public website pages on `zider.ink`
-- Blog and Forum content
-- Forum search, app module pages, and community article detail pages
-- Global account sign-in at `/account`
-- CMS admin at `/admin/cms`
-
-Do not use it for:
-
-- Wix webhook callbacks
-- Wix dashboard/runtime app pages
-- Component embed scripts
-
-### `zider-app`
-
-This is the Wix integration service. Its only production domain is `app.zider.ink`.
-
-Use it for:
-
-- Wix webhook callbacks, for example `/events/wix/:app_key`
-- Wix OAuth/runtime API work
-- App install/runtime health checks
-- App analytics ingestion
-- Server-side Wix integration logic that should not live on the public site or workspace
-
-Do not use it for:
-
-- Public Forum/Blog pages
-- Workspace or solution pages
-- Component embed script hosting
-- Workspace dashboard pages
-
-### `zider-workspace`
-
-This is one Vercel project with two production domains.
-
-Use `workspace.zider.ink` for:
-
-- Solution/app pages under `/apps/*`
-- Widget workspace and runtime routes under `/widget/*`
-- Internal/product workspace surfaces
-
-Do not use `zider-workspace` for:
-
-- Wix webhook callbacks
-- Global account/CMS routes
-- Public Blog/Forum routes
-
-## Vercel Dashboard Settings
-
-For each Vercel project:
-
-1. Go to `Settings -> General`.
-2. Set `Framework Preset` to `Next.js`.
-3. Set `Root Directory` to the matching path from the table above.
-4. Keep the commands from the app-level `vercel.json`:
-   - Install Command: `npm install`
-   - Build Command: `npm run build`
-5. Keep Git integration connected to `wudanglaodao/zider-app`.
-
-After this, pushing to GitHub will create preview deployments for all connected projects. Pushing or merging to the production branch will trigger production builds according to each project's Git settings.
-
-## Domains
-
-Configure domains in `Settings -> Domains`.
-
-### `zider-ink`
-
-- `zider.ink`
-- Optional redirect: `www.zider.ink -> zider.ink`
-
-### `zider-app`
-
-- `app.zider.ink`
-
-Keep Wix webhook URLs on this domain:
+官网：
 
 ```text
-https://app.zider.ink/events/[platform]/[appKey]
-https://app.zider.ink/api/health
+https://zider.ink/
+https://zider.ink/account?mode=signin
+https://zider.ink/forum
+https://zider.ink/api/health
 ```
 
-### `zider-workspace`
-
-- `workspace.zider.ink`
-
-Current workspace routes include:
+App 服务：
 
 ```text
+https://app.zider.ink/api/health?checks=1
+https://app.zider.ink/events/wix/zider_printops
+https://app.zider.ink/webhooks/printops/wix
+```
+
+Workspace：
+
+```text
+https://workspace.zider.ink/
 https://workspace.zider.ink/apps/printops
+https://workspace.zider.ink/apps/printops/templates
+https://workspace.zider.ink/apps/printops/settings
 https://workspace.zider.ink/apps/printops/wix
 https://workspace.zider.ink/widget/interactive-custom-cursor
 https://workspace.zider.ink/widget/interactive-custom-cursor/embed.js
-https://workspace.zider.ink/widget/interactive-custom-cursor/config
 ```
 
-## Environment Variables
-
-Set secrets in Vercel Dashboard, not in Git. Add required runtime variables to Production and Preview if preview deployments should be fully usable. Development is only needed when using `vercel dev` or `vercel env pull`.
-
-Wix app credentials and webhook public keys live in Supabase table `app_platform_secrets`. They are not required as Vercel environment variables after the table is seeded.
-
-### `zider-ink` (`apps/site`)
-
-Required:
+Wix PrintOps 配置：
 
 ```text
-SUPABASE_URL=...
-SUPABASE_SERVICE_ROLE_KEY=...
+Dashboard URL:
+https://workspace.zider.ink/apps/printops/wix
+
+App install/billing events:
+https://app.zider.ink/events/wix/zider_printops
+
+Order events:
+https://app.zider.ink/webhooks/printops/wix
 ```
 
-Optional:
+## 4. 环境变量
+
+三个 Vercel 项目都需要：
+
+```text
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+```
+
+`zider-ink` 可选：
 
 ```text
 NEXT_PUBLIC_SITE_URL=https://zider.ink
 ```
 
-One-time local/admin seed values:
-
-```text
-ZIDER_ADMIN_EMAIL=yancytien@gmail.com
-ZIDER_ADMIN_PASSWORD=...
-ZIDER_ADMIN_DISPLAY_NAME=Yancy Tien
-```
-
-Notes:
-
-- CMS does not have a separate login page. Admins sign in through `/account?mode=signin`.
-- Run `npm --prefix apps/site run seed:admin` after the `zider_users` migration is applied.
-- Account permissions come from the `zider_users` table.
-- `SUPABASE_SERVICE_ROLE_KEY` is server-only and must not use a `NEXT_PUBLIC_` prefix.
-- `NEXT_PUBLIC_SITE_URL` is not required for this release because the site falls back to `https://zider.ink`. Configure it only if an environment needs a different canonical URL.
-
-### `zider-app` (`apps/app`)
-
-Required:
-
-```text
-SUPABASE_URL=...
-SUPABASE_SERVICE_ROLE_KEY=...
-```
-
-Optional:
+`zider-app` 可选：
 
 ```text
 ZIDER_WORKSPACE_URL=https://workspace.zider.ink
 ```
 
-Notes:
-
-- `ZIDER_WORKSPACE_URL` is only an override for Wix script installation previews. If omitted, the script URL defaults to `https://workspace.zider.ink`.
-- Run `npm --prefix apps/app run seed:platform-secrets` after the `app_platform_secrets` migration is applied.
-- `WIX_INTERACTIVE_CUSTOM_CURSOR_APP_ID`, `WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET`, `WIX_WEBHOOK_PUBLIC_KEY`, and `WIX_WEBHOOK_PUBLIC_KEYS` are legacy fallbacks only. Do not add them to Vercel unless recovering from an unseeded database.
-
-Health check:
-
-```text
-https://app.zider.ink/api/health?checks=1
-```
-
-### `zider-workspace` (`apps/workspace`)
-
-Required:
-
-```text
-SUPABASE_URL=...
-SUPABASE_SERVICE_ROLE_KEY=...
-```
-
-Optional:
+`zider-workspace` 可选：
 
 ```text
 CURSOR_WIDGET_CONFIGS_TABLE=widget_configs
 ```
 
-Notes:
+Wix app 的 OAuth 凭证和 webhook public key 优先放在 Supabase `app_platform_secrets` 表里，不要把新凭证散落到多个 Vercel 环境变量中。
 
-- The widget embed route uses its own request origin, so `ZIDER_WORKSPACE_URL` and `NEXT_PUBLIC_ZIDER_WORKSPACE_URL` are not required.
-- Interactive Custom Cursor instance verification reads the Wix app secret from `app_platform_secrets`. `WIX_INTERACTIVE_CUSTOM_CURSOR_APP_SECRET` and `WIX_APP_SECRET` are legacy fallbacks only.
+## 5. 发布前检查
 
-Health check:
+确认工作区状态：
 
-```text
-https://workspace.zider.ink/api/health
+```bash
+git status --short --branch
 ```
 
-## Release Order
+发版前至少跑完整三项目检查：
 
-1. Apply Supabase migrations, then seed `app_platform_secrets` and the first admin user.
-2. Configure `zider-app` first because Wix webhook and runtime URLs are externally integrated.
-3. Configure `zider-workspace` next and verify widget embed/config routes.
-4. Configure `zider-ink` last, then verify public routes and `/account?mode=signin`.
-5. Promote only after preview smoke tests pass.
+```bash
+npm --prefix apps/site run typecheck
+npm --prefix apps/site run build
 
-## Smoke Tests
+npm --prefix apps/app run typecheck
+npm --prefix apps/app run build
 
-Run these after every production deployment:
+npm --prefix apps/workspace run typecheck
+npm --prefix apps/workspace run build
+```
+
+如果包含数据库变更：
+
+- 确认迁移文件已放在 `supabase/migrations/`。
+- 先在 Supabase 执行迁移，再发布依赖该表结构的代码。
+- 如果涉及 Wix app secret，确认 `app_platform_secrets` 已有对应 `app_key/platform` 记录。
+
+如果包含 Wix 插件变更：
+
+- 确认 Wix app dashboard URL 仍指向 `https://workspace.zider.ink/apps/printops/wix`。
+- 确认订单事件仍转发到 `https://app.zider.ink/webhooks/printops/wix`。
+- 确认安装、卸载、付费等 app 管理事件仍走 `https://app.zider.ink/events/wix/zider_printops`。
+
+## 6. Git 发版流程
+
+只 stage 本次发布需要的文件：
+
+```bash
+git add <files>
+git status --short
+```
+
+提交：
+
+```bash
+git commit -m "chore: release <scope>"
+```
+
+推送生产分支：
+
+```bash
+git push origin main
+```
+
+如需要显式版本号，可以加 annotated tag：
+
+```bash
+git tag -a zider-YYYY.MM.DD-N -m "Zider release YYYY.MM.DD-N"
+git push origin zider-YYYY.MM.DD-N
+```
+
+版本号建议：
 
 ```text
-https://zider.ink/api/health
-https://zider.ink/forum
+zider-2026.06.11-1
+zider-2026.06.11-printops-wix-sync
+```
+
+## 7. Vercel 发布检查
+
+推送后进入 Vercel Dashboard，分别检查：
+
+```text
+zider-ink       -> Deployments -> latest main commit -> Ready
+zider-app       -> Deployments -> latest main commit -> Ready
+zider-workspace -> Deployments -> latest main commit -> Ready
+```
+
+三项都要确认：
+
+- Commit SHA 等于刚推送的 `main` 最新提交。
+- Root Directory 分别是 `apps/site`、`apps/app`、`apps/workspace`。
+- Production alias 已指向最新 Ready deployment。
+- Build Logs 没有 TypeScript、env、route generation 错误。
+
+不要在错误 scope 下执行 `vercel --prod`。如果 CLI 项目列表里看不到 `zider-ink`、`zider-app`、`zider-workspace`，就只用 Dashboard 检查和发布。
+
+## 8. 发布后 Smoke Test
+
+用 `curl` 检查健康接口。带 `?` 的 URL 在 zsh 中要加引号：
+
+```bash
+curl -I https://zider.ink/api/health
+curl -I "https://app.zider.ink/api/health?checks=1"
+curl -I https://workspace.zider.ink/api/health
+```
+
+浏览器检查：
+
+```text
+https://zider.ink/
 https://zider.ink/account?mode=signin
-https://app.zider.ink/api/health?checks=1
-https://workspace.zider.ink/api/health
-https://workspace.zider.ink/widget/interactive-custom-cursor/embed.js?instanceId=test
+https://zider.ink/forum
+https://workspace.zider.ink/apps/printops
+https://workspace.zider.ink/apps/printops/templates
+https://workspace.zider.ink/apps/printops/wix?instanceId=wix-dev-preview
 ```
 
-## CLI Note
+Widget 检查：
 
-The local Vercel CLI currently reports a personal scope that does not list the screenshot projects. Use the Vercel dashboard for linking/configuration, or switch the CLI to the account/team that owns `zider-ink`, `zider-app`, and `zider-workspace` before running `vercel link`.
+```bash
+curl -I "https://workspace.zider.ink/widget/interactive-custom-cursor/embed.js?instanceId=test"
+```
+
+Wix PrintOps 检查：
+
+1. 从 Wix Studio 打开 Zider PrintOps。
+2. 确认 dashboard iframe 正常加载 `workspace.zider.ink/apps/printops/wix`。
+3. 在 Orders 页面确认 Setup readiness 都是 Ready。
+4. 点击 `Sync latest`，再点击 `Sync last 7 days`。
+5. 确认订单列表能读取缓存订单，自定义字段计数正常。
+6. 打开模板预览，确认下载 PDF 和打印预览可用。
+
+## 9. 回滚方案
+
+优先使用 Vercel Dashboard 回滚：
+
+1. 进入对应项目的 Deployments。
+2. 找到上一条 Ready 的生产部署。
+3. Promote / Redeploy 到 Production。
+4. 三个项目需要分别回滚，顺序建议：
+   - `zider-app`
+   - `zider-workspace`
+   - `zider-ink`
+
+如果是代码问题，也可以用 Git revert：
+
+```bash
+git revert <bad_commit_sha>
+git push origin main
+```
+
+如果涉及数据库迁移，先确认迁移是否可逆；不可逆迁移不要只回滚代码。
+
+## 10. 常见问题
+
+### CLI 发布到错误项目
+
+现象：
+
+- `vercel projects ls` 看不到 `zider-ink`、`zider-app`、`zider-workspace`。
+- CLI 自动 link 到名为 `app` 或其他临时项目。
+
+处理：
+
+- 立即停止 CLI 发布。
+- 不提交 `.vercel` 变更。
+- 回到 Vercel Dashboard，用已绑定的三个正式项目查看 Git 部署。
+
+### 本地 build 通过，Vercel build 失败
+
+优先检查：
+
+- Vercel Root Directory 是否正确。
+- Production 环境变量是否齐全。
+- 是否有本地 `.env.local` 依赖没有同步到 Vercel。
+- 是否有未提交文件导致本地和远端代码不一致。
+
+### Wix 订单同步失败
+
+优先检查：
+
+- `app_platform_secrets` 是否存在 `app_key=zider_printops`、`platform=wix`。
+- `client_id/client_secret/webhook_public_key` 是否存在。
+- 当前 Wix `instance` 是否属于 PrintOps 的 AppDefId。
+- Orders Search filter 是否仍使用 `$and` 拆分日期条件。
+
+### Wix webhook 验证失败
+
+优先检查：
+
+- App 管理事件是否走 `https://app.zider.ink/events/wix/zider_printops`。
+- 订单事件是否走 `https://app.zider.ink/webhooks/printops/wix`。
+- `app_platform_secrets.webhook_public_key` 是否是 Wix 提供的 public key。
+- 不要把 install/billing event 和 order event 混到同一张处理表或同一套语义里。
+
+## 11. 发版记录模板
+
+每次发布后在项目日志或 PR 描述里记录：
+
+```text
+Release:
+Commit:
+Tag:
+Projects:
+- zider-ink:
+- zider-app:
+- zider-workspace:
+Database migrations:
+Wix app version:
+Smoke tests:
+- zider.ink:
+- app.zider.ink:
+- workspace.zider.ink:
+Notes:
+Rollback target:
+```
