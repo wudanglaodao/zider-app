@@ -236,7 +236,7 @@ type SocialProfile = {
   value: string;
   url: string;
 };
-type TemplateSocialProfiles = Record<SocialPlatform, SocialProfile>;
+type TemplateSocialProfiles = Partial<Record<SocialPlatform, SocialProfile>>;
 type TemplateDateFormat =
   | "MM-DD-YYYY"
   | "DD-MM-YYYY"
@@ -388,7 +388,7 @@ type TemplateDraft = {
   dataRequirements: string;
 };
 
-const templateStorageKey = "printops-templates-v11";
+const templateStorageKey = "printops-templates-v12";
 const siteLocaleStorageKey = "printops-site-locale-v1";
 const printLocaleStorageKey = "printops-print-locale-v1";
 const timezoneStorageKey = "printops-timezone-v1";
@@ -506,10 +506,7 @@ function createSocialProfile(platform: SocialPlatform, mode: SocialLinkMode, val
 }
 
 const defaultTemplateSocialProfiles: TemplateSocialProfiles = {
-  facebook: createSocialProfile("facebook", "username", "greenstudio"),
-  instagram: createSocialProfile("instagram", "username", "greenstudio"),
   website: createSocialProfile("website", "url", "https://greenstudio.com"),
-  x: createSocialProfile("x", "username", "greenstudio"),
 };
 
 function serializeSocialProfiles(profiles: TemplateSocialProfiles) {
@@ -542,12 +539,7 @@ function detectSocialPlatform(value: string): SocialPlatform | null {
 }
 
 function normalizeSocialProfiles(profiles?: TemplateSocialProfiles, legacyLinks?: string): TemplateSocialProfiles {
-  const normalizedProfiles: TemplateSocialProfiles = {
-    facebook: { ...defaultTemplateSocialProfiles.facebook },
-    instagram: { ...defaultTemplateSocialProfiles.instagram },
-    website: { ...defaultTemplateSocialProfiles.website },
-    x: { ...defaultTemplateSocialProfiles.x },
-  };
+  const normalizedProfiles: TemplateSocialProfiles = {};
 
   socialPlatformOptions.forEach(({ platform }) => {
     const profile = profiles?.[platform];
@@ -556,7 +548,17 @@ function normalizeSocialProfiles(profiles?: TemplateSocialProfiles, legacyLinks?
       return;
     }
 
-    normalizedProfiles[platform] = createSocialProfile(platform, profile.mode ?? "url", profile.value || profile.url);
+    const value = profile.value || profile.url;
+
+    if (!value) {
+      return;
+    }
+
+    normalizedProfiles[platform] = createSocialProfile(
+      platform,
+      profile.mode ?? (platform === "website" ? "url" : "username"),
+      value,
+    );
   });
 
   if (!profiles && legacyLinks) {
@@ -576,6 +578,12 @@ function normalizeSocialProfiles(profiles?: TemplateSocialProfiles, legacyLinks?
 
         normalizedProfiles[platform] = createSocialProfile(platform, isUrl ? "url" : "username", value);
       });
+  }
+
+  if (!normalizedProfiles.website) {
+    normalizedProfiles.website = {
+      ...(defaultTemplateSocialProfiles.website ?? createSocialProfile("website", "url", "https://greenstudio.com")),
+    };
   }
 
   return normalizedProfiles;
@@ -1349,6 +1357,8 @@ function createBlankTemplateDraft(): TemplateDraft {
 }
 
 function createDraftFromTemplate(templateRecord: TemplateRecord, mode: TemplateEditorMode): TemplateDraft {
+  const normalizedSocialProfiles = normalizeSocialProfiles(templateRecord.socialProfiles, templateRecord.socialLinks);
+
   return {
     id: mode === "edit" ? templateRecord.id : undefined,
     name: mode === "duplicate" ? `${templateRecord.name} Copy` : templateRecord.name,
@@ -1378,8 +1388,8 @@ function createDraftFromTemplate(templateRecord: TemplateRecord, mode: TemplateE
     accentColor: templateRecord.accentColor ?? defaultTemplateBrandSettings.accentColor,
     customAccentColor: templateRecord.customAccentColor ?? defaultTemplateBrandSettings.customAccentColor,
     density: templateRecord.density ?? defaultTemplateBrandSettings.density,
-    socialProfiles: normalizeSocialProfiles(templateRecord.socialProfiles, templateRecord.socialLinks),
-    socialLinks: templateRecord.socialLinks ?? defaultTemplateBrandSettings.socialLinks,
+    socialProfiles: normalizedSocialProfiles,
+    socialLinks: serializeSocialProfiles(normalizedSocialProfiles),
     showLogoText: templateRecord.showLogoText ?? true,
     showStoreName: templateRecord.showStoreName ?? true,
     showInvoiceMeta: templateRecord.showInvoiceMeta ?? true,
@@ -4304,6 +4314,7 @@ function TemplateEditorDrawer({
   const parsedRequirements = parseDataRequirements(draft.dataRequirements);
   const canSave = draft.name.trim().length > 0 && draft.description.trim().length > 0;
   const [activeSection, setActiveSection] = useState<TemplateEditorSectionId>("brand");
+  const [socialPlatformToAdd, setSocialPlatformToAdd] = useState<SocialPlatform>("instagram");
   const localizedLogoSourceOptions = [
     { label: editorCopy.logoSourceGenerated, value: "generated-svg" },
     { label: editorCopy.logoSourceUploaded, value: "uploaded-image" },
@@ -4323,6 +4334,15 @@ function TemplateEditorDrawer({
     { label: editorCopy.socialLinkModeUsername, value: "username" },
     { label: editorCopy.socialLinkModeUrl, value: "url" },
   ];
+  const activeSocialOptions = socialPlatformOptions.filter((option) => draft.socialProfiles[option.platform]);
+  const addableSocialOptions = socialPlatformOptions.filter((option) => !draft.socialProfiles[option.platform]);
+  const selectedSocialPlatformToAdd = addableSocialOptions.some((option) => option.platform === socialPlatformToAdd)
+    ? socialPlatformToAdd
+    : addableSocialOptions[0]?.platform;
+  const localizedSocialPlatformOptions = addableSocialOptions.map((option) => ({
+    label: option.label,
+    value: option.platform,
+  }));
   const localizedDensityOptions = [
     { label: editorCopy.densityBalanced, value: "balanced" },
     { label: editorCopy.densityCompact, value: "compact" },
@@ -4446,18 +4466,54 @@ function TemplateEditorDrawer({
     reader.readAsDataURL(file);
   }
 
+  function getDefaultSocialProfile(platform: SocialPlatform) {
+    const platformOption = socialPlatformOptions.find((option) => option.platform === platform);
+    const mode: SocialLinkMode = platform === "website" ? "url" : "username";
+    const value =
+      platform === "website"
+        ? draft.footerWebsite || defaultTemplateBrandSettings.footerWebsite
+        : platformOption?.placeholder || "";
+
+    return createSocialProfile(platform, mode, value);
+  }
+
+  function commitSocialProfiles(nextProfiles: TemplateSocialProfiles) {
+    onDraftChange({
+      socialProfiles: nextProfiles,
+      socialLinks: serializeSocialProfiles(nextProfiles),
+    });
+  }
+
   function updateSocialProfile(platform: SocialPlatform, patch: Partial<Pick<SocialProfile, "mode" | "value">>) {
-    const currentProfile = draft.socialProfiles[platform];
+    const currentProfile = draft.socialProfiles[platform] ?? getDefaultSocialProfile(platform);
     const nextProfile = createSocialProfile(platform, patch.mode ?? currentProfile.mode, patch.value ?? currentProfile.value);
     const nextProfiles = {
       ...draft.socialProfiles,
       [platform]: nextProfile,
     };
 
-    onDraftChange({
-      socialProfiles: nextProfiles,
-      socialLinks: serializeSocialProfiles(nextProfiles),
+    commitSocialProfiles(nextProfiles);
+  }
+
+  function addSocialProfile(platform: SocialPlatform) {
+    if (draft.socialProfiles[platform]) {
+      return;
+    }
+
+    commitSocialProfiles({
+      ...draft.socialProfiles,
+      [platform]: getDefaultSocialProfile(platform),
     });
+  }
+
+  function removeSocialProfile(platform: SocialPlatform) {
+    if (platform === "website") {
+      return;
+    }
+
+    const nextProfiles = { ...draft.socialProfiles };
+    delete nextProfiles[platform];
+    commitSocialProfiles(normalizeSocialProfiles(nextProfiles));
   }
 
   function renderEditorSettings() {
@@ -4554,8 +4610,8 @@ function TemplateEditorDrawer({
 
             <span className={styles.settingsGroupTitle}>{editorCopy.socialFooter}</span>
             <div className={styles.socialConfigList}>
-              {socialPlatformOptions.map((option) => {
-                const profile = draft.socialProfiles[option.platform];
+              {activeSocialOptions.map((option) => {
+                const profile = draft.socialProfiles[option.platform] ?? getDefaultSocialProfile(option.platform);
 
                 return (
                   <div className={styles.socialConfigRow} key={option.platform}>
@@ -4581,9 +4637,34 @@ function TemplateEditorDrawer({
                         {editorCopy.socialLinkSavedUrl}: {profile.url || "-"}
                       </small>
                     </label>
+                    {option.platform === "website" ? (
+                      <span className={styles.socialConfigRemoveSpacer} />
+                    ) : (
+                      <button className={styles.socialConfigRemove} type="button" onClick={() => removeSocialProfile(option.platform)}>
+                        {editorCopy.removeSocialLink}
+                      </button>
+                    )}
                   </div>
                 );
               })}
+              <div className={styles.socialConfigAdd}>
+                {selectedSocialPlatformToAdd ? (
+                  <>
+                    <SelectField
+                      compact
+                      label={editorCopy.socialPlatform}
+                      options={localizedSocialPlatformOptions}
+                      value={selectedSocialPlatformToAdd}
+                      onValueChange={(value) => setSocialPlatformToAdd(value as SocialPlatform)}
+                    />
+                    <button className={styles.secondaryButton} type="button" onClick={() => addSocialProfile(selectedSocialPlatformToAdd)}>
+                      {editorCopy.addSocialLink}
+                    </button>
+                  </>
+                ) : (
+                  <small className={styles.labelKey}>{editorCopy.allSocialLinksAdded}</small>
+                )}
+              </div>
             </div>
 
             <span className={styles.settingsGroupTitle}>{editorCopy.styleBasics}</span>
@@ -5765,13 +5846,18 @@ function OrderPaperPreview({
   const socialItems = socialPlatformOptions
     .map((option) => {
       const profile = normalizedSocialProfiles[option.platform];
+
+      if (!profile?.url) {
+        return null;
+      }
+
       return {
         label: option.label,
         platform: option.platform,
         url: profile.url,
       };
     })
-    .filter((item) => item.url)
+    .filter((item): item is { label: string; platform: SocialPlatform; url: string } => Boolean(item))
     .slice(0, 4);
   const rawLogo = logoText.trim();
   const displayLogo = rawLogo.slice(0, 4) || "GS";

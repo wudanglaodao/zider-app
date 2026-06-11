@@ -4564,7 +4564,7 @@
 .socialConfigRow {
   min-width: 0;
   display: grid;
-  grid-template-columns: 38px minmax(118px, 0.58fr) minmax(0, 1fr);
+  grid-template-columns: 38px minmax(118px, 0.48fr) minmax(0, 1fr) auto;
   align-items: start;
   gap: 10px;
   border: 1px solid var(--line);
@@ -4586,6 +4586,41 @@
 .socialConfigIcon .orderSocialIcon {
   width: 17px;
   height: 17px;
+}
+
+.socialConfigRemove,
+.socialConfigRemoveSpacer {
+  min-width: 52px;
+}
+
+.socialConfigRemove {
+  align-self: end;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 760;
+  padding: 0 10px;
+}
+
+.socialConfigRemove:hover {
+  border-color: color-mix(in srgb, var(--green-strong) 30%, var(--line));
+  color: var(--green-strong);
+}
+
+.socialConfigAdd {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  border: 1px dashed color-mix(in srgb, var(--green-strong) 25%, var(--line));
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 10px;
 }
 
 .colorInputRow {
