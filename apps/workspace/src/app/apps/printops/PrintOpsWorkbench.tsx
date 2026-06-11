@@ -1559,7 +1559,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         label: messages.nav.menu,
         items: [
           { icon: Package, label: messages.nav.orders, href: "/apps/printops", view: "orders", count: String(displayOrders.length) },
-          { icon: LayoutTemplate, label: messages.nav.templates, href: "/apps/printops/templates", view: "templates", count: "6" },
+          { icon: LayoutTemplate, label: messages.nav.templates, href: "/apps/printops/templates", view: "templates", count: "" },
         ],
       },
       {
