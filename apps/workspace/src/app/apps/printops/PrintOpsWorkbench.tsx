@@ -117,6 +117,7 @@ type PrintOpsPluginContext = {
   platform: "wix";
   source: "instance" | "dev-instance-id" | "missing";
   syncEndpoint: string;
+  viewLinks?: Record<PrintOpsView, string>;
   verified: boolean;
 };
 type WixSyncOrderSummary = {
@@ -1576,24 +1577,33 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     }),
     [displayOrders],
   );
+  const viewLinks = useMemo(
+    () =>
+      pluginContext?.viewLinks ?? {
+        orders: "/apps/printops",
+        settings: "/apps/printops/settings",
+        templates: "/apps/printops/templates",
+      },
+    [pluginContext?.viewLinks],
+  );
   const navigationSections = useMemo(
     () => [
       {
         label: messages.nav.menu,
         items: [
-          { icon: Package, label: messages.nav.orders, href: "/apps/printops", view: "orders", count: String(displayOrders.length) },
-          { icon: LayoutTemplate, label: messages.nav.templates, href: "/apps/printops/templates", view: "templates", count: "" },
+          { icon: Package, label: messages.nav.orders, href: viewLinks.orders, view: "orders", count: String(displayOrders.length) },
+          { icon: LayoutTemplate, label: messages.nav.templates, href: viewLinks.templates, view: "templates", count: "" },
         ],
       },
       {
         label: messages.nav.general,
         items: [
-          { icon: Settings, label: messages.nav.settings, href: "/apps/printops/settings", view: "settings", count: "" },
+          { icon: Settings, label: messages.nav.settings, href: viewLinks.settings, view: "settings", count: "" },
           { icon: BookOpen, label: messages.nav.help, href: "#", view: "help", count: "" },
         ],
       },
     ],
-    [displayOrders.length, messages],
+    [displayOrders.length, messages, viewLinks],
   );
   const filteredTemplates = useMemo(() => {
     const source = templateTab === "mine" ? "Store copy" : "Built-in";
