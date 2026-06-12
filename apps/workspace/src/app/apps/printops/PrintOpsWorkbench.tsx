@@ -4842,28 +4842,8 @@ function TemplateEditorDrawer({
     { label: editorCopy.audienceFinance, value: "Finance" },
     { label: editorCopy.audienceStoreStaff, value: "Store staff" },
   ];
-  const localizedOrientationOptions = [
-    { label: editorCopy.orientationPortrait, value: "Portrait" },
-    { label: editorCopy.orientationLandscape, value: "Landscape" },
-  ];
-  const localizedMarginOptions = [
-    { label: editorCopy.marginNormal, value: "Normal" },
-    { label: editorCopy.marginCompact, value: "Compact" },
-    { label: editorCopy.marginNarrow, value: "Narrow" },
-  ];
-  const localizedLayoutOptions = [
-    { label: editorCopy.layoutBranded, value: "Branded" },
-    { label: editorCopy.layoutCompact, value: "Compact" },
-    { label: editorCopy.layoutTableFirst, value: "Table-first" },
-    { label: editorCopy.layoutThermal, value: "Thermal" },
-  ];
-  const localizedDraftMargin = localizedMarginOptions.find((option) => option.value === draft.marginPreset)?.label ?? draft.marginPreset;
-  const localizedMarginSummary = editorCopy.margin === "Margin" ? `${localizedDraftMargin} ${editorCopy.margin}` : `${localizedDraftMargin}${editorCopy.margin}`;
-  const templateSettingsSummary = `${draft.paperSize}, ${
-    localizedOrientationOptions.find((option) => option.value === draft.orientation)?.label ?? draft.orientation
-  }, ${localizedMarginSummary}`;
+  const templateSettingsSummary = editorCopy.fixedA4;
   const drawerStateLabel = mode === "duplicate" ? editorCopy.draftCopy : mode === "create" ? editorCopy.draft : editorCopy.ready;
-  const localizedDraftOrientation = localizedOrientationOptions.find((option) => option.value === draft.orientation)?.label ?? draft.orientation;
   const editorSections = [
     {
       id: "brand",
@@ -5397,24 +5377,6 @@ function TemplateEditorDrawer({
                 <span>{editorCopy.paperSize}</span>
                 <input className={styles.textInput} readOnly value={editorCopy.fixedA4} />
               </label>
-              <SelectField
-                label={editorCopy.orientation}
-                options={localizedOrientationOptions}
-                value={draft.orientation}
-                onValueChange={(value) => onDraftChange({ orientation: value as TemplateRecord["orientation"] })}
-              />
-              <SelectField
-                label={editorCopy.margin}
-                options={localizedMarginOptions}
-                value={draft.marginPreset}
-                onValueChange={(value) => onDraftChange({ marginPreset: value as TemplateRecord["marginPreset"] })}
-              />
-              <SelectField
-                label={editorCopy.layout}
-                options={localizedLayoutOptions}
-                value={draft.layoutPreset}
-                onValueChange={(value) => onDraftChange({ layoutPreset: value as TemplateRecord["layoutPreset"] })}
-              />
             </div>
           </div>
         </>
@@ -5540,7 +5502,6 @@ function TemplateEditorDrawer({
                     <span>{draft.paperSize}</span>
                     <strong>{draft.name || editorCopy.untitledTemplate}</strong>
                   </div>
-                  <span>{localizedDraftOrientation}</span>
                 </div>
                 <div className={styles.templatePreviewShell} data-template-print-preview="true">
                   <TemplatePaperPreview
