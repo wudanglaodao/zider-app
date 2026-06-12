@@ -2719,17 +2719,37 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                             <span>{order.language}</span>
                           </td>
                           <td>
-                            <OrderMenu
-                              messages={messages}
-                              onChangeTemplate={() => {
-                                selectOrders([order]);
-                                updateWorkspaceView("templates", viewLinks.templates);
-                              }}
-                              onDownload={() => requestOrderExport("download", [order])}
-                              onMarkPrinted={() => markOrdersAsPrinted([order.id])}
-                              onPreview={() => openOrdersPreview([order])}
-                              onPrint={() => requestOrderExport("print", [order])}
-                            />
+                            <div className={styles.rowActions} data-ignore-row-select="true">
+                              <button
+                                aria-label={`${messages.orderPanel.downloadPdf}: ${order.number}`}
+                                className={styles.rowActionButton}
+                                title={messages.orderPanel.downloadPdf}
+                                type="button"
+                                onClick={() => requestOrderExport("download", [order])}
+                              >
+                                <Download size={15} aria-hidden />
+                                <span>{messages.orderPanel.pdfAction}</span>
+                              </button>
+                              <button
+                                aria-label={`${messages.orderPanel.printPreview}: ${order.number}`}
+                                className={styles.rowActionButton}
+                                title={messages.orderPanel.printPreview}
+                                type="button"
+                                onClick={() => requestOrderExport("print", [order])}
+                              >
+                                <Printer size={15} aria-hidden />
+                                <span>{messages.orderPanel.printAction}</span>
+                              </button>
+                              <OrderMenu
+                                messages={messages}
+                                onChangeTemplate={() => {
+                                  selectOrders([order]);
+                                  updateWorkspaceView("templates", viewLinks.templates);
+                                }}
+                                onMarkPrinted={() => markOrdersAsPrinted([order.id])}
+                                onPreview={() => openOrdersPreview([order])}
+                              />
+                            </div>
                           </td>
                         </tr>
                       );
@@ -3654,17 +3674,13 @@ function StatusPill({ value, label }: { value: string; label?: string }) {
 function OrderMenu({
   messages,
   onChangeTemplate,
-  onDownload,
   onMarkPrinted,
   onPreview,
-  onPrint,
 }: {
   messages: PrintOpsMessages;
   onChangeTemplate: () => void;
-  onDownload: () => void;
   onMarkPrinted: () => void;
   onPreview: () => void;
-  onPrint: () => void;
 }) {
   return (
     <Menu.Root>
@@ -3676,12 +3692,6 @@ function OrderMenu({
           <Menu.Popup className={styles.menuPopup}>
             <Menu.Item className={styles.menuItem} onClick={onPreview}>
               {messages.orderPanel.openPreview}
-            </Menu.Item>
-            <Menu.Item className={styles.menuItem} onClick={onDownload}>
-              {messages.orderPanel.downloadPdf}
-            </Menu.Item>
-            <Menu.Item className={styles.menuItem} onClick={onPrint}>
-              {messages.orderPanel.printPreview}
             </Menu.Item>
             <Menu.Item className={styles.menuItem} onClick={onChangeTemplate}>
               {messages.orderPanel.changeTemplate}

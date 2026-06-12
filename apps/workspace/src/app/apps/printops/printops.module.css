@@ -1425,7 +1425,7 @@
 
 .ordersTable {
   width: 100%;
-  min-width: 980px;
+  min-width: 1120px;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -1464,8 +1464,8 @@
 .ordersTable td:last-child {
   position: sticky;
   right: 0;
-  width: 74px;
-  min-width: 74px;
+  width: 206px;
+  min-width: 206px;
   background: var(--surface);
   box-shadow: -12px 0 18px rgba(18, 24, 23, 0.06);
   text-align: center;
@@ -1494,6 +1494,59 @@
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
+}
+
+.rowActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.rowActionButton {
+  min-width: 58px;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.rowActionButton span {
+  display: inline;
+  margin-top: 0;
+  color: inherit;
+  font-size: inherit;
+  line-height: 1;
+}
+
+.rowActionButton:hover {
+  border-color: var(--green);
+  background: var(--green-soft);
+  color: var(--green-strong);
+}
+
+.rowActionButton:focus-visible {
+  outline: 0;
+  border-color: var(--green-strong);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.rowActionButton:active {
+  transform: translateY(1px);
 }
 
 .emptyOrdersState {
