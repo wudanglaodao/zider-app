@@ -43,6 +43,8 @@ export type WixPublicKeyResolution = {
   error: string | null;
 };
 
+const importedPublicKeys = new Map<string, Promise<Awaited<ReturnType<typeof importSPKI>>>>();
+
 type WixWebhookName =
   | "app_instance_installed"
   | "app_instance_removed"
@@ -82,6 +84,17 @@ export function isWixAppManagementEventType(eventType: string): eventType is Exc
 }
 
 export async function resolveWixPublicKey(appKey: string): Promise<WixPublicKeyResolution> {
+  const envResolved = resolveEnvWixPublicKey(appKey);
+
+  if (envResolved.publicKey) {
+    return {
+      appKey,
+      ...envResolved,
+      databaseSecretPresent: false,
+      databaseRef: null,
+    };
+  }
+
   const databaseSecret = await getAppPlatformSecret(appKey, "wix");
 
   if (databaseSecret?.webhookPublicKey) {
@@ -95,8 +108,6 @@ export async function resolveWixPublicKey(appKey: string): Promise<WixPublicKeyR
       error: null,
     };
   }
-
-  const envResolved = resolveEnvWixPublicKey(appKey);
 
   return {
     appKey,
@@ -170,7 +181,7 @@ export function resolveEnvWixPublicKey(
 
 export async function verifyWixWebhook(rawBody: string, appKey: string): Promise<WixDecodedWebhook> {
   const token = extractJwt(rawBody);
-  const publicKey = await importSPKI(await getWixPublicKey(appKey), "RS256");
+  const publicKey = await getImportedWixPublicKey(appKey);
   const verified = await verifyJwt(token, publicKey);
   const decodedPayload = verified.payload as Record<string, unknown>;
 
@@ -242,6 +253,23 @@ export function classifyWixEvent(wix: WixDecodedWebhook): WixEventClassification
     isTestEvent: false,
     testReason: null,
   };
+}
+
+async function getImportedWixPublicKey(appKey: string) {
+  const pem = await getWixPublicKey(appKey);
+  const cached = importedPublicKeys.get(pem);
+
+  if (cached) {
+    return cached;
+  }
+
+  const imported = importSPKI(pem, "RS256").catch((error) => {
+    importedPublicKeys.delete(pem);
+    throw error;
+  });
+  importedPublicKeys.set(pem, imported);
+
+  return imported;
 }
 
 function extractJwt(rawBody: string) {
