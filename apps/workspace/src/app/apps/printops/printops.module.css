@@ -1383,7 +1383,7 @@
 .checkbox[data-indeterminate] {
   border-color: var(--green-strong);
   background: var(--green-strong);
-  color: var(--accent-contrast);
+  color: #fff;
   box-shadow:
     0 0 0 3px var(--green-soft),
     inset 0 0 0 1px color-mix(in srgb, var(--accent-contrast) 18%, transparent);
@@ -1410,6 +1410,7 @@
 .checkboxIndicator {
   display: grid;
   place-items: center;
+  color: #fff;
   line-height: 0;
 }
 
