@@ -107,6 +107,13 @@ Manual order sync endpoint:
 POST http://localhost:3102/api/apps/printops/wix/orders/sync?instanceId=wix-dev-preview
 ```
 
+Store profile endpoint:
+
+```text
+GET  http://localhost:3102/api/apps/printops/wix/store-profile?instanceId=wix-dev-preview
+POST http://localhost:3102/api/apps/printops/wix/store-profile?instanceId=wix-dev-preview
+```
+
 Readiness endpoint:
 
 ```text
@@ -147,10 +154,27 @@ Historical P0 backfill:
 5. Wix appends signed `instance`.
 6. PrintOps resolves `instanceId`.
 7. PrintOps exchanges `instanceId` for a Wix access token.
-8. User clicks `Sync latest` or `Sync last 7 days`.
-9. PrintOps searches Wix orders by `updatedDate`.
-10. PrintOps upserts normalized orders into `printops_orders`.
-11. PrintOps returns normalized orders, line items, SKU, item options, and custom fields for invoice rendering.
+8. PrintOps fetches Wix site properties and upserts `printops_store_profiles`.
+9. User clicks `Sync latest` or `Sync last 7 days`.
+10. PrintOps searches Wix orders by `updatedDate`.
+11. PrintOps upserts normalized orders into `printops_orders`.
+12. PrintOps returns normalized orders, line items, SKU, item options, and custom fields for invoice rendering.
+
+Store profile cache:
+
+- Table: `printops_store_profiles`.
+- Key: `app_key + platform + instance_id`.
+- Source: Wix Site Properties API.
+- Cached fields: `site_url`, `business_name`, `business_email`, `logo_media_path`,
+  `logo_url`, `phone`, `address`, `language`, `locale`, `timezone`, `currency`,
+  and `raw_profile`.
+- First entry into the Wix PrintOps workspace refreshes the profile once.
+- Manual order sync also refreshes the profile opportunistically.
+- Template defaults prefer cached profile values for logo, store name, footer website,
+  footer contact, print language, and timezone.
+- Merchant-entered template overrides always win after the initial default application.
+- If Wix has no logo or email, the profile keeps those values empty and the template
+  editor prompts the merchant to upload a logo or enter contact details manually.
 
 Billing lifecycle:
 
@@ -179,7 +203,10 @@ Implemented now:
 - Latest and 7-day history order sync API.
 - Normalized order and custom field extraction.
 - `printops_orders` current-state order cache.
+- `printops_store_profiles` current-state site profile cache.
 - Manual sync persistence into `printops_orders`.
+- Wix site profile refresh on first workspace entry and manual order sync.
+- Template defaults seeded from Wix site profile with merchant override support.
 - Orders workspace reads `printops_orders` through `/api/apps/printops/wix/orders`.
 - Manual sync panel in the Orders workspace.
 - PrintOps Wix Event extensions for order created/updated/approved/canceled/fulfilled/payment-status/committed events.
@@ -187,5 +214,4 @@ Implemented now:
 
 Still to build after install test:
 
-- Wire synced orders into Big Brand Invoice rendering.
 - Convert ID-only order webhooks into incremental order refresh jobs.

@@ -20,6 +20,7 @@ export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageP
   const apiQueryString = createQueryString(params, { excludeKeys: ["view"] });
   const ordersEndpoint = `/api/apps/printops/wix/orders${apiQueryString ? `?${apiQueryString}` : ""}`;
   const syncEndpoint = `/api/apps/printops/wix/orders/sync${apiQueryString ? `?${apiQueryString}` : ""}`;
+  const storeProfileEndpoint = `/api/apps/printops/wix/store-profile${apiQueryString ? `?${apiQueryString}` : ""}`;
 
   return (
     <PrintOpsWorkbench
@@ -31,6 +32,7 @@ export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageP
         ordersEndpoint,
         platform: "wix",
         source: instanceContext.source,
+        storeProfileEndpoint,
         syncEndpoint,
         viewLinks: {
           orders: createPluginViewHref(params, "orders"),

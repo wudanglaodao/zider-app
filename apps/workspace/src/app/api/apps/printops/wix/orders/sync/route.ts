@@ -1,8 +1,10 @@
 import { countPrintOpsCustomFields, syncWixOrders, type PrintOpsNormalizedOrder, type WixOrderSyncMode } from "@zider/platform-plugins/wix";
 import { NextRequest, NextResponse } from "next/server";
 import { persistPrintOpsWixOrders } from "@/lib/printops/order-cache";
+import { upsertPrintOpsStoreProfile } from "@/lib/printops/store-profile";
 import { PRINTOPS_APP_KEY, resolveWixInstanceIdForApp } from "@/lib/wix/app-instance";
 import { createPrintOpsWixAccessToken } from "@/lib/wix/oauth";
+import { fetchWixSiteProfile } from "@/lib/wix/site-profile";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +56,7 @@ async function handleWixOrderSync(request: NextRequest) {
       orders: result.normalizedOrders,
       syncMode: mode,
     });
+    const storeProfile = await syncStoreProfileFromWix(accessToken, instanceContext.instanceId);
 
     return NextResponse.json({
       ok: true,
@@ -75,6 +78,7 @@ async function handleWixOrderSync(request: NextRequest) {
         reachedPageLimit: result.reachedPageLimit,
       },
       persistence,
+      storeProfile,
       orders: result.normalizedOrders.slice(0, 25).map(summarizeOrder),
     });
   } catch (error) {
@@ -85,6 +89,28 @@ async function handleWixOrderSync(request: NextRequest) {
       },
       { status: 500 },
     );
+  }
+}
+
+async function syncStoreProfileFromWix(accessToken: string, instanceId: string) {
+  try {
+    const profile = await fetchWixSiteProfile(accessToken);
+    const persistence = await upsertPrintOpsStoreProfile({
+      ...profile,
+      appKey: PRINTOPS_APP_KEY,
+      instanceId,
+      platform: "wix",
+    });
+
+    return {
+      persistence,
+      status: persistence.status,
+    };
+  } catch (error) {
+    return {
+      reason: error instanceof Error ? error.message : "Wix store profile sync failed",
+      status: "error" as const,
+    };
   }
 }
 

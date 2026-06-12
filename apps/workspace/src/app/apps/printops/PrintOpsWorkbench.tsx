@@ -148,9 +148,29 @@ type PrintOpsPluginContext = {
   ordersEndpoint: string;
   platform: "wix";
   source: "instance" | "dev-instance-id" | "missing";
+  storeProfileEndpoint?: string;
   syncEndpoint: string;
   viewLinks?: Record<PrintOpsView, string>;
   verified: boolean;
+};
+type PrintOpsStoreProfileSummary = {
+  address?: Record<string, unknown>;
+  businessEmail: string | null;
+  businessName: string | null;
+  currency: string | null;
+  language: string | null;
+  locale: string | null;
+  logoMediaPath: string | null;
+  logoUrl: string | null;
+  phone: string | null;
+  siteUrl: string | null;
+  syncedAt: string | null;
+  timezone: string | null;
+};
+type StoreProfileStatus = {
+  error: string | null;
+  source: "cache" | "wix" | null;
+  status: "idle" | "loading" | "loaded" | "error";
 };
 type WixSyncOrderSummary = {
   billingAddress?: unknown;
@@ -553,6 +573,9 @@ function normalizeSocialProfiles(profiles?: TemplateSocialProfiles, legacyLinks?
     const value = profile.value || profile.url;
 
     if (!value) {
+      if (platform === "website") {
+        normalizedProfiles.website = createSocialProfile("website", "url", "");
+      }
       return;
     }
 
@@ -659,6 +682,222 @@ const defaultTemplateBrandSettings = {
   | "socialProfiles"
   | "thankYouText"
 >;
+
+function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profile: PrintOpsStoreProfileSummary | null) {
+  if (!profile) {
+    return templates;
+  }
+
+  const businessName = cleanProfileString(profile.businessName);
+  const siteUrl = cleanProfileString(profile.siteUrl);
+  const siteDisplay = getWebsiteDisplay(siteUrl);
+  const footerContact = createStoreContactLine(profile);
+  const defaultLanguage = resolveProfilePrintLocale(profile.language ?? profile.locale);
+
+  return templates.map((templateRecord) => {
+    if (templateRecord.source !== "Store copy") {
+      return templateRecord;
+    }
+
+    const nextSocialProfiles = normalizeSocialProfiles(templateRecord.socialProfiles, templateRecord.socialLinks);
+
+    if (siteUrl && shouldReplaceProfileValue(nextSocialProfiles.website?.url, [defaultTemplateSocialProfiles.website?.url ?? ""])) {
+      nextSocialProfiles.website = createSocialProfile("website", "url", siteUrl);
+    } else if (!siteUrl && shouldReplaceProfileValue(nextSocialProfiles.website?.url, [defaultTemplateSocialProfiles.website?.url ?? ""])) {
+      nextSocialProfiles.website = createSocialProfile("website", "url", "");
+    }
+
+    const profileLogoUrl = cleanProfileString(profile.logoUrl);
+    const shouldUseProfileLogo =
+      profileLogoUrl &&
+      (!templateRecord.logoImageUrl || templateRecord.logoImageUrl === defaultTemplateBrandSettings.logoImageUrl) &&
+      shouldReplaceProfileValue(templateRecord.logoText, [defaultTemplateBrandSettings.logoText, "GS"]);
+    const logoPatch =
+      shouldUseProfileLogo
+        ? {
+            logoImageUrl: profileLogoUrl,
+            logoSource: "uploaded-image" as OrderTemplateLogoSource,
+          }
+        : {};
+    const nextTemplate: TemplateRecord = {
+      ...templateRecord,
+      ...logoPatch,
+      brandName: patchProfileText(templateRecord.brandName, businessName, [defaultTemplateBrandSettings.brandName]),
+      defaultLanguage: defaultLanguage ?? templateRecord.defaultLanguage,
+      footerContact: patchProfileText(templateRecord.footerContact, footerContact, [defaultTemplateBrandSettings.footerContact]),
+      footerWebsite: patchProfileText(templateRecord.footerWebsite, siteDisplay, [defaultTemplateBrandSettings.footerWebsite]),
+      logoText: patchProfileText(templateRecord.logoText, createProfileWordmark(businessName), [defaultTemplateBrandSettings.logoText, "GS"]),
+      socialProfiles: nextSocialProfiles,
+      socialLinks: serializeSocialProfiles(nextSocialProfiles),
+    };
+
+    return nextTemplate;
+  });
+}
+
+function createTemplateDraftWithStoreProfile(profile: PrintOpsStoreProfileSummary | null) {
+  const blankDraft = createBlankTemplateDraft();
+  const seededTemplate = applyStoreProfileDefaultsToTemplates([createTemplateRecordFromDraft(blankDraft)], profile)[0];
+  const seededSocialProfiles = normalizeSocialProfiles(seededTemplate.socialProfiles, seededTemplate.socialLinks);
+
+  return {
+    ...blankDraft,
+    brandName: seededTemplate.brandName,
+    defaultLanguage: seededTemplate.defaultLanguage,
+    footerContact: seededTemplate.footerContact,
+    footerWebsite: seededTemplate.footerWebsite,
+    logoImageUrl: seededTemplate.logoImageUrl,
+    logoSource: seededTemplate.logoSource,
+    logoText: seededTemplate.logoText,
+    socialLinks: serializeSocialProfiles(seededSocialProfiles),
+    socialProfiles: seededSocialProfiles,
+  };
+}
+
+function cleanProfileString(value: string | null | undefined) {
+  const trimmed = value?.trim();
+
+  return trimmed || null;
+}
+
+function patchProfileText(currentValue: string, nextValue: string | null, sampleValues: Array<string | null | undefined>) {
+  if (!shouldReplaceProfileValue(currentValue, sampleValues)) {
+    return currentValue;
+  }
+
+  return nextValue ?? "";
+}
+
+function shouldReplaceProfileValue(currentValue: string | null | undefined, sampleValues: Array<string | null | undefined>) {
+  const normalizedCurrent = normalizeComparableText(currentValue);
+
+  if (!normalizedCurrent) {
+    return true;
+  }
+
+  return sampleValues.map(normalizeComparableText).filter(Boolean).includes(normalizedCurrent);
+}
+
+function normalizeComparableText(value: string | null | undefined) {
+  return value?.trim().toLowerCase() ?? "";
+}
+
+function createProfileWordmark(businessName: string | null) {
+  if (!businessName) {
+    return null;
+  }
+
+  return businessName.length > 18 ? businessName.slice(0, 18).trim() : businessName;
+}
+
+function createStoreContactLine(profile: PrintOpsStoreProfileSummary) {
+  const addressLine = formatStoreAddress(profile.address);
+  const segments = [addressLine, cleanProfileString(profile.businessEmail), cleanProfileString(profile.phone)].filter(Boolean);
+
+  return segments.join(" / ") || null;
+}
+
+function formatStoreAddress(address: Record<string, unknown> | undefined) {
+  if (!address) {
+    return null;
+  }
+
+  const street = pickProfileString(address, ["streetAddress", "street", "addressLine", "addressLine1", "line1"]);
+  const city = pickProfileString(address, ["city"]);
+  const subdivision = pickProfileString(address, ["subdivision", "state", "region"]);
+  const country = pickProfileString(address, ["country", "countryCode"]);
+  const postalCode = pickProfileString(address, ["postalCode", "zipCode"]);
+  const pieces = [street, city, subdivision, postalCode, country].filter(Boolean);
+
+  return pieces.join(", ") || null;
+}
+
+function pickProfileString(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+
+    if (typeof value === "number") {
+      return String(value);
+    }
+  }
+
+  return null;
+}
+
+function getWebsiteDisplay(siteUrl: string | null) {
+  if (!siteUrl) {
+    return null;
+  }
+
+  try {
+    const url = new URL(siteUrl);
+
+    return url.hostname.replace(/^www\./, "");
+  } catch {
+    return siteUrl.replace(/^https?:\/\//i, "").replace(/^www\./, "").replace(/\/$/, "");
+  }
+}
+
+function resolveProfilePrintLocale(value: string | null | undefined): PrintLocale | null {
+  const normalized = value?.trim().replace("_", "-").toLowerCase();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const candidates: Record<string, PrintLocale> = {
+    ar: "ar",
+    de: "de",
+    en: "en",
+    es: "es",
+    fr: "fr",
+    it: "it",
+    ja: "ja",
+    ko: "ko",
+    nl: "nl",
+    pt: "pt",
+    zh: "zh-Hans",
+    "zh-cn": "zh-Hans",
+    "zh-hans": "zh-Hans",
+    "zh-hk": "zh-Hant",
+    "zh-hant": "zh-Hant",
+    "zh-mo": "zh-Hant",
+    "zh-tw": "zh-Hant",
+  };
+
+  return candidates[normalized] ?? candidates[normalized.split("-")[0]] ?? null;
+}
+
+function resolveProfileTimezone(value: string | null | undefined) {
+  const timezoneValue = value?.trim();
+
+  if (!timezoneValue) {
+    return null;
+  }
+
+  return timezoneOptions.some((option) => option.value === timezoneValue) ? timezoneValue : null;
+}
+
+function getAvatarInitials(value: string) {
+  const words = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return "ZS";
+  }
+
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
+  }
+
+  return `${words[0][0]}${words[1][0]}`.toUpperCase();
+}
 
 const fixedTemplateLabels = {
   invoiceTitle: {
@@ -1539,8 +1778,8 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
     logoFontSize: Math.min(Math.max(Number(draft.logoFontSize) || defaultTemplateBrandSettings.logoFontSize, 28), 96),
     logoSource: draft.logoSource,
     logoImageUrl: draft.logoImageUrl.trim(),
-    footerWebsite: draft.footerWebsite.trim() || defaultTemplateBrandSettings.footerWebsite,
-    footerContact: draft.footerContact.trim() || defaultTemplateBrandSettings.footerContact,
+    footerWebsite: draft.footerWebsite.trim(),
+    footerContact: draft.footerContact.trim(),
     thankYouText: draft.thankYouText.trim() || defaultTemplateBrandSettings.thankYouText,
     accentColor: draft.accentColor,
     customAccentColor: draft.customAccentColor.trim() || defaultTemplateBrandSettings.customAccentColor,
@@ -1608,6 +1847,13 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     status: "idle",
     window: null,
   });
+  const [storeProfile, setStoreProfile] = useState<PrintOpsStoreProfileSummary | null>(null);
+  const [storeProfileStatus, setStoreProfileStatus] = useState<StoreProfileStatus>({
+    error: null,
+    source: null,
+    status: "idle",
+  });
+  const [storeProfileDefaultsApplied, setStoreProfileDefaultsApplied] = useState(false);
   const messages = getPrintOpsMessages(siteLocale);
   const printLanguageOptions = useMemo(() => getPrintLocaleOptions(siteLocale), [siteLocale]);
   const displayOrders = cachedOrders;
@@ -1667,8 +1913,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
   const selectedTemplate = filteredTemplates.find((templateRecord) => templateRecord.id === selectedTemplateId) ?? filteredTemplates[0] ?? templateRecords[0];
   const defaultOrderTemplate =
-    templateRecords.find((templateRecord) => templateRecord.id === "store-order-clean") ??
     templateRecords.find((templateRecord) => templateRecord.isDefault && templateRecord.documentType === "Invoice") ??
+    templateRecords.find((templateRecord) => templateRecord.id === "store-order-clean") ??
     templateRecords.find((templateRecord) => templateRecord.documentType === "Invoice") ??
     templateRecords[0];
   const templateStats = useMemo(
@@ -1698,6 +1944,9 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       : activeView === "settings"
         ? messages.pages.settingsDescription
         : messages.pages.ordersDescription;
+  const workspaceStoreName = storeProfile?.businessName?.trim() || "Zider PrintOps";
+  const workspaceStoreScope = storeProfile?.siteUrl ? getWebsiteDisplay(storeProfile.siteUrl) : messages.app.scope;
+  const workspaceStoreInitials = getAvatarInitials(workspaceStoreName);
   const pageMetrics: PageMetric[] =
     activeView === "templates"
       ? [
@@ -1825,6 +2074,35 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   }, [templateRecords, templatesHydrated]);
 
   useEffect(() => {
+    if (!pluginContext?.instanceId || !pluginContext.storeProfileEndpoint) {
+      return;
+    }
+
+    void loadStoreProfile("refresh");
+  }, [pluginContext?.instanceId, pluginContext?.storeProfileEndpoint]);
+
+  useEffect(() => {
+    if (!templatesHydrated || !storeProfile || storeProfileDefaultsApplied) {
+      return;
+    }
+
+    const profileLanguage = resolveProfilePrintLocale(storeProfile.language ?? storeProfile.locale);
+    const profileTimezone = resolveProfileTimezone(storeProfile.timezone);
+
+    setTemplateRecords((currentTemplates) => applyStoreProfileDefaultsToTemplates(currentTemplates, storeProfile));
+
+    if (profileLanguage && language === defaultPrintLocale) {
+      setLanguage(profileLanguage);
+    }
+
+    if (profileTimezone && timezone === "Asia/Shanghai") {
+      setTimezone(profileTimezone);
+    }
+
+    setStoreProfileDefaultsApplied(true);
+  }, [language, storeProfile, storeProfileDefaultsApplied, templatesHydrated, timezone]);
+
+  useEffect(() => {
     if (!pluginContext) {
       return;
     }
@@ -1922,7 +2200,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
   function openCreateTemplate() {
     setTemplateEditorMode("create");
-    setTemplateDraft(createBlankTemplateDraft());
+    setTemplateDraft(createTemplateDraftWithStoreProfile(storeProfile));
     setTemplateEditorOpen(true);
   }
 
@@ -2068,6 +2346,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       if (!persistence || persistence.status === "persisted") {
         void loadCachedOrders();
       }
+
+      void loadStoreProfile("cache");
     } catch (error) {
       setWixSyncStatus((current) => ({
         ...current,
@@ -2075,6 +2355,47 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         mode,
         status: "error",
       }));
+    }
+  }
+
+  async function loadStoreProfile(mode: "cache" | "refresh" = "cache") {
+    if (!pluginContext?.instanceId || !pluginContext.storeProfileEndpoint) {
+      return;
+    }
+
+    setStoreProfileStatus((current) => ({
+      ...current,
+      error: null,
+      status: current.status === "loaded" ? "loaded" : "loading",
+    }));
+
+    try {
+      const response = await fetch(pluginContext.storeProfileEndpoint, {
+        method: mode === "refresh" ? "POST" : "GET",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        profile?: PrintOpsStoreProfileSummary | null;
+        source?: "cache" | "wix";
+        warning?: string;
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? `PrintOps store profile request failed with ${response.status}`);
+      }
+
+      setStoreProfile(payload.profile ?? null);
+      setStoreProfileStatus({
+        error: payload.warning ?? null,
+        source: payload.source ?? null,
+        status: "loaded",
+      });
+    } catch (error) {
+      setStoreProfileStatus({
+        error: error instanceof Error ? error.message : "Failed to load PrintOps store profile",
+        source: null,
+        status: "error",
+      });
     }
   }
 
@@ -2218,10 +2539,10 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
               <span aria-hidden />
             </button>
             <button className={styles.profileButton} type="button">
-              <span className={styles.avatar}>GS</span>
+              <span className={styles.avatar}>{workspaceStoreInitials}</span>
               <span>
-                <strong>Green Studio Wix</strong>
-                <small>Wix Stores</small>
+                <strong>{workspaceStoreName}</strong>
+                <small>{workspaceStoreScope}</small>
               </span>
               <ChevronDown size={15} aria-hidden />
             </button>
@@ -2449,6 +2770,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         open={templateEditorOpen}
         printLanguageOptions={printLanguageOptions}
         siteLocale={siteLocale}
+        storeProfile={storeProfile}
+        storeProfileStatus={storeProfileStatus}
       />
 
       <Drawer.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -4280,6 +4603,8 @@ function TemplateEditorDrawer({
   open,
   printLanguageOptions,
   siteLocale,
+  storeProfile,
+  storeProfileStatus,
 }: {
   draft: TemplateDraft;
   messages: PrintOpsMessages;
@@ -4290,6 +4615,8 @@ function TemplateEditorDrawer({
   open: boolean;
   printLanguageOptions: { label: string; value: string }[];
   siteLocale: SiteLocale;
+  storeProfile: PrintOpsStoreProfileSummary | null;
+  storeProfileStatus: StoreProfileStatus;
 }) {
   const editorCopy = messages.templateEditor;
   const visibleFieldGroups = useMemo(() => getVisibleFieldGroups(editorCopy), [editorCopy]);
@@ -4428,6 +4755,8 @@ function TemplateEditorDrawer({
     ) : (
       draft.logoText || "GS"
     );
+  const showMissingLogoHint = storeProfileStatus.status === "loaded" && !storeProfile?.logoUrl && draft.logoSource !== "uploaded-image";
+  const showMissingEmailHint = storeProfileStatus.status === "loaded" && !storeProfile?.businessEmail;
 
   function handleLogoUpload(event: ChangeEvent<HTMLInputElement>) {
     const file = event.currentTarget.files?.[0];
@@ -4618,6 +4947,7 @@ function TemplateEditorDrawer({
                 </button>
               </div>
             ) : null}
+            {showMissingLogoHint ? <small className={styles.labelKey}>{editorCopy.missingLogoHint}</small> : null}
             <label className={styles.fieldGroup}>
               <span>{editorCopy.footerContactLine}</span>
               <input
@@ -4626,6 +4956,7 @@ function TemplateEditorDrawer({
                 onChange={(event) => onDraftChange({ footerContact: event.target.value })}
               />
             </label>
+            {showMissingEmailHint ? <small className={styles.labelKey}>{editorCopy.missingEmailHint}</small> : null}
 
             <span className={styles.settingsGroupTitle}>{editorCopy.socialFooter}</span>
             <div className={styles.socialConfigList}>
@@ -5877,8 +6208,8 @@ function OrderPaperPreview({
   const displayLogo = rawLogo.slice(0, 4) || "GS";
   const displayWordmark = rawLogo || "Hello";
   const displayBrandName = brandName.trim() || defaultTemplateBrandSettings.brandName;
-  const displayFooterWebsite = footerWebsite.trim() || defaultTemplateBrandSettings.footerWebsite;
-  const displayFooterContact = footerContact.trim() || defaultTemplateBrandSettings.footerContact;
+  const displayFooterWebsite = footerWebsite.trim();
+  const displayFooterContact = footerContact.trim();
   const displayThankYou = thankYouText.trim() || defaultTemplateBrandSettings.thankYouText;
   const orderDetails = getOrderPrintDetails(order, {
     addressFormat,
@@ -5966,15 +6297,17 @@ function OrderPaperPreview({
         ))}
       </span>
     ) : null;
-  const socialFooter = showContactFooter || showSocialFooter ? (
+  const hasContactFooter = showContactFooter && Boolean(displayFooterWebsite || displayFooterContact);
+  const hasSocialFooter = showSocialFooter && socialItems.length > 0;
+  const socialFooter = hasContactFooter || hasSocialFooter ? (
     <span className={styles.orderSocialFooter}>
-      {showContactFooter ? (
+      {hasContactFooter ? (
         <span>
           <strong>{displayFooterWebsite}</strong>
           <small>{displayFooterContact}</small>
         </span>
       ) : null}
-      {showSocialFooter ? (
+      {hasSocialFooter ? (
         <span className={styles.orderSocialLinks}>
           {socialItems.map((item) => (
             <a aria-label={item.label} href={item.url} key={item.platform} rel="noreferrer" target="_blank" title={item.url}>
@@ -5985,15 +6318,15 @@ function OrderPaperPreview({
       ) : null}
     </span>
   ) : null;
-  const heroSocialFooter = showContactFooter || showSocialFooter ? (
+  const heroSocialFooter = hasContactFooter || hasSocialFooter ? (
     <span className={styles.orderHeroSocialFooter}>
-      {showContactFooter ? (
+      {hasContactFooter ? (
         <span>
           <strong>{displayFooterWebsite}</strong>
           <small>{displayFooterContact}</small>
         </span>
       ) : null}
-      {showSocialFooter ? (
+      {hasSocialFooter ? (
         <span className={styles.orderHeroSocialIcons} aria-label="Social links">
           {socialItems.map((item) => {
             return (
