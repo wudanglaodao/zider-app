@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   BellRing,
   BookOpen,
+  Check,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -20,6 +21,7 @@ import {
   LayoutTemplate,
   Menu as MenuIcon,
   MoreHorizontal,
+  Minus,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
@@ -3263,7 +3265,7 @@ function BaseCheckbox({
       onCheckedChange={onCheckedChange}
     >
       <Checkbox.Indicator className={styles.checkboxIndicator}>
-        <CheckCircle2 size={14} aria-hidden />
+        {indeterminate ? <Minus size={15} strokeWidth={3} aria-hidden /> : <Check size={15} strokeWidth={3} aria-hidden />}
       </Checkbox.Indicator>
     </Checkbox.Root>
   );
