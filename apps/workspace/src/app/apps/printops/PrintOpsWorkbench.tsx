@@ -2817,12 +2817,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                               </button>
                               <OrderMenu
                                 messages={messages}
-                                onChangeTemplate={() => {
-                                  selectOrders([order]);
-                                  updateWorkspaceView("templates", viewLinks.templates);
-                                }}
                                 onMarkPrinted={() => void markOrdersAsPrinted([order.id])}
-                                onPreview={() => openOrdersPreview([order])}
                               />
                             </div>
                           </td>
@@ -3816,14 +3811,10 @@ function StatusPill({ value, label }: { value: string; label?: string }) {
 
 function OrderMenu({
   messages,
-  onChangeTemplate,
   onMarkPrinted,
-  onPreview,
 }: {
   messages: PrintOpsMessages;
-  onChangeTemplate: () => void;
   onMarkPrinted: () => void;
-  onPreview: () => void;
 }) {
   return (
     <Menu.Root>
@@ -3839,12 +3830,6 @@ function OrderMenu({
           sideOffset={8}
         >
           <Menu.Popup className={styles.menuPopup}>
-            <Menu.Item className={styles.menuItem} onClick={onPreview}>
-              {messages.orderPanel.openPreview}
-            </Menu.Item>
-            <Menu.Item className={styles.menuItem} onClick={onChangeTemplate}>
-              {messages.orderPanel.changeTemplate}
-            </Menu.Item>
             <Menu.Item className={styles.menuItem} onClick={onMarkPrinted}>
               {messages.orderPanel.markAsPrinted}
             </Menu.Item>
