@@ -3292,7 +3292,7 @@ function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order
       printUpdatedAt: order.printUpdatedAt,
       total: order.totalFormatted ?? mappedOrder.total,
       updatedAt: order.updatedAt ?? mappedOrder.updatedAt,
-      warning: order.customFieldCount > 0 ? `${order.customFieldCount} custom fields` : mappedOrder.warning,
+      warning: mappedOrder.warning,
     };
   }
 
@@ -3314,7 +3314,7 @@ function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order
     template: "Invoice",
     total: order.totalFormatted ?? formatMoney(order.totalAmount, order.currency),
     updatedAt: order.updatedAt,
-    warning: order.customFieldCount > 0 ? `${order.customFieldCount} custom fields` : undefined,
+    warning: undefined,
   };
 }
 
@@ -3324,7 +3324,6 @@ function mapWixSyncOrderToOrder(order: WixSyncOrderSummary, source: Order["sourc
   const customerName = getString(customerRecord?.name) ?? getString(customerRecord?.fullName) ?? "Wix customer";
   const customerEmail = getString(customerRecord?.email) ?? getString(customerRecord?.phone) ?? "No contact";
   const itemCount = order.totalItemQuantity || order.lineItems.reduce((total, lineItem) => total + (lineItem.quantity ?? 0), 0) || order.lineItems.length;
-  const customFieldCount = countWixOrderCustomFields(order);
   const firstItemTitle = firstLineItem?.title ?? "Wix order item";
   const firstItemQuantity = firstLineItem?.quantity ?? 1;
   const customFields = collectWixOrderCustomFields(order);
@@ -3349,7 +3348,7 @@ function mapWixSyncOrderToOrder(order: WixSyncOrderSummary, source: Order["sourc
     template: "Invoice",
     total: getOrderTotal(order) ?? "$0.00",
     updatedAt: order.updatedAt,
-    warning: customFieldCount > 0 ? `${customFieldCount} custom fields` : undefined,
+    warning: undefined,
   };
 }
 
