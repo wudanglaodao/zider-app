@@ -3390,6 +3390,12 @@
   padding-top: 0.72em;
 }
 
+.orderNotesBlock > .orderCustomFieldsBlock:first-child {
+  border-top: 0;
+  margin-top: 0;
+  padding-top: 0;
+}
+
 .orderCustomFieldsBlock > strong {
   font-size: 0.86em;
   text-transform: uppercase;
@@ -3778,7 +3784,8 @@
 }
 
 .orderHeroAddressGrid[data-columns="one"],
-.orderHeroSummary[data-columns="one"] {
+.orderHeroSummary[data-columns="one"],
+.orderClassicLower[data-columns="one"] {
   grid-template-columns: minmax(0, 1fr);
   gap: 1.3em;
 }

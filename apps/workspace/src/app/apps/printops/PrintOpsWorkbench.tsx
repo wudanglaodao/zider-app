@@ -6038,7 +6038,7 @@ function getOrderPrintDetails(
     date: formatTemplateDateFromValue(rawOrder?.createdAt ?? rawOrder?.updatedAt ?? null, options.dateFormat, options.locale),
     deliveryMethod: rawOrder?.deliveryMethod ?? order?.fulfillment ?? "Delivery method 3232",
     lineItems,
-    note: rawOrder?.note ?? "Please gift wrap and include the printed order summary.",
+    note: rawOrder?.note?.trim() ?? "",
     number: order?.number ?? formatOrderNumber(rawOrder?.orderNumber ?? rawOrder?.sourceOrderId ?? "#10059"),
     paymentMethod: rawOrder?.paymentMethod ?? order?.payment ?? "Gift card",
     shipAddressLines,
@@ -6460,6 +6460,20 @@ function OrderPaperPreview({
         ))}
       </span>
     ) : null;
+  const orderNote = orderDetails.note.trim();
+  const hasOrderNote = showNotes && orderNote.length > 0;
+  const hasOrderDetails = hasOrderNote || Boolean(additionalDetailsBlock);
+  const orderNotesBlock = hasOrderDetails ? (
+    <span className={styles.orderNotesBlock}>
+      {hasOrderNote ? (
+        <>
+          <strong>{labels.notes}</strong>
+          <span>{orderNote}</span>
+        </>
+      ) : null}
+      {additionalDetailsBlock}
+    </span>
+  ) : null;
   const hasContactFooter = showContactFooter && Boolean(displayFooterWebsite || displayFooterContact);
   const hasSocialFooter = showSocialFooter && socialItems.length > 0;
   const socialFooter = hasContactFooter || hasSocialFooter ? (
@@ -6591,15 +6605,9 @@ function OrderPaperPreview({
           ))}
         </span>
 
-        {showNotes || showTotals ? (
-          <span className={styles.orderHeroSummary} data-columns={showNotes && showTotals ? "two" : "one"}>
-            {showNotes ? (
-              <span className={styles.orderNotesBlock}>
-                <strong>{labels.notes}</strong>
-                <span>{orderDetails.note}</span>
-                {additionalDetailsBlock}
-              </span>
-            ) : null}
+        {hasOrderDetails || showTotals ? (
+          <span className={styles.orderHeroSummary} data-columns={hasOrderDetails && showTotals ? "two" : "one"}>
+            {orderNotesBlock}
             {showTotals ? (
               <span className={styles.orderHeroTotals}>
                 <span>
@@ -6690,31 +6698,31 @@ function OrderPaperPreview({
           ))}
         </span>
 
-        <span className={styles.orderClassicLower}>
-          <span className={styles.orderNotesBlock}>
-            <strong>{labels.notes}</strong>
-            <span>{orderDetails.note}</span>
-            {additionalDetailsBlock}
-          </span>
-          <span className={styles.orderClassicTotals}>
-            <span>
-              <strong>{labels.items}</strong>
-              <small>{orderDetails.totals.items}</small>
+        {hasOrderDetails || showTotals ? (
+          <span className={styles.orderClassicLower} data-columns={hasOrderDetails && showTotals ? "two" : "one"}>
+            {orderNotesBlock}
+            {showTotals ? (
+              <span className={styles.orderClassicTotals}>
+                <span>
+                  <strong>{labels.items}</strong>
+                  <small>{orderDetails.totals.items}</small>
+                </span>
+                <span>
+                  <strong>{labels.shipping}</strong>
+                  <small>{orderDetails.totals.shipping}</small>
+                </span>
+                <span>
+                  <strong>{labels.tax}</strong>
+                  <small>{orderDetails.totals.tax}</small>
+                </span>
+                <span data-emphasis="true">
+                  <strong>{labels.total}</strong>
+                  <small>{orderDetails.totals.total}</small>
+                </span>
+              </span>
+            ) : null}
             </span>
-            <span>
-              <strong>{labels.shipping}</strong>
-              <small>{orderDetails.totals.shipping}</small>
-            </span>
-            <span>
-              <strong>{labels.tax}</strong>
-              <small>{orderDetails.totals.tax}</small>
-            </span>
-            <span data-emphasis="true">
-              <strong>{labels.total}</strong>
-              <small>{orderDetails.totals.total}</small>
-            </span>
-          </span>
-        </span>
+        ) : null}
 
         <span className={styles.orderCenteredFooter}>
           <strong>{displayThankYou}</strong>
@@ -6777,11 +6785,7 @@ function OrderPaperPreview({
         ))}
       </span>
 
-      <span className={styles.orderSlipNotes}>
-        <strong>{labels.notes}</strong>
-        <span>{orderDetails.note}</span>
-        {additionalDetailsBlock}
-      </span>
+      {hasOrderDetails ? <span className={styles.orderSlipNotes}>{orderNotesBlock}</span> : null}
 
       <span className={styles.orderSlipThanks}>
         <strong>{displayThankYou}</strong>
