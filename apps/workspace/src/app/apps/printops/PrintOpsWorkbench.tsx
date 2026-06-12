@@ -59,6 +59,10 @@ type Order = {
   email: string;
   total: string;
   date: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  printedAt?: string | null;
+  printUpdatedAt?: string | null;
   fulfillment: "Unfulfilled" | "Pickup" | "Partial" | "Ready";
   payment: "Paid" | "Unpaid" | "Partially paid";
   print: "Unprinted" | "Generated" | "Printed" | "Failed";
@@ -221,6 +225,9 @@ type PrintOpsCachedOrderSummary = {
   totalFormatted: string | null;
   lineItemCount: number;
   customFieldCount: number;
+  printStatus: string | null;
+  printedAt: string | null;
+  printUpdatedAt: string | null;
   normalizedOrder: WixSyncOrderSummary | null;
   lastSyncMode: string | null;
   lastEventType: string | null;
@@ -1813,6 +1820,12 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const [activeView, setActiveView] = useState<PrintOpsView>(initialView);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [cachedOrders, setCachedOrders] = useState<Order[]>([]);
+  const [orderSearch, setOrderSearch] = useState("");
+  const [orderFilters, setOrderFilters] = useState({
+    last30Days: true,
+    unfulfilled: false,
+    unprinted: false,
+  });
   const [orderCacheStatus, setOrderCacheStatus] = useState<OrderCacheStatus>({
     error: null,
     orderCount: 0,
@@ -1856,15 +1869,26 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const [storeProfileDefaultsApplied, setStoreProfileDefaultsApplied] = useState(false);
   const messages = getPrintOpsMessages(siteLocale);
   const printLanguageOptions = useMemo(() => getPrintLocaleOptions(siteLocale), [siteLocale]);
-  const displayOrders = cachedOrders;
+  const displayOrders = useMemo(() => {
+    const normalizedSearch = orderSearch.trim().toLowerCase();
+
+    return cachedOrders.filter((order) => {
+      const matchesSearch = !normalizedSearch || orderMatchesSearch(order, normalizedSearch);
+      const matchesDate = !orderFilters.last30Days || isOrderWithinLastDays(order, 30);
+      const matchesFulfillment = !orderFilters.unfulfilled || order.fulfillment === "Unfulfilled";
+      const matchesPrint = !orderFilters.unprinted || order.print === "Unprinted";
+
+      return matchesSearch && matchesDate && matchesFulfillment && matchesPrint;
+    });
+  }, [cachedOrders, orderFilters.last30Days, orderFilters.unfulfilled, orderFilters.unprinted, orderSearch]);
   const selectedOrders = useMemo(() => displayOrders.filter((order) => selectedIds.includes(order.id)), [displayOrders, selectedIds]);
   const selectedCount = selectedOrders.length;
   const orderMetrics = useMemo(
     () => ({
-      generated: displayOrders.filter((order) => order.print === "Generated").length,
-      unprinted: displayOrders.filter((order) => order.print === "Unprinted").length,
+      generated: cachedOrders.filter((order) => order.print === "Generated").length,
+      unprinted: cachedOrders.filter((order) => order.print === "Unprinted").length,
     }),
-    [displayOrders],
+    [cachedOrders],
   );
   const viewLinks = useMemo(
     () =>
@@ -1880,7 +1904,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       {
         label: messages.nav.menu,
         items: [
-          { icon: Package, label: messages.nav.orders, href: viewLinks.orders, view: "orders", count: String(displayOrders.length) },
+          { icon: Package, label: messages.nav.orders, href: viewLinks.orders, view: "orders", count: String(cachedOrders.length) },
           { icon: LayoutTemplate, label: messages.nav.templates, href: viewLinks.templates, view: "templates", count: "" },
         ],
       },
@@ -1892,7 +1916,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         ],
       },
     ],
-    [displayOrders.length, messages, viewLinks],
+    [cachedOrders.length, messages, viewLinks],
   );
   const filteredTemplates = useMemo(() => {
     const source = templateTab === "mine" ? "Store copy" : "Built-in";
@@ -2136,6 +2160,13 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     setSelectedIds(checked ? displayOrders.map((order) => order.id) : []);
   }
 
+  function toggleOrderFilter(filter: keyof typeof orderFilters) {
+    setOrderFilters((currentFilters) => ({
+      ...currentFilters,
+      [filter]: !currentFilters[filter],
+    }));
+  }
+
   function selectOrders(orders: Order[]) {
     setSelectedIds(orders.map((order) => order.id));
   }
@@ -2162,13 +2193,52 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     });
   }
 
-  function markOrdersAsPrinted(orderIds: string[]) {
+  async function markOrdersAsPrinted(orderIds: string[]) {
     if (orderIds.length === 0) {
       return;
     }
 
-    const printableIds = new Set(orderIds);
+    const sourceOrderIds = [...new Set(orderIds)];
+    const printableIds = new Set(sourceOrderIds);
     setCachedOrders((currentOrders) => currentOrders.map((order) => (printableIds.has(order.id) ? { ...order, print: "Printed" } : order)));
+
+    if (!pluginContext?.ordersEndpoint) {
+      return;
+    }
+
+    try {
+      const response = await fetch(pluginContext.ordersEndpoint, {
+        body: JSON.stringify({
+          printStatus: "printed",
+          sourceOrderIds,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        error?: string;
+        ok?: boolean;
+        printStatus?: {
+          reason?: string;
+          status?: "persisted" | "skipped" | "error";
+          updatedCount?: number;
+        };
+      } | null;
+
+      if (!response.ok || !payload?.ok) {
+        throw new Error(payload?.error ?? payload?.printStatus?.reason ?? `Print status update failed with ${response.status}`);
+      }
+
+      void loadCachedOrders();
+    } catch (error) {
+      setOrderCacheStatus((currentStatus) => ({
+        ...currentStatus,
+        error: error instanceof Error ? error.message : "Failed to save print status",
+        status: "error",
+      }));
+    }
   }
 
   function updateWorkspaceView(view: PrintOpsView, href: string) {
@@ -2610,11 +2680,16 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             <div className={styles.filterBar}>
             <label className={styles.search}>
               <Search size={17} aria-hidden />
-              <input aria-label="Search orders, customer, or SKU" placeholder="Search orders, customer, SKU" />
+              <input
+                aria-label="Search orders, customer, or SKU"
+                onChange={(event) => setOrderSearch(event.currentTarget.value)}
+                placeholder="Search orders, customer, SKU"
+                value={orderSearch}
+              />
             </label>
-              <FilterChip label="30 days" active />
-              <FilterChip label="Unfulfilled" />
-              <FilterChip label="Unprinted" />
+              <FilterChip label="30 days" active={orderFilters.last30Days} onClick={() => toggleOrderFilter("last30Days")} />
+              <FilterChip label="Unfulfilled" active={orderFilters.unfulfilled} onClick={() => toggleOrderFilter("unfulfilled")} />
+              <FilterChip label="Unprinted" active={orderFilters.unprinted} onClick={() => toggleOrderFilter("unprinted")} />
             </div>
 
             <div className={styles.tableToolbar}>
@@ -2644,7 +2719,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                   <Printer size={16} aria-hidden />
                   {messages.orderPanel.printPreview}
                 </button>
-                <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => markOrdersAsPrinted(selectedOrders.map((order) => order.id))}>
+                <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => void markOrdersAsPrinted(selectedOrders.map((order) => order.id))}>
                   <CheckCircle2 size={16} aria-hidden />
                   {messages.orderPanel.markAsPrinted}
                 </button>
@@ -2746,7 +2821,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                                   selectOrders([order]);
                                   updateWorkspaceView("templates", viewLinks.templates);
                                 }}
-                                onMarkPrinted={() => markOrdersAsPrinted([order.id])}
+                                onMarkPrinted={() => void markOrdersAsPrinted([order.id])}
                                 onPreview={() => openOrdersPreview([order])}
                               />
                             </div>
@@ -2758,8 +2833,14 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                     <tr>
                       <td colSpan={9}>
                         <div className={styles.emptyOrdersState}>
-                          <strong>{messages.orders.emptyTitle}</strong>
-                          <span>{pluginContext ? messages.orders.emptySyncedDescription : messages.orders.emptyDescription}</span>
+                          <strong>{cachedOrders.length > 0 ? messages.orders.emptyFilterTitle : messages.orders.emptyTitle}</strong>
+                          <span>
+                            {cachedOrders.length > 0
+                              ? messages.orders.emptyFilterDescription
+                              : pluginContext
+                                ? messages.orders.emptySyncedDescription
+                                : messages.orders.emptyDescription}
+                          </span>
                         </div>
                       </td>
                     </tr>
@@ -3149,22 +3230,87 @@ function formatSyncDate(value: string) {
   });
 }
 
+function orderMatchesSearch(order: Order, normalizedSearch: string) {
+  const searchableValues = [
+    order.number,
+    order.customer,
+    order.email,
+    order.total,
+    order.items,
+    order.template,
+    order.language,
+    order.warning,
+    order.sku,
+    order.barcode,
+    ...(order.customFields ?? []).flatMap((field) => [field.label, field.value]),
+  ];
+
+  return searchableValues.some((value) => value?.toLowerCase().includes(normalizedSearch));
+}
+
+function isOrderWithinLastDays(order: Order, days: number) {
+  const timestamp = getOrderTimestamp(order);
+
+  if (!timestamp) {
+    return true;
+  }
+
+  return Date.now() - timestamp <= days * 24 * 60 * 60 * 1000;
+}
+
+function getOrderTimestamp(order: Order) {
+  const rawValue = order.updatedAt ?? order.createdAt ?? null;
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const timestamp = new Date(rawValue).getTime();
+
+  return Number.isNaN(timestamp) ? null : timestamp;
+}
+
+function mapCachedPrintStatus(value: string | null): Order["print"] {
+  const normalized = value?.toLowerCase() ?? "";
+
+  if (normalized === "printed") {
+    return "Printed";
+  }
+
+  if (normalized === "generated") {
+    return "Generated";
+  }
+
+  if (normalized === "failed") {
+    return "Failed";
+  }
+
+  return "Unprinted";
+}
+
 function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order {
+  const printStatus = mapCachedPrintStatus(order.printStatus);
+
   if (order.normalizedOrder) {
     const mappedOrder = mapWixSyncOrderToOrder(order.normalizedOrder, "cache");
 
     return {
       ...mappedOrder,
+      createdAt: order.createdAt ?? mappedOrder.createdAt,
       date: formatOrderDate(order.updatedAt ?? order.createdAt ?? order.syncedAt),
       id: order.sourceOrderId,
       number: formatOrderNumber(order.orderNumber ?? mappedOrder.number),
-      print: "Unprinted",
+      print: printStatus,
+      printedAt: order.printedAt,
+      printUpdatedAt: order.printUpdatedAt,
       total: order.totalFormatted ?? mappedOrder.total,
+      updatedAt: order.updatedAt ?? mappedOrder.updatedAt,
       warning: order.customFieldCount > 0 ? `${order.customFieldCount} custom fields` : mappedOrder.warning,
     };
   }
 
   return {
+    createdAt: order.createdAt,
     customer: order.customerName ?? "Wix customer",
     date: formatOrderDate(order.updatedAt ?? order.createdAt ?? order.syncedAt),
     email: order.customerEmail ?? order.customerPhone ?? "No contact",
@@ -3174,10 +3320,13 @@ function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order
     language: "English",
     number: formatOrderNumber(order.orderNumber ?? order.sourceOrderId),
     payment: mapPaymentStatus(order.paymentStatus),
-    print: "Unprinted",
+    print: printStatus,
+    printedAt: order.printedAt,
+    printUpdatedAt: order.printUpdatedAt,
     source: "cache",
     template: "Invoice",
     total: order.totalFormatted ?? formatMoney(order.totalAmount, order.currency),
+    updatedAt: order.updatedAt,
     warning: order.customFieldCount > 0 ? `${order.customFieldCount} custom fields` : undefined,
   };
 }
@@ -3195,6 +3344,7 @@ function mapWixSyncOrderToOrder(order: WixSyncOrderSummary, source: Order["sourc
 
   return {
     barcode: firstLineItem?.barcode ?? undefined,
+    createdAt: order.createdAt,
     customFields,
     customer: customerName,
     date: formatOrderDate(order.updatedAt ?? order.createdAt),
@@ -3211,6 +3361,7 @@ function mapWixSyncOrderToOrder(order: WixSyncOrderSummary, source: Order["sourc
     source,
     template: "Invoice",
     total: getOrderTotal(order) ?? "$0.00",
+    updatedAt: order.updatedAt,
     warning: customFieldCount > 0 ? `${customFieldCount} custom fields` : undefined,
   };
 }
@@ -3573,9 +3724,9 @@ function TemplateToggleRow({
   );
 }
 
-function FilterChip({ label, active }: { label: string; active?: boolean }) {
+function FilterChip({ label, active, onClick }: { label: string; active?: boolean; onClick?: () => void }) {
   return (
-    <button className={styles.filterChip} data-active={active} type="button">
+    <button aria-pressed={Boolean(active)} className={styles.filterChip} data-active={active} type="button" onClick={onClick}>
       {label}
     </button>
   );

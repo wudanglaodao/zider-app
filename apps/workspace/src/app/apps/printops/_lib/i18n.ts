@@ -116,6 +116,8 @@ export const printopsMessages = {
       emptyTitle: "No synced orders yet",
       emptyDescription: "Connect a Wix store and sync orders to start preparing invoices.",
       emptySyncedDescription: "Click Sync latest or Sync last 7 days to load real Wix orders into PrintOps.",
+      emptyFilterTitle: "No matching orders",
+      emptyFilterDescription: "Adjust the search term or filters to show more synced orders.",
     },
     orderPanel: {
       emptyTitle: "Invoice",
@@ -476,6 +478,8 @@ export const printopsMessages = {
       emptyTitle: "尚未同步訂單",
       emptyDescription: "連接 Wix 店鋪並同步訂單後，即可開始準備發票。",
       emptySyncedDescription: "點擊同步最新訂單或同步最近 7 天，將真實 Wix 訂單載入 PrintOps。",
+      emptyFilterTitle: "沒有符合條件的訂單",
+      emptyFilterDescription: "調整搜尋內容或篩選條件，即可顯示更多已同步訂單。",
     },
     orderPanel: {
       emptyTitle: "發票",

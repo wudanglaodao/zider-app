@@ -17,6 +17,24 @@ export type PrintOpsOrderCachePersistenceResult =
       reason: string;
     };
 
+export type PrintOpsOrderPrintStatus = "unprinted" | "generated" | "printed" | "failed";
+
+export type PrintOpsOrderPrintStatusUpdateResult =
+  | {
+      status: "persisted";
+      updatedCount: number;
+    }
+  | {
+      status: "skipped";
+      updatedCount: 0;
+      reason: string;
+    }
+  | {
+      status: "error";
+      updatedCount: 0;
+      reason: string;
+    };
+
 type PersistPrintOpsWixOrdersInput = {
   appKey: string;
   instanceId: string;
@@ -43,11 +61,42 @@ type CachedPrintOpsOrderRow = {
   total_formatted: string | null;
   line_item_count: number | null;
   custom_field_count: number | null;
+  print_status: string | null;
+  printed_at: string | null;
+  print_updated_at: string | null;
   normalized_order: unknown;
   last_sync_mode: string | null;
   last_event_type: string | null;
   synced_at: string;
 };
+
+type CachedPrintOpsOrderRowWithoutPrintStatus = Omit<CachedPrintOpsOrderRow, "print_status" | "printed_at" | "print_updated_at">;
+
+const cachedOrderBaseSelectColumns = [
+  "source_order_id",
+  "source_order_number",
+  "source_created_at",
+  "source_updated_at",
+  "payment_status",
+  "fulfillment_status",
+  "currency",
+  "customer_name",
+  "customer_email",
+  "customer_phone",
+  "delivery_method",
+  "payment_method",
+  "total_item_quantity",
+  "total_amount",
+  "total_formatted",
+  "line_item_count",
+  "custom_field_count",
+  "normalized_order",
+  "last_sync_mode",
+  "last_event_type",
+  "synced_at",
+] as const;
+
+const cachedOrderPrintStatusSelectColumns = ["print_status", "printed_at", "print_updated_at"] as const;
 
 export type PrintOpsCachedOrder = {
   sourceOrderId: string;
@@ -67,6 +116,9 @@ export type PrintOpsCachedOrder = {
   totalFormatted: string | null;
   lineItemCount: number;
   customFieldCount: number;
+  printStatus: string | null;
+  printedAt: string | null;
+  printUpdatedAt: string | null;
   normalizedOrder: PrintOpsNormalizedOrder | null;
   lastSyncMode: string | null;
   lastEventType: string | null;
@@ -157,31 +209,7 @@ export async function readPrintOpsWixOrders(input: {
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("printops_orders")
-    .select(
-      [
-        "source_order_id",
-        "source_order_number",
-        "source_created_at",
-        "source_updated_at",
-        "payment_status",
-        "fulfillment_status",
-        "currency",
-        "customer_name",
-        "customer_email",
-        "customer_phone",
-        "delivery_method",
-        "payment_method",
-        "total_item_quantity",
-        "total_amount",
-        "total_formatted",
-        "line_item_count",
-        "custom_field_count",
-        "normalized_order",
-        "last_sync_mode",
-        "last_event_type",
-        "synced_at",
-      ].join(","),
-    )
+    .select([...cachedOrderBaseSelectColumns, ...cachedOrderPrintStatusSelectColumns].join(","))
     .eq("app_key", input.appKey)
     .eq("platform", "wix")
     .eq("instance_id", input.instanceId)
@@ -194,6 +222,10 @@ export async function readPrintOpsWixOrders(input: {
       status: "loaded",
       orders: (data ?? []).map(mapCachedOrderRow),
     };
+  }
+
+  if (isMissingPrintStatusColumnError(error)) {
+    return readPrintOpsWixOrdersWithoutPrintStatus(input);
   }
 
   if (isMissingTableError(error)) {
@@ -211,6 +243,112 @@ export async function readPrintOpsWixOrders(input: {
   };
 }
 
+async function readPrintOpsWixOrdersWithoutPrintStatus(input: {
+  appKey: string;
+  instanceId: string;
+  limit?: number;
+}): Promise<PrintOpsOrderCacheReadResult> {
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("printops_orders")
+    .select(cachedOrderBaseSelectColumns.join(","))
+    .eq("app_key", input.appKey)
+    .eq("platform", "wix")
+    .eq("instance_id", input.instanceId)
+    .order("synced_at", { ascending: false })
+    .limit(input.limit ?? 50)
+    .returns<CachedPrintOpsOrderRowWithoutPrintStatus[]>();
+
+  if (!error) {
+    return {
+      status: "loaded",
+      orders: (data ?? []).map((row) =>
+        mapCachedOrderRow({
+          ...row,
+          print_status: null,
+          print_updated_at: null,
+          printed_at: null,
+        }),
+      ),
+    };
+  }
+
+  return {
+    status: "error",
+    orders: [],
+    reason: error.message ?? "Failed to read PrintOps order cache",
+  };
+}
+
+export async function updatePrintOpsWixOrderPrintStatus(input: {
+  appKey: string;
+  instanceId: string;
+  sourceOrderIds: string[];
+  status: PrintOpsOrderPrintStatus;
+}): Promise<PrintOpsOrderPrintStatusUpdateResult> {
+  const sourceOrderIds = [...new Set(input.sourceOrderIds.map((sourceOrderId) => sourceOrderId.trim()).filter(Boolean))];
+
+  if (sourceOrderIds.length === 0) {
+    return {
+      status: "persisted",
+      updatedCount: 0,
+    };
+  }
+
+  if (!hasSupabaseEnv()) {
+    return {
+      status: "skipped",
+      updatedCount: 0,
+      reason: "Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
+    };
+  }
+
+  const now = new Date().toISOString();
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("printops_orders")
+    .update({
+      print_status: input.status,
+      print_updated_at: now,
+      printed_at: input.status === "printed" ? now : null,
+      updated_at: now,
+    })
+    .eq("app_key", input.appKey)
+    .eq("platform", "wix")
+    .eq("instance_id", input.instanceId)
+    .in("source_order_id", sourceOrderIds)
+    .select("source_order_id");
+
+  if (!error) {
+    return {
+      status: "persisted",
+      updatedCount: data?.length ?? 0,
+    };
+  }
+
+  if (isMissingPrintStatusColumnError(error)) {
+    return {
+      status: "skipped",
+      updatedCount: 0,
+      reason: "Missing print status columns. Run supabase/migrations/20260612_add_printops_order_print_status.sql first.",
+    };
+  }
+
+  if (isMissingTableError(error)) {
+    return {
+      status: "skipped",
+      updatedCount: 0,
+      reason: "Missing printops_orders table. Run supabase/migrations/20260609_add_printops_order_cache.sql first.",
+    };
+  }
+
+  return {
+    status: "error",
+    updatedCount: 0,
+    reason: error.message ?? "Failed to update PrintOps order print status",
+  };
+}
+
 function hasSupabaseEnv() {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
@@ -218,7 +356,13 @@ function hasSupabaseEnv() {
 function isMissingTableError(error: { code?: string; message?: string }) {
   const message = error.message?.toLowerCase() ?? "";
 
-  return error.code === "42P01" || message.includes("relation") || message.includes("printops_orders");
+  return error.code === "42P01" || message.includes("relation") || message.includes("could not find the table");
+}
+
+function isMissingPrintStatusColumnError(error: { code?: string; message?: string }) {
+  const message = error.message?.toLowerCase() ?? "";
+
+  return error.code === "42703" || message.includes("print_status") || message.includes("printed_at") || message.includes("print_updated_at");
 }
 
 function mapCachedOrderRow(row: CachedPrintOpsOrderRow): PrintOpsCachedOrder {
@@ -240,6 +384,9 @@ function mapCachedOrderRow(row: CachedPrintOpsOrderRow): PrintOpsCachedOrder {
     totalFormatted: row.total_formatted,
     lineItemCount: row.line_item_count ?? 0,
     customFieldCount: row.custom_field_count ?? 0,
+    printStatus: row.print_status,
+    printedAt: row.print_status === "printed" ? row.printed_at : null,
+    printUpdatedAt: row.print_updated_at,
     normalizedOrder: isNormalizedOrder(row.normalized_order) ? row.normalized_order : null,
     lastSyncMode: row.last_sync_mode,
     lastEventType: row.last_event_type,

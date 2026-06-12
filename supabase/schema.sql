@@ -269,6 +269,9 @@ create table if not exists public.printops_orders (
   total_formatted text,
   line_item_count integer not null default 0,
   custom_field_count integer not null default 0,
+  print_status text not null default 'unprinted',
+  printed_at timestamptz,
+  print_updated_at timestamptz,
   normalized_order jsonb not null,
   raw_order jsonb,
   last_sync_mode text,
@@ -344,6 +347,9 @@ create index if not exists idx_printops_orders_number
 
 create index if not exists idx_printops_orders_status
   on public.printops_orders(app_key, platform, payment_status, fulfillment_status);
+
+create index if not exists idx_printops_orders_print_status
+  on public.printops_orders(app_key, platform, instance_id, print_status);
 
 create index if not exists idx_printops_orders_normalized_gin
   on public.printops_orders using gin(normalized_order);
