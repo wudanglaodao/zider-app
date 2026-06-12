@@ -176,6 +176,27 @@ Store profile cache:
 - If Wix has no logo or email, the profile keeps those values empty and the template
   editor prompts the merchant to upload a logo or enter contact details manually.
 
+Account and workspace identity:
+
+- P0 does not create a separate PrintOps username/password login for Wix merchants.
+- The dashboard session is identified by the signed Wix `instance` and the resolved
+  `instance_id`.
+- Data isolation uses `app_key + platform + instance_id`; these values are the
+  primary boundary for orders, templates, and store profile reads.
+- `printops_store_profiles` is the workspace display source after installation.
+  The top-right account area should prefer `business_name`, `site_url`, logo, locale,
+  timezone, and currency from this cache.
+- Wix site or business profile values are workspace/store identity, not personal user
+  identity. If Wix later exposes the current dashboard operator, use it only for
+  audit metadata such as `updated_by` or activity logs.
+- If `business_name` is missing, display `Zider PrintOps` as the fallback workspace
+  name. If `site_url` is missing, display `Wix orders` as the fallback scope.
+- Merchant template overrides always win over store profile defaults. Updating the
+  cached profile must not overwrite a merchant-edited template field after the first
+  default application.
+- Future Zider account support can map `instance_id` to `workspace_id`, `store_id`,
+  and user memberships, but Wix app access remains valid through the app installation.
+
 Billing lifecycle:
 
 - Wix sends paid-plan webhooks to `/events/wix/zider_printops`.

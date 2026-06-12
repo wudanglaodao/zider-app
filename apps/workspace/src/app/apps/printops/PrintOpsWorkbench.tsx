@@ -1971,6 +1971,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const workspaceStoreName = storeProfile?.businessName?.trim() || "Zider PrintOps";
   const workspaceStoreScope = storeProfile?.siteUrl ? getWebsiteDisplay(storeProfile.siteUrl) : messages.app.scope;
   const workspaceStoreInitials = getAvatarInitials(workspaceStoreName);
+  const hasUnreadProductUpdates = false;
   const pageMetrics: PageMetric[] =
     activeView === "templates"
       ? [
@@ -2605,7 +2606,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
           <div className={styles.topbarActions}>
             <button className={styles.roundAction} type="button" aria-label={messages.topbar.notifications} title={messages.topbar.notifications}>
               <BellRing size={18} aria-hidden />
-              <span aria-hidden />
+              {hasUnreadProductUpdates ? <span aria-hidden /> : null}
             </button>
             <button className={styles.profileButton} type="button">
               <span className={styles.avatar}>{workspaceStoreInitials}</span>
@@ -2904,14 +2905,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                     <span>{messages.drawer.paperSize}</span>
                     <input className={styles.textInput} readOnly value="A4" />
                   </label>
-
-                  <div className={styles.validationBox}>
-                    <div>
-                      <AlertTriangle size={18} aria-hidden />
-                      <strong>{messages.drawer.reviewRequired}</strong>
-                    </div>
-                    <p>{messages.drawer.reviewBody}</p>
-                  </div>
 
                   <div className={styles.drawerActions}>
                     <button
