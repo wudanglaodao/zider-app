@@ -4634,35 +4634,40 @@ function TemplateEditorDrawer({
 
                 return (
                   <div className={styles.socialConfigRow} key={option.platform}>
-                    <span className={styles.socialConfigIcon}>
-                      <SocialIcon platform={option.platform} />
-                    </span>
-                    <SelectField
-                      compact
-                      label={option.label}
-                      options={localizedSocialModeOptions}
-                      value={profile.mode}
-                      onValueChange={(value) => updateSocialProfile(option.platform, { mode: value as SocialLinkMode })}
-                    />
-                    <label className={styles.fieldGroup}>
-                      <span>{profile.mode === "url" || option.platform === "website" ? editorCopy.socialLinkModeUrl : editorCopy.socialLinkModeUsername}</span>
-                      <input
-                        className={styles.textInput}
-                        placeholder={option.placeholder}
-                        value={profile.value}
-                        onChange={(event) => updateSocialProfile(option.platform, { value: event.target.value })}
+                    <div className={styles.socialConfigHeader}>
+                      <span className={styles.socialConfigIdentity}>
+                        <span className={styles.socialConfigIcon}>
+                          <SocialIcon platform={option.platform} />
+                        </span>
+                        <strong>{option.label}</strong>
+                      </span>
+                      {option.platform === "website" ? null : (
+                        <button className={styles.socialConfigRemove} type="button" onClick={() => removeSocialProfile(option.platform)}>
+                          {editorCopy.removeSocialLink}
+                        </button>
+                      )}
+                    </div>
+                    <div className={styles.socialConfigFields}>
+                      <SelectField
+                        compact
+                        label={profile.mode === "url" || option.platform === "website" ? editorCopy.socialLinkModeUrl : editorCopy.socialLinkModeUsername}
+                        options={localizedSocialModeOptions}
+                        value={profile.mode}
+                        onValueChange={(value) => updateSocialProfile(option.platform, { mode: value as SocialLinkMode })}
                       />
-                      <small className={styles.labelKey}>
-                        {editorCopy.socialLinkSavedUrl}: {profile.url || "-"}
-                      </small>
-                    </label>
-                    {option.platform === "website" ? (
-                      <span className={styles.socialConfigRemoveSpacer} />
-                    ) : (
-                      <button className={styles.socialConfigRemove} type="button" onClick={() => removeSocialProfile(option.platform)}>
-                        {editorCopy.removeSocialLink}
-                      </button>
-                    )}
+                      <label className={styles.socialConfigValueField}>
+                        <span>{profile.mode === "url" || option.platform === "website" ? editorCopy.socialLinkModeUrl : editorCopy.socialLinkModeUsername}</span>
+                        <input
+                          className={styles.textInput}
+                          placeholder={option.placeholder}
+                          value={profile.value}
+                          onChange={(event) => updateSocialProfile(option.platform, { value: event.target.value })}
+                        />
+                      </label>
+                    </div>
+                    <small className={styles.socialConfigSavedUrl}>
+                      {editorCopy.socialLinkSavedUrl}: {profile.url || "-"}
+                    </small>
                   </div>
                 );
               })}
