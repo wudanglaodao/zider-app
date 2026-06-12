@@ -1497,6 +1497,8 @@
 }
 
 .rowActions {
+  position: relative;
+  z-index: 4;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -5026,6 +5028,10 @@
   z-index: 60;
 }
 
+.menuPositioner {
+  z-index: 90;
+}
+
 .selectPopup,
 .menuPopup {
   --ink: #121817;
@@ -5040,6 +5046,8 @@
   background: var(--surface);
   box-shadow: 0 18px 48px rgba(18, 24, 23, 0.16);
   padding: 6px;
+  outline: 0;
+  z-index: 90;
 }
 
 :global(:root[data-printops-theme="dark"]) .selectPopup,

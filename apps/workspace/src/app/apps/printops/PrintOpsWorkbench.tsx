@@ -3838,7 +3838,13 @@ function OrderMenu({
         <MoreHorizontal size={18} aria-hidden />
       </Menu.Trigger>
       <Menu.Portal>
-        <Menu.Positioner sideOffset={6}>
+        <Menu.Positioner
+          align="end"
+          className={styles.menuPositioner}
+          collisionPadding={12}
+          side="bottom"
+          sideOffset={8}
+        >
           <Menu.Popup className={styles.menuPopup}>
             <Menu.Item className={styles.menuItem} onClick={onPreview}>
               {messages.orderPanel.openPreview}
