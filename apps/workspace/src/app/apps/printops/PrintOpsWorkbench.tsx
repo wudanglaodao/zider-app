@@ -3581,7 +3581,11 @@ function BaseCheckbox({
       onCheckedChange={onCheckedChange}
     >
       <Checkbox.Indicator className={styles.checkboxIndicator}>
-        {indeterminate ? <Minus size={15} strokeWidth={3} aria-hidden /> : <Check size={15} strokeWidth={3} aria-hidden />}
+        {indeterminate ? (
+          <Minus color="#fff" size={15} strokeWidth={3} aria-hidden />
+        ) : (
+          <Check color="#fff" size={15} strokeWidth={3} aria-hidden />
+        )}
       </Checkbox.Indicator>
     </Checkbox.Root>
   );

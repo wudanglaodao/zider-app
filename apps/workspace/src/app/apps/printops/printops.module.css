@@ -1414,6 +1414,11 @@
   line-height: 0;
 }
 
+.checkboxIndicator svg {
+  color: #fff;
+  stroke: #fff;
+}
+
 .tableWrap {
   overflow-x: auto;
 }
