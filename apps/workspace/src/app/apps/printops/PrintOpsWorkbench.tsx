@@ -2185,7 +2185,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       return;
     }
 
-    selectOrders(orders);
     setOrderActionRequest({
       action,
       id: Date.now(),
