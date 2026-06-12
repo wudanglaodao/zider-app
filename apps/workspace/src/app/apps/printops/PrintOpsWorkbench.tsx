@@ -3621,7 +3621,7 @@ const templatePrintHtmlEscapes: Record<string, string> = {
 };
 
 const A4_EXPORT_WIDTH_PX = 794;
-const A4_EXPORT_HEIGHT_PX = 1123;
+const A4_EXPORT_HEIGHT_PX = 1122;
 
 function escapeTemplatePrintHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => templatePrintHtmlEscapes[character] ?? character);
