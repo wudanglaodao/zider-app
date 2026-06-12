@@ -2427,21 +2427,14 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
               </table>
             </div>
           </section>
-
-          <aside className={styles.previewPanel}>
-            <div className={styles.tabPanel}>
-              <OrderActionPanel
-                actionRequest={orderActionRequest}
-                messages={messages}
-                onActionHandled={() => setOrderActionRequest(null)}
-                onOpenPreview={() => setDrawerOpen(true)}
-                printLocale={language}
-                selectedOrders={selectedOrders}
-                templateRecord={defaultOrderTemplate}
-              />
-            </div>
-          </aside>
         </div>
+            <OrderExportController
+              actionRequest={orderActionRequest}
+              onActionHandled={() => setOrderActionRequest(null)}
+              printLocale={language}
+              selectedOrders={selectedOrders}
+              templateRecord={defaultOrderTemplate}
+            />
           </>
         )}
       </section>
@@ -6459,19 +6452,15 @@ function PrintPreview({
   );
 }
 
-function OrderActionPanel({
+function OrderExportController({
   actionRequest,
-  messages,
   onActionHandled,
-  onOpenPreview,
   printLocale,
   selectedOrders,
   templateRecord,
 }: {
   actionRequest?: OrderActionRequest | null;
-  messages: PrintOpsMessages;
   onActionHandled?: () => void;
-  onOpenPreview: () => void;
   printLocale: PrintLocale;
   selectedOrders: Order[];
   templateRecord: TemplateRecord;
@@ -6481,15 +6470,6 @@ function OrderActionPanel({
   const activeOrders = actionRequest?.orders.length ? actionRequest.orders : selectedOrders;
   const firstOrder = activeOrders[0] ?? null;
   const copy = getPrintTemplateCopy(printLocale);
-  const orderDetails = firstOrder
-    ? getOrderPrintDetails(firstOrder, {
-        addressFormat: templateRecord.addressFormat,
-        dateFormat: templateRecord.dateFormat,
-        locale: printLocale,
-      })
-    : null;
-  const firstLineItem = orderDetails?.lineItems[0] ?? null;
-  const printableCustomFields = orderDetails?.customFields ?? [];
 
   const handleDownloadPdf = async () => {
     const paperNode = getOrderPreviewPaperNode(paperRef.current);
@@ -6550,85 +6530,12 @@ function OrderActionPanel({
   }, [actionRequest?.id]);
 
   if (!firstOrder) {
-    return (
-      <div className={styles.orderActionPanel}>
-        <div className={styles.emptyPreviewState}>
-          <FileText size={22} aria-hidden />
-          <strong>{messages.orderPanel.emptyTitle}</strong>
-          <span>{messages.orderPanel.emptyBody}</span>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
-    <div className={styles.orderActionPanel}>
-      <div className={styles.orderActionHeader}>
-        <div>
-          <span>{templateRecord.name}</span>
-          <strong>{firstOrder.number}</strong>
-        </div>
-        <small>{templateRecord.paperSize}</small>
-      </div>
-
-      <div className={styles.orderActionSummary}>
-        <span>
-          <small>{messages.orderPanel.firstOrder}</small>
-          <strong>{firstOrder.number}</strong>
-        </span>
-        <span>
-          <small>{messages.orderPanel.customer}</small>
-          <strong>{firstOrder.customer}</strong>
-        </span>
-        <span>
-          <small>{messages.orderPanel.placed}</small>
-          <strong>{firstOrder.date}</strong>
-        </span>
-        <span>
-          <small>{messages.orderPanel.payment}</small>
-          <StatusPill value={firstOrder.payment} />
-        </span>
-      </div>
-
-      {firstLineItem ? (
-        <div className={styles.orderActionCard}>
-          <Package size={18} aria-hidden />
-          <span>
-            <small>{messages.orderPanel.item}</small>
-            <strong>
-              {firstLineItem.title} x {firstLineItem.quantity}
-            </strong>
-            {firstLineItem.sku ? <em>SKU {firstLineItem.sku}</em> : null}
-          </span>
-        </div>
-      ) : null}
-
-      <div className={styles.orderActionCard}>
-        <FileText size={18} aria-hidden />
-        <span>
-          <small>{messages.orderPanel.customFields}</small>
-          <strong>{printableCustomFields.length > 0 ? printableCustomFields.slice(0, 2).map((field) => `${field.label}: ${field.value}`).join(" / ") : messages.orderPanel.noCustomFields}</strong>
-        </span>
-      </div>
-
-      <div className={styles.orderPanelActions}>
-        <button className={styles.secondaryButton} type="button" onClick={onOpenPreview}>
-          <Eye size={16} aria-hidden />
-          {messages.orderPanel.openPreview}
-        </button>
-        <button className={styles.secondaryButton} disabled={isExportingPdf} type="button" onClick={handleDownloadPdf}>
-          <Download size={16} aria-hidden />
-          {messages.orderPanel.downloadPdf}
-        </button>
-        <button className={styles.primaryButton} type="button" onClick={handlePrint}>
-          <Printer size={16} aria-hidden />
-          {messages.orderPanel.printPreview}
-        </button>
-      </div>
-
-      <div aria-hidden className={styles.exportOnlyStage} ref={paperRef}>
-        <OrderTemplatePrintDocument order={firstOrder} printLocale={printLocale} templateRecord={templateRecord} />
-      </div>
+    <div aria-hidden className={styles.exportOnlyStage} ref={paperRef}>
+      <OrderTemplatePrintDocument order={firstOrder} printLocale={printLocale} templateRecord={templateRecord} />
     </div>
   );
 }

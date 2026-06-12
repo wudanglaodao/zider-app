@@ -1269,7 +1269,7 @@
 
 .mainGrid {
   display: grid;
-  grid-template-columns: minmax(680px, 1fr) minmax(320px, 390px);
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   align-items: start;
 }
