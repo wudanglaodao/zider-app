@@ -1,8 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { waitUntil } from "@vercel/functions";
 import { getAppRegistryEntry, INTERACTIVE_CUSTOM_CURSOR_APP_KEY, isSupportedPlatform } from "@/lib/webhooks/app-registry";
+import {
+  createWebhookIngressLog,
+  getWebhookIngressRoute,
+  updateWebhookIngressLog,
+} from "@/lib/webhooks/ingress-log";
 import { persistWixWebhook } from "@/lib/webhooks/persistence";
-import { isWixAppManagementEventType, verifyWixWebhook, WixWebhookVerificationError } from "@/lib/webhooks/wix";
+import {
+  classifyWixEvent,
+  isWixAppManagementEventType,
+  verifyWixWebhook,
+  WixWebhookVerificationError,
+} from "@/lib/webhooks/wix";
 import { installInteractiveCustomCursorEmbedScript } from "@/lib/wix/embedded-script";
 
 export const runtime = "nodejs";
@@ -19,6 +29,17 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const startedAt = Date.now();
   const { platform, appKey } = await context.params;
   const requestId = request.headers.get("x-vercel-id") ?? request.headers.get("x-request-id");
+  const rawBody = await request.text();
+  const rawHeaders = Object.fromEntries(request.headers.entries());
+  const ingressLogId = createWebhookIngressLog({
+    requestId,
+    platform,
+    appKey,
+    route: getWebhookIngressRoute(),
+    method: request.method,
+    headers: rawHeaders,
+    rawBody,
+  });
 
   logWebhook("info", "wix_webhook_request_received", {
     requestId,
@@ -27,6 +48,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
   });
 
   if (!isSupportedPlatform(platform)) {
+    queueIngressLogUpdate(ingressLogId, {
+      status: "rejected",
+      verificationStatus: "skipped",
+      processingStatus: "skipped",
+      httpStatus: 404,
+      errorType: "unsupported_platform",
+      errorMessage: "Unsupported platform",
+      respondedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt,
+    });
     logWebhook("warn", "wix_webhook_rejected", {
       requestId,
       platform,
@@ -40,6 +71,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const app = getAppRegistryEntry(platform, appKey);
 
   if (!app) {
+    queueIngressLogUpdate(ingressLogId, {
+      status: "rejected",
+      verificationStatus: "skipped",
+      processingStatus: "skipped",
+      httpStatus: 404,
+      errorType: "unknown_app_key",
+      errorMessage: "Unknown app_key for platform",
+      respondedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt,
+    });
     logWebhook("warn", "wix_webhook_rejected", {
       requestId,
       platform,
@@ -51,6 +92,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   if (platform !== "wix") {
+    queueIngressLogUpdate(ingressLogId, {
+      status: "rejected",
+      verificationStatus: "skipped",
+      processingStatus: "skipped",
+      httpStatus: 501,
+      errorType: "platform_not_implemented",
+      errorMessage: "Platform receiver is not implemented yet",
+      respondedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt,
+    });
     logWebhook("warn", "wix_webhook_rejected", {
       requestId,
       platform,
@@ -62,11 +113,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
 
   const canonicalAppKey = app.appKey;
-  const rawBody = await request.text();
-  const rawHeaders = Object.fromEntries(request.headers.entries());
 
   try {
     const wix = await verifyWixWebhook(rawBody, canonicalAppKey);
+    const classification = classifyWixEvent(wix);
+    const verifiedAt = new Date().toISOString();
 
     logWebhook("info", "wix_webhook_verified", {
       requestId,
@@ -81,6 +132,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
     });
 
     if (!isWixAppManagementEventType(wix.eventType)) {
+      queueIngressLogUpdate(ingressLogId, {
+        status: "rejected",
+        verificationStatus: "verified",
+        processingStatus: "skipped",
+        httpStatus: 409,
+        eventType: wix.eventType,
+        rawEventType: wix.rawEventType,
+        eventId: wix.eventId,
+        eventTime: wix.eventTime,
+        instanceId: wix.instanceId,
+        eventSource: classification.eventSource,
+        isTestEvent: classification.isTestEvent,
+        testReason: classification.testReason,
+        errorType: "non_app_management_event",
+        errorMessage:
+          "This receiver only accepts Wix app lifecycle and billing events. App business webhooks must use their app-specific webhook URL.",
+        verifiedAt,
+        respondedAt: new Date().toISOString(),
+        durationMs: Date.now() - startedAt,
+      });
       logWebhook("warn", "wix_webhook_rejected", {
         requestId,
         platform,
@@ -101,32 +172,71 @@ export async function POST(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const persistence = persistWixWebhook({
-      app,
-      platform,
-      appKey: canonicalAppKey,
-      rawBody,
-      rawHeaders,
-      wix,
-    }).catch((error) => {
-      console.error("Failed to persist verified webhook", {
+    const acceptedIngressPatch = {
+      status: "accepted",
+      verificationStatus: "verified",
+      processingStatus: "accepted",
+      httpStatus: 200,
+      eventType: wix.eventType,
+      rawEventType: wix.rawEventType,
+      eventId: wix.eventId,
+      eventTime: wix.eventTime,
+      instanceId: wix.instanceId,
+      eventSource: classification.eventSource,
+      isTestEvent: classification.isTestEvent,
+      testReason: classification.testReason,
+      verifiedAt,
+      respondedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt,
+    };
+
+    const persistence = Promise.all([
+      persistWixWebhook({
+        app,
         platform,
         appKey: canonicalAppKey,
-        eventType: wix.eventType,
-        rawEventType: wix.rawEventType,
-        instanceId: wix.instanceId,
-        error,
+        rawBody,
+        rawHeaders,
+        wix,
+      }),
+      ingressLogId.then((id) => updateWebhookIngressLog(id, acceptedIngressPatch)),
+    ])
+      .then(async ([result]) => {
+        await updateWebhookIngressLog(await ingressLogId, {
+          status: result.status,
+          processingStatus: result.status,
+          platformEventLogId: result.eventId,
+          processedAt: new Date().toISOString(),
+          durationMs: Date.now() - startedAt,
+        });
+      })
+      .catch(async (error) => {
+        console.error("Failed to persist verified webhook", {
+          platform,
+          appKey: canonicalAppKey,
+          eventType: wix.eventType,
+          rawEventType: wix.rawEventType,
+          instanceId: wix.instanceId,
+          error,
+        });
+        logWebhook("error", "wix_webhook_persist_failed", {
+          requestId,
+          platform,
+          appKey: canonicalAppKey,
+          eventType: wix.eventType,
+          rawEventType: wix.rawEventType,
+          instanceId: redactIdentifier(wix.instanceId),
+          error: error instanceof Error ? error.message : String(error),
+        });
+        await updateWebhookIngressLog(await ingressLogId, {
+          status: "failed",
+          processingStatus: "failed",
+          errorType: "persist_failed",
+          errorMessage: error instanceof Error ? error.message : String(error),
+          processedAt: new Date().toISOString(),
+          durationMs: Date.now() - startedAt,
+        });
       });
-      logWebhook("error", "wix_webhook_persist_failed", {
-        requestId,
-        platform,
-        appKey: canonicalAppKey,
-        eventType: wix.eventType,
-        rawEventType: wix.rawEventType,
-        instanceId: redactIdentifier(wix.instanceId),
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
 
     waitUntil(persistence);
 
@@ -171,6 +281,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
       statusCode: error instanceof WixWebhookVerificationError ? error.statusCode : 500,
       ms: Date.now() - startedAt,
     });
+    queueIngressLogUpdate(ingressLogId, {
+      status: "failed",
+      verificationStatus: error instanceof WixWebhookVerificationError ? "failed" : "unknown",
+      processingStatus: "skipped",
+      httpStatus: error instanceof WixWebhookVerificationError ? error.statusCode : 500,
+      errorType: error instanceof WixWebhookVerificationError ? "verification_failed" : "webhook_processing_failed",
+      errorMessage: error instanceof Error ? error.message : String(error),
+      respondedAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt,
+    });
 
     if (error instanceof WixWebhookVerificationError) {
       return NextResponse.json(
@@ -191,6 +311,13 @@ export function GET() {
     ok: true,
     receiver: "zider-events",
   });
+}
+
+function queueIngressLogUpdate(
+  ingressLogId: Promise<string | null>,
+  input: Parameters<typeof updateWebhookIngressLog>[1],
+) {
+  waitUntil(ingressLogId.then((id) => updateWebhookIngressLog(id, input)));
 }
 
 function logWebhook(level: "info" | "warn" | "error", message: string, details: Record<string, unknown>) {
