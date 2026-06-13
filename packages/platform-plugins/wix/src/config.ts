@@ -2,6 +2,7 @@ import type { WixOrderSyncWindow, WixOrderSyncWindowInput } from "./types";
 
 export const WIX_PRINTOPS_APP_KEY = "zider_printops";
 export const WIX_PRINTOPS_APP_NAME = "Zider PrintOps";
+export const WIX_ORDERS_ENDPOINT = "https://www.wixapis.com/ecom/v1/orders";
 export const WIX_ORDERS_SEARCH_ENDPOINT = "https://www.wixapis.com/ecom/v1/orders/search";
 export const WIX_ORDER_HISTORY_MAX_DAYS = 7;
 export const WIX_ORDER_LATEST_DEFAULT_LOOKBACK_HOURS = 24;

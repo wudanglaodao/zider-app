@@ -1,6 +1,7 @@
-import { normalizeWixOrder, type WixRawOrder } from "@zider/platform-plugins/wix";
+import { getWixOrder, normalizeWixOrder, type WixRawOrder } from "@zider/platform-plugins/wix";
 import { persistPrintOpsWixOrders, type PrintOpsOrderCachePersistenceResult } from "@/lib/printops/order-cache";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { createWixAccessTokenForApp } from "@/lib/wix/oauth";
 import type { AppRegistryEntry } from "./app-registry";
 import { createDedupeKey } from "./dedupe";
 import type { WixDecodedWebhook } from "./wix";
@@ -95,6 +96,7 @@ export async function persistPrintOpsWixBusinessWebhook(input: PersistPrintOpsWi
       eventType: details.eventType,
       instanceId: input.wix.instanceId,
       order: getWixWebhookOrder(input.wix),
+      orderId: details.sourceEntityId,
     });
 
     return {
@@ -188,6 +190,7 @@ export async function persistPrintOpsWixForwardedBusinessEvent(input: PersistPri
       eventType: details.eventType,
       instanceId,
       order: getForwardedOrder(input.forwarded),
+      orderId: details.sourceEntityId,
     });
 
     return {
@@ -350,16 +353,29 @@ async function persistOrderCacheFromWixWebhook(input: {
   eventType: string;
   instanceId: string | null;
   order: Record<string, unknown> | null;
+  orderId: string | null;
 }): Promise<PrintOpsOrderCachePersistenceResult> {
-  if (!input.order || !looksLikePrintableOrder(input.order)) {
+  let order = input.order && looksLikePrintableOrder(input.order) ? input.order : null;
+
+  if (!order) {
+    const fetchedOrder = await fetchPrintableWixOrderFromEvent(input);
+
+    if (fetchedOrder.status !== "loaded") {
+      return fetchedOrder;
+    }
+
+    order = fetchedOrder.order;
+  }
+
+  if (!order || !looksLikePrintableOrder(order)) {
     return {
       status: "skipped",
       persistedCount: 0,
-      reason: "Wix event did not include a full printable order payload",
+      reason: "Wix event did not include or resolve to a full printable order payload",
     };
   }
 
-  const normalizedOrder = normalizeWixOrder(input.order as WixRawOrder);
+  const normalizedOrder = normalizeWixOrder(order as WixRawOrder);
 
   if (!normalizedOrder.sourceOrderId) {
     return {
@@ -386,6 +402,66 @@ async function persistOrderCacheFromWixWebhook(input: {
   }
 
   return result;
+}
+
+async function fetchPrintableWixOrderFromEvent(input: {
+  appKey: string;
+  eventType: string;
+  instanceId: string | null;
+  orderId: string | null;
+}): Promise<{ status: "loaded"; order: Record<string, unknown> } | PrintOpsOrderCachePersistenceResult> {
+  if (!input.orderId) {
+    return {
+      status: "skipped",
+      persistedCount: 0,
+      reason: "Wix order event did not include an order id",
+    };
+  }
+
+  if (!input.instanceId) {
+    return {
+      status: "skipped",
+      persistedCount: 0,
+      reason: "Wix order event did not include an instance id",
+    };
+  }
+
+  try {
+    const token = await createWixAccessTokenForApp(input.appKey, input.instanceId);
+    const response = await getWixOrder({
+      accessToken: token.accessToken,
+      orderId: input.orderId,
+    });
+
+    if (!response.order) {
+      return {
+        status: "skipped",
+        persistedCount: 0,
+        reason: `Wix order fetch did not return an order for ${input.orderId}`,
+      };
+    }
+
+    return {
+      status: "loaded",
+      order: response.order,
+    };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "Unknown Wix order fetch error";
+
+    console.warn("Failed to fetch full Wix order for PrintOps webhook", {
+      appKey: input.appKey,
+      eventType: input.eventType,
+      instanceId: input.instanceId,
+      orderId: input.orderId,
+      reason,
+    });
+
+    return {
+      status: "error",
+      persistedCount: 0,
+      reason,
+    };
+  }
 }
 
 async function upsertApp(app: AppRegistryEntry) {

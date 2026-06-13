@@ -1,9 +1,14 @@
-import { WIX_ORDER_SYNC_DEFAULT_LIMIT, WIX_ORDERS_SEARCH_ENDPOINT } from "./config";
+import { WIX_ORDER_SYNC_DEFAULT_LIMIT, WIX_ORDERS_ENDPOINT, WIX_ORDERS_SEARCH_ENDPOINT } from "./config";
 import type { WixOrdersQueryInput, WixOrdersQueryPayload, WixRawOrder } from "./types";
 
 export type WixOrdersSearchResponse = {
   orders: WixRawOrder[];
   cursor: string | null;
+  raw: unknown;
+};
+
+export type WixOrderResponse = {
+  order: WixRawOrder | null;
   raw: unknown;
 };
 
@@ -45,6 +50,32 @@ export function buildWixOrdersSearchPayload(input: Omit<WixOrdersQueryInput, "ac
       ],
       cursorPaging,
     },
+  };
+}
+
+export async function getWixOrder(input: {
+  accessToken: string;
+  orderId: string;
+}): Promise<WixOrderResponse> {
+  const response = await fetch(`${WIX_ORDERS_ENDPOINT}/${encodeURIComponent(input.orderId)}`, {
+    method: "GET",
+    headers: {
+      Authorization: formatWixAuthorization(input.accessToken),
+    },
+  });
+  const raw = (await response.json().catch(() => null)) as unknown;
+
+  if (!response.ok) {
+    throw new Error(`Wix order get failed: ${response.status} ${JSON.stringify(raw)}`);
+  }
+
+  const body = asRecord(raw);
+  const nestedData = asRecord(body?.data);
+  const order = asRecord(body?.order) ?? asRecord(nestedData?.order) ?? (looksLikeOrderRecord(body) ? body : null);
+
+  return {
+    order,
+    raw,
   };
 }
 
@@ -97,4 +128,18 @@ function readArray(value: unknown): unknown[] {
 
 function readString(value: unknown) {
   return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function looksLikeOrderRecord(value: Record<string, unknown> | null): value is WixRawOrder {
+  if (!value) {
+    return false;
+  }
+
+  return Boolean(
+    readString(value.id) ??
+      readString(value._id) ??
+      readString(value.orderId) ??
+      readString(value.number) ??
+      readString(value.orderNumber),
+  );
 }
