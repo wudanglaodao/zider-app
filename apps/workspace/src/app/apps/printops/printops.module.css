@@ -3228,7 +3228,7 @@
   justify-self: end;
   width: min(18em, 100%);
   display: block;
-  line-height: 0;
+  line-height: 1;
 }
 
 .orderHeroMeta {
@@ -3532,16 +3532,20 @@
 .orderClassicLogo {
   display: block;
   width: min(16.5em, 100%);
-  line-height: 0;
+  line-height: 1;
 }
 
-.orderClassicLogoAsset {
+.orderClassicLogoText {
+  display: inline-flex;
   width: 100%;
-  height: auto;
-  display: block;
+  max-width: 100%;
+  align-items: flex-start;
   color: #151817;
-  -webkit-print-color-adjust: exact;
-  print-color-adjust: exact;
+  font-weight: 920;
+  letter-spacing: 0;
+  line-height: 0.92;
+  overflow-wrap: anywhere;
+  text-transform: none;
 }
 
 .orderClassicLogoImage {

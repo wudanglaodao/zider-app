@@ -1588,7 +1588,7 @@ function createBlankTemplateDraft(): TemplateDraft {
     defaultLanguage: defaultPrintLocale,
     labelOverrides: {},
     brandName: defaultTemplateBrandSettings.brandName,
-    logoText: "GS",
+    logoText: defaultTemplateBrandSettings.logoText,
     logoFont: defaultTemplateBrandSettings.logoFont,
     logoFontSize: defaultTemplateBrandSettings.logoFontSize,
     logoSource: defaultTemplateBrandSettings.logoSource,
@@ -1642,7 +1642,7 @@ function createDraftFromTemplate(templateRecord: TemplateRecord, mode: TemplateE
     defaultLanguage: templateRecord.defaultLanguage,
     labelOverrides: normalizeLabelOverrides(templateRecord.labelOverrides),
     brandName: templateRecord.brandName ?? defaultTemplateBrandSettings.brandName,
-    logoText: templateRecord.logoText ?? "GS",
+    logoText: templateRecord.logoText ?? defaultTemplateBrandSettings.logoText,
     logoFont: templateRecord.logoFont ?? defaultTemplateBrandSettings.logoFont,
     logoFontSize: templateRecord.logoFontSize ?? defaultTemplateBrandSettings.logoFontSize,
     logoSource: templateRecord.logoSource ?? defaultTemplateBrandSettings.logoSource,
@@ -1797,7 +1797,7 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
     source: "Store copy",
     status: dataRequirements.length > 0 ? "Ready" : "Draft",
     brandName: draft.brandName.trim() || defaultTemplateBrandSettings.brandName,
-    logoText: draft.logoText.trim() || "GS",
+    logoText: draft.logoText.trim() || defaultTemplateBrandSettings.logoText,
     logoFont: draft.logoFont,
     logoFontSize: Math.min(Math.max(Number(draft.logoFontSize) || defaultTemplateBrandSettings.logoFontSize, 28), 96),
     logoSource: draft.logoSource,
@@ -4908,7 +4908,7 @@ function TemplateEditorDrawer({
     draft.logoSource === "uploaded-image" && draft.logoImageUrl ? (
       <img alt={`${draft.brandName || "Store"} logo`} src={draft.logoImageUrl} />
     ) : (
-      draft.logoText || "GS"
+      draft.logoText || defaultTemplateBrandSettings.logoText
     );
   const showMissingLogoHint = storeProfileStatus.status === "loaded" && !storeProfile?.logoUrl && draft.logoSource !== "uploaded-image";
   const showMissingEmailHint = storeProfileStatus.status === "loaded" && !storeProfile?.businessEmail;
@@ -6211,19 +6211,17 @@ function BrandLogoAsset({
   fontSize,
   logoImageUrl,
   logoSource,
-  mark,
-  tagline = "Premium",
+  wordmark,
 }: {
   brandName: string;
   font?: OrderTemplateLogoFont;
   fontSize?: number;
   logoImageUrl: string;
   logoSource: OrderTemplateLogoSource;
-  mark: string;
-  tagline?: string;
+  wordmark: string;
 }) {
-  const displayMark = mark.trim().slice(0, 4).toUpperCase() || "GS";
-  const displayBrandName = brandName.trim().toUpperCase() || "GREEN STUDIO";
+  const displayBrandName = brandName.trim() || defaultTemplateBrandSettings.brandName;
+  const displayWordmark = wordmark.trim() || defaultTemplateBrandSettings.logoText;
   const uploadedLogo = logoImageUrl.trim();
   const fontFamilyByType: Record<OrderTemplateLogoFont, string> = {
     mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
@@ -6232,30 +6230,23 @@ function BrandLogoAsset({
   };
   const logoFontFamily = fontFamilyByType[font ?? "sans"];
   const logoFontSize = Math.min(Math.max(fontSize ?? defaultTemplateBrandSettings.logoFontSize, 28), 96);
-  const fittedLogoFontSize = Math.min(32, Math.max(14, Math.round(logoFontSize / 3.2)));
 
   if (logoSource === "uploaded-image" && uploadedLogo) {
     return <img className={styles.orderClassicLogoImage} alt={`${displayBrandName} logo`} src={uploadedLogo} />;
   }
 
   return (
-    <svg className={styles.orderClassicLogoAsset} viewBox="0 0 286 68" role="img" aria-label={`${displayBrandName} logo`}>
-      <rect x="1" y="1" width="284" height="66" fill="#ffffff" stroke="#151817" strokeWidth="2" />
-      <rect x="1" y="1" width="74" height="44" fill="#151817" />
-      <line x1="75" y1="1" x2="75" y2="67" stroke="#151817" strokeWidth="2" />
-      <line x1="75" y1="45" x2="285" y2="45" stroke="#151817" strokeWidth="2" />
-      <text x="38" y="31" textAnchor="middle" fill="#ffffff" fontFamily="Inter, Arial, sans-serif" fontSize="24" fontWeight="800" letterSpacing="0">
-        {displayMark}
-      </text>
-      <text x="180" y="28" textAnchor="middle" fill="#151817" fontFamily={logoFontFamily} fontSize={fittedLogoFontSize} fontWeight="900" letterSpacing="7">
-        {displayBrandName}
-      </text>
-      {tagline ? (
-        <text x="180" y="60" textAnchor="middle" fill="#151817" fontFamily="Georgia, serif" fontSize="10" fontStyle="italic" letterSpacing="1.2">
-          {tagline}
-        </text>
-      ) : null}
-    </svg>
+    <span
+      className={styles.orderClassicLogoText}
+      role="img"
+      aria-label={`${displayWordmark} logo`}
+      style={{
+        fontFamily: logoFontFamily,
+        fontSize: `${logoFontSize}px`,
+      }}
+    >
+      {displayWordmark}
+    </span>
   );
 }
 
@@ -6358,7 +6349,6 @@ function OrderPaperPreview({
     .filter((item): item is { label: string; platform: SocialPlatform; url: string } => Boolean(item))
     .slice(0, 4);
   const rawLogo = logoText.trim();
-  const displayLogo = rawLogo.slice(0, 4) || printOpsSystemBrandName.slice(0, 4);
   const displayWordmark = rawLogo || printOpsSystemBrandName;
   const displayBrandName = brandName.trim() || defaultTemplateBrandSettings.brandName;
   const displayFooterWebsite = footerWebsite.trim();
@@ -6537,13 +6527,12 @@ function OrderPaperPreview({
             {showLogoText ? (
               <span className={styles.orderHeroLogoSlot}>
                 <BrandLogoAsset
-                  brandName={displayWordmark}
+                  brandName={displayBrandName}
                   font={logoFont}
                   fontSize={logoFontSize}
                   logoImageUrl={logoImageUrl}
                   logoSource={logoSource}
-                  mark={displayLogo}
-                  tagline=""
+                  wordmark={displayWordmark}
                 />
               </span>
             ) : null}
@@ -6645,7 +6634,7 @@ function OrderPaperPreview({
             {orderBarcode}
           </span>
           <span className={styles.orderClassicLogo}>
-            <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} mark={displayLogo} />
+            <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} wordmark={displayWordmark} />
           </span>
         </span>
 
@@ -6736,7 +6725,7 @@ function OrderPaperPreview({
           {orderBarcode}
         </span>
         <span className={styles.orderClassicLogo}>
-          <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} mark={displayLogo} />
+          <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} wordmark={displayWordmark} />
         </span>
       </span>
 
