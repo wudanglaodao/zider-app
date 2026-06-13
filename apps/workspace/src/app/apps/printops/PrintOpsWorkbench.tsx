@@ -464,14 +464,14 @@ const templateDateFormatOptions: Array<{ label: string; value: TemplateDateForma
 
 const templateAddressFormatOptions: Record<SiteLocale, Array<{ label: string; value: TemplateAddressFormat }>> = {
   en: [
-    { label: "Western multi-line", value: "western" },
-    { label: "China / Taiwan multi-line", value: "china" },
+    { label: "Name-first multi-line", value: "western" },
+    { label: "Region-first multi-line", value: "china" },
     { label: "Compact", value: "compact" },
     { label: "Single line", value: "single-line" },
   ],
   "zh-Hant": [
-    { label: "歐美多行格式", value: "western" },
-    { label: "中國 / 台灣多行格式", value: "china" },
+    { label: "姓名優先多行", value: "western" },
+    { label: "地區優先多行", value: "china" },
     { label: "緊湊格式", value: "compact" },
     { label: "單行格式", value: "single-line" },
   ],
