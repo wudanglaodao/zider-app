@@ -462,7 +462,13 @@ const templateDateFormatOptions: Array<{ label: string; value: TemplateDateForma
   { label: "2026 May 30", value: "YYYY MMM D" },
 ];
 
-const templateAddressFormatOptions: Record<SiteLocale, Array<{ label: string; value: TemplateAddressFormat }>> = {
+type InterfaceCopyLocale = "en" | "zh-Hant";
+
+function getInterfaceCopyLocale(locale: SiteLocale): InterfaceCopyLocale {
+  return locale === "zh-Hans" || locale === "zh-Hant" ? "zh-Hant" : "en";
+}
+
+const templateAddressFormatOptions: Record<InterfaceCopyLocale, Array<{ label: string; value: TemplateAddressFormat }>> = {
   en: [
     { label: "Name-first multi-line", value: "western" },
     { label: "Region-first multi-line", value: "china" },
@@ -476,6 +482,10 @@ const templateAddressFormatOptions: Record<SiteLocale, Array<{ label: string; va
     { label: "單行格式", value: "single-line" },
   ],
 };
+
+function getTemplateAddressFormatOptions(locale: SiteLocale) {
+  return templateAddressFormatOptions[getInterfaceCopyLocale(locale)];
+}
 
 const templates = [
   { label: "Invoice", value: "invoice" },
@@ -5240,7 +5250,7 @@ function TemplateEditorDrawer({
             <div className={styles.formTwoColumns}>
               <SelectField
                 label={editorCopy.addressFormat}
-                options={templateAddressFormatOptions[siteLocale]}
+                options={getTemplateAddressFormatOptions(siteLocale)}
                 value={draft.addressFormat}
                 onValueChange={(value) => onDraftChange({ addressFormat: value as TemplateAddressFormat })}
               />

@@ -1,8 +1,7 @@
-export type SiteLocale = "en" | "zh-Hant";
-
 export const printLocales = ["en", "es", "de", "ja", "fr", "pt", "zh-Hans", "zh-Hant", "ar", "nl", "it", "ko"] as const;
 
 export type PrintLocale = (typeof printLocales)[number];
+export type SiteLocale = PrintLocale;
 
 export type LocalizedText = {
   default: string;
@@ -11,12 +10,37 @@ export type LocalizedText = {
 export const defaultSiteLocale: SiteLocale = "en";
 export const defaultPrintLocale: PrintLocale = "en";
 
-export const siteLocaleOptions: { label: string; value: SiteLocale }[] = [
-  { label: "English", value: "en" },
-  { label: "繁體中文", value: "zh-Hant" },
-];
+const siteLocaleLabels: Record<SiteLocale, string> = {
+  en: "English",
+  es: "Español",
+  de: "Deutsch",
+  ja: "日本語",
+  fr: "Français",
+  pt: "Português",
+  "zh-Hans": "简体中文",
+  "zh-Hant": "繁體中文",
+  ar: "العربية",
+  nl: "Nederlands",
+  it: "Italiano",
+  ko: "한국어",
+};
 
-const printLocaleLabels: Record<SiteLocale, Record<PrintLocale, string>> = {
+export const siteLocaleOptions: { label: string; value: SiteLocale }[] = printLocales.map((value) => ({
+  label: siteLocaleLabels[value],
+  value,
+}));
+
+type PrintLocaleLabelLocale = "en" | "zh-Hans" | "zh-Hant";
+
+function getPrintLocaleLabelLocale(siteLocale: SiteLocale): PrintLocaleLabelLocale {
+  if (siteLocale === "zh-Hans" || siteLocale === "zh-Hant") {
+    return siteLocale;
+  }
+
+  return "en";
+}
+
+const printLocaleLabels: Record<PrintLocaleLabelLocale, Record<PrintLocale, string>> = {
   en: {
     en: "English",
     es: "Spanish",
@@ -30,6 +54,20 @@ const printLocaleLabels: Record<SiteLocale, Record<PrintLocale, string>> = {
     nl: "Dutch",
     it: "Italian",
     ko: "Korean",
+  },
+  "zh-Hans": {
+    en: "英文",
+    es: "西班牙文",
+    de: "德文",
+    ja: "日文",
+    fr: "法文",
+    pt: "葡萄牙文",
+    "zh-Hans": "简体中文",
+    "zh-Hant": "繁体中文",
+    ar: "阿拉伯文",
+    nl: "荷兰文",
+    it: "意大利文",
+    ko: "韩文",
   },
   "zh-Hant": {
     en: "英文",
@@ -48,8 +86,10 @@ const printLocaleLabels: Record<SiteLocale, Record<PrintLocale, string>> = {
 };
 
 export function getPrintLocaleOptions(siteLocale: SiteLocale) {
+  const labels = printLocaleLabels[getPrintLocaleLabelLocale(siteLocale)];
+
   return printLocales.map((value) => ({
-    label: printLocaleLabels[siteLocale][value],
+    label: labels[value],
     value,
   }));
 }
@@ -63,7 +103,7 @@ export function resolveLocalizedText(text: LocalizedText | string, locale: Print
 }
 
 export function isSiteLocale(value: string | null): value is SiteLocale {
-  return value === "en" || value === "zh-Hant";
+  return isPrintLocale(value);
 }
 
 export function isPrintLocale(value: string | null): value is PrintLocale {
@@ -805,10 +845,20 @@ export const printopsMessages = {
   },
 } as const;
 
-export type PrintOpsMessages = (typeof printopsMessages)[SiteLocale];
+type PrintOpsMessageLocale = keyof typeof printopsMessages;
+
+function getPrintOpsMessageLocale(locale: SiteLocale): PrintOpsMessageLocale {
+  if (locale === "zh-Hans" || locale === "zh-Hant") {
+    return "zh-Hant";
+  }
+
+  return "en";
+}
+
+export type PrintOpsMessages = (typeof printopsMessages)[PrintOpsMessageLocale];
 
 export function getPrintOpsMessages(locale: SiteLocale): PrintOpsMessages {
-  return printopsMessages[locale] ?? printopsMessages[defaultSiteLocale];
+  return printopsMessages[getPrintOpsMessageLocale(locale)];
 }
 
 export function getPrintTemplateCopy(locale: PrintLocale) {
