@@ -25,6 +25,7 @@ import {
   Package,
   PanelLeftClose,
   PanelLeftOpen,
+  Pencil,
   Printer,
   Search,
   Settings,
@@ -4003,6 +4004,17 @@ function TemplateCenter({
                       <small>{localizedTemplate.updatedAt}</small>
                       <span className={styles.templateCardActions}>
                         {templateRecord.isDefault ? <strong className={styles.defaultBadge}>{messages.templates.default}</strong> : null}
+                        <button
+                          className={styles.templateCardAction}
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onEditTemplate(templateRecord);
+                          }}
+                        >
+                          <Pencil size={14} aria-hidden />
+                          {isStoreTemplate ? messages.templates.editTemplate : messages.templates.useTemplate}
+                        </button>
                         {isStoreTemplate ? (
                           <>
                             {!templateRecord.isDefault ? (
@@ -5009,7 +5021,7 @@ function TemplateEditorDrawer({
               </span>
             </div>
             <span className={styles.settingsGroupTitle}>{editorCopy.brandIdentity}</span>
-            <div className={styles.formTwoColumns}>
+            <div className={styles.formOneColumn}>
               <label className={styles.fieldGroup}>
                 <span>{editorCopy.storeName}</span>
                 <input
@@ -5018,32 +5030,73 @@ function TemplateEditorDrawer({
                   onChange={(event) => onDraftChange({ brandName: event.target.value })}
                 />
               </label>
-              <label className={styles.fieldGroup}>
-                <span>{editorCopy.heroWordmark}</span>
-                <input
-                  className={styles.textInput}
-                  maxLength={18}
-                  value={draft.logoText}
-                  onChange={(event) => onDraftChange({ logoText: event.target.value })}
-                />
-              </label>
+            </div>
+
+            <span className={styles.settingsGroupTitle}>{editorCopy.logoAsset}</span>
+            <div className={styles.logoConfigPanel}>
+              <div className={styles.logoConfigPreview}>
+                <span className={styles.orderLogoMark}>{logoPreview}</span>
+                <span>
+                  <strong>{draft.logoSource === "uploaded-image" ? editorCopy.logoImageSettings : editorCopy.logoTextSettings}</strong>
+                  <small>{draft.logoSource === "uploaded-image" ? editorCopy.logoSourceUploaded : editorCopy.logoSourceGenerated}</small>
+                </span>
+              </div>
               <SelectField
-                label={editorCopy.logoFont}
-                options={localizedLogoFontOptions}
-                value={draft.logoFont}
-                onValueChange={(value) => onDraftChange({ logoFont: value as OrderTemplateLogoFont })}
+                label={editorCopy.logoType}
+                options={localizedLogoSourceOptions}
+                value={draft.logoSource}
+                onValueChange={(value) => onDraftChange({ logoSource: value as OrderTemplateLogoSource })}
               />
-              <label className={styles.fieldGroup}>
-                <span>{editorCopy.logoFontSize}</span>
-                <input
-                  className={styles.textInput}
-                  min={28}
-                  max={96}
-                  type="number"
-                  value={draft.logoFontSize}
-                  onChange={(event) => onDraftChange({ logoFontSize: Number(event.target.value) })}
-                />
-              </label>
+              {draft.logoSource === "uploaded-image" ? (
+                <>
+                  <label className={styles.logoUploadField}>
+                    <span>{draft.logoImageUrl ? editorCopy.replaceLogoImage : editorCopy.uploadLogoImage}</span>
+                    <input accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" type="file" onChange={handleLogoUpload} />
+                  </label>
+                  {draft.logoImageUrl ? (
+                    <div className={styles.uploadedLogoPreview}>
+                      <img alt={`${draft.brandName || "Store"} uploaded logo`} src={draft.logoImageUrl} />
+                      <button type="button" onClick={() => onDraftChange({ logoImageUrl: "", logoSource: "generated-svg" })}>
+                        {editorCopy.removeUploadedLogo}
+                      </button>
+                    </div>
+                  ) : null}
+                  {showMissingLogoHint ? <small className={styles.labelKey}>{editorCopy.missingLogoHint}</small> : null}
+                </>
+              ) : (
+                <div className={styles.formTwoColumns}>
+                  <label className={styles.fieldGroup}>
+                    <span>{editorCopy.heroWordmark}</span>
+                    <input
+                      className={styles.textInput}
+                      maxLength={18}
+                      value={draft.logoText}
+                      onChange={(event) => onDraftChange({ logoText: event.target.value })}
+                    />
+                  </label>
+                  <SelectField
+                    label={editorCopy.logoFont}
+                    options={localizedLogoFontOptions}
+                    value={draft.logoFont}
+                    onValueChange={(value) => onDraftChange({ logoFont: value as OrderTemplateLogoFont })}
+                  />
+                  <label className={styles.fieldGroup}>
+                    <span>{editorCopy.logoFontSize}</span>
+                    <input
+                      className={styles.textInput}
+                      min={28}
+                      max={96}
+                      type="number"
+                      value={draft.logoFontSize}
+                      onChange={(event) => onDraftChange({ logoFontSize: Number(event.target.value) })}
+                    />
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <span className={styles.settingsGroupTitle}>{editorCopy.socialFooter}</span>
+            <div className={styles.formOneColumn}>
               <label className={styles.fieldGroup}>
                 <span>{editorCopy.footerWebsite}</span>
                 <input
@@ -5053,28 +5106,6 @@ function TemplateEditorDrawer({
                 />
               </label>
             </div>
-            <span className={styles.settingsGroupTitle}>{editorCopy.logoAsset}</span>
-            <div className={styles.formTwoColumns}>
-              <SelectField
-                label={editorCopy.logoType}
-                options={localizedLogoSourceOptions}
-                value={draft.logoSource}
-                onValueChange={(value) => onDraftChange({ logoSource: value as OrderTemplateLogoSource })}
-              />
-              <label className={styles.logoUploadField}>
-                <span>{draft.logoImageUrl ? editorCopy.replaceLogoImage : editorCopy.uploadLogoImage}</span>
-                <input accept="image/png,image/jpeg,image/webp,image/gif" type="file" onChange={handleLogoUpload} />
-              </label>
-            </div>
-            {draft.logoSource === "uploaded-image" && draft.logoImageUrl ? (
-              <div className={styles.uploadedLogoPreview}>
-                <img alt={`${draft.brandName || "Store"} uploaded logo`} src={draft.logoImageUrl} />
-                <button type="button" onClick={() => onDraftChange({ logoImageUrl: "", logoSource: "generated-svg" })}>
-                  {editorCopy.removeUploadedLogo}
-                </button>
-              </div>
-            ) : null}
-            {showMissingLogoHint ? <small className={styles.labelKey}>{editorCopy.missingLogoHint}</small> : null}
             <label className={styles.fieldGroup}>
               <span>{editorCopy.footerContactLine}</span>
               <input
@@ -5084,8 +5115,6 @@ function TemplateEditorDrawer({
               />
             </label>
             {showMissingEmailHint ? <small className={styles.labelKey}>{editorCopy.missingEmailHint}</small> : null}
-
-            <span className={styles.settingsGroupTitle}>{editorCopy.socialFooter}</span>
             <div className={styles.socialConfigList}>
               {activeSocialOptions.map((option) => {
                 const profile = draft.socialProfiles[option.platform] ?? getDefaultSocialProfile(option.platform);

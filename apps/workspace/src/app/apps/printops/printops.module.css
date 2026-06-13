@@ -4511,6 +4511,52 @@
   line-height: 1.4;
 }
 
+.logoConfigPanel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 12px;
+}
+
+.logoConfigPreview {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.logoConfigPreview .orderLogoMark {
+  width: 52px;
+  height: 52px;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+.logoConfigPreview .orderLogoMark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.logoConfigPreview > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.logoConfigPreview strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.logoConfigPreview small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .optionSettingsPanel,
 .labelSettingsPanel {
   display: grid;
@@ -4837,6 +4883,11 @@
 .formTwoColumns {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.formOneColumn {
+  display: grid;
   gap: 12px;
 }
 
@@ -5454,6 +5505,7 @@
 
   .templateEditorGrid,
   .formTwoColumns,
+  .formOneColumn,
   .labelOverrideGrid {
     grid-template-columns: 1fr;
   }
