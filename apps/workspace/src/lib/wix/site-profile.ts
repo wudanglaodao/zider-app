@@ -33,23 +33,55 @@ function normalizeWixSiteProperties(raw: unknown): WixSiteProfile {
   const root = getRecord(raw) ?? {};
   const properties = getRecord(root.properties) ?? getRecord(root.siteProperties) ?? root;
   const businessInfo = getRecord(properties.businessInfo) ?? getRecord(properties.business) ?? {};
-  const address = getRecord(properties.address) ?? getRecord(businessInfo.address) ?? {};
-  const logo = resolveWixLogo(properties.logo ?? properties.logoImage ?? businessInfo.logo ?? businessInfo.logoImage);
+  const contactInfo =
+    getRecord(properties.contactInfo) ??
+    getRecord(properties.businessContact) ??
+    getRecord(businessInfo.contactInfo) ??
+    getRecord(businessInfo.businessContact) ??
+    {};
+  const regionalSettings = getRecord(properties.regionalSettings) ?? getRecord(properties.region) ?? {};
+  const localeRecord = getRecord(properties.locale) ?? getRecord(regionalSettings.locale) ?? {};
+  const multilingual = getRecord(properties.multilingual) ?? getRecord(regionalSettings.multilingual) ?? {};
+  const currencyRecord = getRecord(properties.paymentCurrency) ?? getRecord(properties.currency) ?? getRecord(regionalSettings.currency) ?? {};
+  const siteUrlRecord = getRecord(properties.siteUrl) ?? getRecord(properties.siteUrls) ?? getRecord(root.siteUrl) ?? getRecord(root.siteUrls) ?? {};
+  const address = getRecord(properties.address) ?? getRecord(businessInfo.address) ?? getRecord(contactInfo.address) ?? {};
+  const logo = resolveWixLogo(
+    properties.logo ??
+      properties.logoImage ??
+      properties.logoMedia ??
+      businessInfo.logo ??
+      businessInfo.logoImage ??
+      businessInfo.logoMedia,
+  );
 
   return {
     address,
-    businessEmail: pickString(properties, ["email", "businessEmail"]) ?? pickString(businessInfo, ["email", "businessEmail"]),
-    businessName: pickString(properties, ["businessName", "business_name", "siteDisplayName", "displayName", "siteName", "name"]),
-    currency: pickString(properties, ["paymentCurrency", "currency", "defaultCurrency"]),
-    language: pickString(properties, ["language", "defaultLanguage"]),
-    locale: pickString(properties, ["locale", "regionalFormat", "defaultLocale"]),
+    businessEmail: pickStringFromRecords([properties, businessInfo, contactInfo], ["email", "businessEmail", "business_email"]),
+    businessName: pickStringFromRecords(
+      [properties, businessInfo, contactInfo],
+      ["businessName", "business_name", "siteDisplayName", "displayName", "siteName", "companyName", "name"],
+    ),
+    currency:
+      pickStringFromRecords([properties, regionalSettings], ["paymentCurrency", "currency", "defaultCurrency"]) ??
+      pickString(currencyRecord, ["code", "currencyCode", "currency", "value"]),
+    language:
+      pickStringFromRecords([properties, regionalSettings, multilingual], ["language", "defaultLanguage", "siteLanguage", "primaryLanguage"]) ??
+      pickString(localeRecord, ["language"]),
+    locale:
+      pickStringFromRecords([properties, regionalSettings], ["regionalFormat", "defaultLocale", "locale"]) ??
+      pickString(localeRecord, ["locale", "code", "languageTag", "id"]),
     logoMediaPath: logo.mediaPath,
     logoUrl: logo.url,
-    phone: pickString(properties, ["phone", "businessPhone"]) ?? pickString(businessInfo, ["phone", "businessPhone"]),
+    phone: pickStringFromRecords([properties, businessInfo, contactInfo], ["phone", "businessPhone", "business_phone"]),
     rawProfile: root,
-    siteId: pickString(properties, ["siteId", "site_id"]) ?? pickString(root, ["siteId", "site_id"]),
-    siteUrl: normalizeUrl(pickString(properties, ["externalSiteUrl", "siteUrl", "url", "baseUrl", "domain"])),
-    timezone: pickString(properties, ["timeZone", "timezone", "time_zone"]),
+    siteId: pickString(properties, ["siteId", "site_id"]) ?? pickString(root, ["siteId", "site_id", "metasiteId", "metaSiteId"]),
+    siteUrl: normalizeUrl(
+      pickStringFromRecords(
+        [properties, siteUrlRecord, root],
+        ["externalSiteUrl", "publishedSiteUrl", "siteUrl", "url", "baseUrl", "domain", "primary"],
+      ),
+    ),
+    timezone: pickStringFromRecords([properties, regionalSettings, businessInfo], ["timeZone", "timezone", "time_zone"]),
   };
 }
 
@@ -121,6 +153,18 @@ function pickString(record: Record<string, unknown> | null, keys: string[]) {
 
   for (const key of keys) {
     const value = getString(record[key]);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function pickStringFromRecords(records: Array<Record<string, unknown> | null>, keys: string[]) {
+  for (const record of records) {
+    const value = pickString(record, keys);
 
     if (value) {
       return value;

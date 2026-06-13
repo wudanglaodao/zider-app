@@ -481,11 +481,24 @@ const templates = [
   { label: "Invoice", value: "invoice" },
 ];
 
+const printOpsSystemBrandName = "ZIDER";
+const printOpsSystemSiteUrl = "https://www.zider.ink/";
+const printOpsSystemFooterContact = "";
+
+const legacyTemplateDefaults = {
+  brandName: "Green Studio",
+  footerContact: "150 Elgin Street, 8th Floor / support@wixcn.net",
+  footerWebsite: "greenstudio.com",
+  logoText: "Hello",
+  socialUsername: "greenstudio",
+  websiteUrl: "https://greenstudio.com",
+};
+
 const socialPlatformOptions = [
-  { label: "Instagram", platform: "instagram", baseUrl: "https://instagram.com/", placeholder: "greenstudio" },
-  { label: "Facebook", platform: "facebook", baseUrl: "https://facebook.com/", placeholder: "greenstudio" },
-  { label: "X", platform: "x", baseUrl: "https://x.com/", placeholder: "greenstudio" },
-  { label: "Website", platform: "website", baseUrl: "", placeholder: "https://greenstudio.com" },
+  { label: "Instagram", platform: "instagram", baseUrl: "https://instagram.com/", placeholder: "zider" },
+  { label: "Facebook", platform: "facebook", baseUrl: "https://facebook.com/", placeholder: "zider" },
+  { label: "X", platform: "x", baseUrl: "https://x.com/", placeholder: "zider" },
+  { label: "Website", platform: "website", baseUrl: "", placeholder: printOpsSystemSiteUrl },
 ] satisfies Array<{ label: string; platform: SocialPlatform; baseUrl: string; placeholder: string }>;
 
 function ensureUrlProtocol(value: string) {
@@ -536,7 +549,7 @@ function createSocialProfile(platform: SocialPlatform, mode: SocialLinkMode, val
 }
 
 const defaultTemplateSocialProfiles: TemplateSocialProfiles = {
-  website: createSocialProfile("website", "url", "https://greenstudio.com"),
+  website: createSocialProfile("website", "url", printOpsSystemSiteUrl),
 };
 
 function serializeSocialProfiles(profiles: TemplateSocialProfiles) {
@@ -607,7 +620,7 @@ function normalizeSocialProfiles(profiles?: TemplateSocialProfiles, legacyLinks?
         }
 
         const isUrl = /^https?:\/\//i.test(item) || item.includes(".");
-        const value = isUrl ? item : item === platform ? "greenstudio" : item;
+        const value = isUrl ? item : item === platform ? "zider" : item;
 
         normalizedProfiles[platform] = createSocialProfile(platform, isUrl ? "url" : "username", value);
       });
@@ -615,7 +628,7 @@ function normalizeSocialProfiles(profiles?: TemplateSocialProfiles, legacyLinks?
 
   if (!normalizedProfiles.website) {
     normalizedProfiles.website = {
-      ...(defaultTemplateSocialProfiles.website ?? createSocialProfile("website", "url", "https://greenstudio.com")),
+      ...(defaultTemplateSocialProfiles.website ?? createSocialProfile("website", "url", printOpsSystemSiteUrl)),
     };
   }
 
@@ -623,14 +636,14 @@ function normalizeSocialProfiles(profiles?: TemplateSocialProfiles, legacyLinks?
 }
 
 const defaultTemplateBrandSettings = {
-  brandName: "Green Studio",
-  logoText: "Hello",
+  brandName: printOpsSystemBrandName,
+  logoText: printOpsSystemBrandName,
   logoFont: "sans",
   logoFontSize: 68,
   logoSource: "generated-svg",
   logoImageUrl: "",
-  footerWebsite: "greenstudio.com",
-  footerContact: "150 Elgin Street, 8th Floor / support@wixcn.net",
+  footerWebsite: printOpsSystemSiteUrl,
+  footerContact: printOpsSystemFooterContact,
   thankYouText: "Thanks for your business!",
   accentColor: "charcoal",
   customAccentColor: "#087a46",
@@ -692,15 +705,20 @@ const defaultTemplateBrandSettings = {
 >;
 
 function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profile: PrintOpsStoreProfileSummary | null) {
-  if (!profile) {
-    return templates;
-  }
-
-  const businessName = cleanProfileString(profile.businessName);
-  const siteUrl = cleanProfileString(profile.siteUrl);
-  const siteDisplay = getWebsiteDisplay(siteUrl);
-  const footerContact = createStoreContactLine(profile);
-  const defaultLanguage = resolveProfilePrintLocale(profile.language ?? profile.locale);
+  const businessName = cleanProfileString(profile?.businessName) ?? printOpsSystemBrandName;
+  const siteUrl = cleanProfileString(profile?.siteUrl) ?? printOpsSystemSiteUrl;
+  const siteDisplay = getWebsiteDisplay(siteUrl) ?? siteUrl;
+  const footerContact = profile ? createStoreContactLine(profile) : printOpsSystemFooterContact || null;
+  const defaultLanguage = profile ? resolveProfilePrintLocale(profile.language ?? profile.locale) : null;
+  const brandSamples = [defaultTemplateBrandSettings.brandName, legacyTemplateDefaults.brandName];
+  const footerContactSamples = [defaultTemplateBrandSettings.footerContact, legacyTemplateDefaults.footerContact];
+  const footerWebsiteSamples = [defaultTemplateBrandSettings.footerWebsite, legacyTemplateDefaults.footerWebsite];
+  const logoTextSamples = [defaultTemplateBrandSettings.logoText, legacyTemplateDefaults.logoText, "GS"];
+  const websiteProfileSamples = [
+    defaultTemplateSocialProfiles.website?.url ?? "",
+    legacyTemplateDefaults.websiteUrl,
+    legacyTemplateDefaults.footerWebsite,
+  ];
 
   return templates.map((templateRecord) => {
     if (templateRecord.source !== "Store copy") {
@@ -709,17 +727,15 @@ function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profi
 
     const nextSocialProfiles = normalizeSocialProfiles(templateRecord.socialProfiles, templateRecord.socialLinks);
 
-    if (siteUrl && shouldReplaceProfileValue(nextSocialProfiles.website?.url, [defaultTemplateSocialProfiles.website?.url ?? ""])) {
+    if (siteUrl && shouldReplaceProfileValue(nextSocialProfiles.website?.url, websiteProfileSamples)) {
       nextSocialProfiles.website = createSocialProfile("website", "url", siteUrl);
-    } else if (!siteUrl && shouldReplaceProfileValue(nextSocialProfiles.website?.url, [defaultTemplateSocialProfiles.website?.url ?? ""])) {
-      nextSocialProfiles.website = createSocialProfile("website", "url", "");
     }
 
-    const profileLogoUrl = cleanProfileString(profile.logoUrl);
+    const profileLogoUrl = cleanProfileString(profile?.logoUrl);
     const shouldUseProfileLogo =
       profileLogoUrl &&
       (!templateRecord.logoImageUrl || templateRecord.logoImageUrl === defaultTemplateBrandSettings.logoImageUrl) &&
-      shouldReplaceProfileValue(templateRecord.logoText, [defaultTemplateBrandSettings.logoText, "GS"]);
+      shouldReplaceProfileValue(templateRecord.logoText, logoTextSamples);
     const logoPatch =
       shouldUseProfileLogo
         ? {
@@ -730,11 +746,11 @@ function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profi
     const nextTemplate: TemplateRecord = {
       ...templateRecord,
       ...logoPatch,
-      brandName: patchProfileText(templateRecord.brandName, businessName, [defaultTemplateBrandSettings.brandName]),
+      brandName: patchProfileText(templateRecord.brandName, businessName, brandSamples),
       defaultLanguage: defaultLanguage ?? templateRecord.defaultLanguage,
-      footerContact: patchProfileText(templateRecord.footerContact, footerContact, [defaultTemplateBrandSettings.footerContact]),
-      footerWebsite: patchProfileText(templateRecord.footerWebsite, siteDisplay, [defaultTemplateBrandSettings.footerWebsite]),
-      logoText: patchProfileText(templateRecord.logoText, createProfileWordmark(businessName), [defaultTemplateBrandSettings.logoText, "GS"]),
+      footerContact: patchProfileText(templateRecord.footerContact, footerContact, footerContactSamples),
+      footerWebsite: patchProfileText(templateRecord.footerWebsite, siteDisplay, footerWebsiteSamples),
+      logoText: patchProfileText(templateRecord.logoText, createProfileWordmark(businessName), logoTextSamples),
       socialProfiles: nextSocialProfiles,
       socialLinks: serializeSocialProfiles(nextSocialProfiles),
     };
@@ -1134,18 +1150,18 @@ const fixedTemplateLabels = {
     ko: "메모",
   },
   questions: {
-    default: "Questions? Please contact support@wixcn.net.",
-    es: "¿Preguntas? Contacta con support@wixcn.net.",
-    de: "Fragen? Bitte kontaktiere support@wixcn.net.",
-    ja: "ご不明点は support@wixcn.net までお問い合わせください。",
-    fr: "Questions ? Contactez support@wixcn.net.",
-    pt: "Dúvidas? Fale com support@wixcn.net.",
-    "zh-Hans": "如有问题，请联系 support@wixcn.net。",
-    "zh-Hant": "如有問題，請聯絡 support@wixcn.net。",
-    ar: "هل لديك أسئلة؟ تواصل مع support@wixcn.net.",
-    nl: "Vragen? Neem contact op met support@wixcn.net.",
-    it: "Domande? Contatta support@wixcn.net.",
-    ko: "문의 사항은 support@wixcn.net 으로 연락해 주세요.",
+    default: "Questions? Please contact us.",
+    es: "¿Preguntas? Contáctanos.",
+    de: "Fragen? Bitte kontaktiere uns.",
+    ja: "ご不明点があればお問い合わせください。",
+    fr: "Questions ? Contactez-nous.",
+    pt: "Dúvidas? Fale conosco.",
+    "zh-Hans": "如有问题，请联系我们。",
+    "zh-Hant": "如有問題，請聯絡我們。",
+    ar: "هل لديك أسئلة؟ تواصل معنا.",
+    nl: "Vragen? Neem contact met ons op.",
+    it: "Domande? Contattaci.",
+    ko: "문의 사항은 연락해 주세요.",
   },
   totalItems: {
     default: "Total items",
@@ -1303,8 +1319,8 @@ const initialTemplateRecords: TemplateRecord[] = [
     source: "Store copy",
     status: "Ready",
     ...defaultTemplateBrandSettings,
-    logoText: "Hello",
-    socialLinks: "@greenstudio / instagram / facebook / x",
+    logoText: printOpsSystemBrandName,
+    socialLinks: defaultTemplateBrandSettings.socialLinks,
     showProductImages: true,
     showSocialFooter: true,
     isDefault: true,
@@ -1332,8 +1348,8 @@ const initialTemplateRecords: TemplateRecord[] = [
     ...defaultTemplateBrandSettings,
     accentColor: "forest",
     density: "compact",
-    logoText: "GS",
-    socialLinks: "@greenstudio / instagram / pinterest",
+    logoText: printOpsSystemBrandName,
+    socialLinks: defaultTemplateBrandSettings.socialLinks,
     showProductImages: true,
     showSocialFooter: true,
     updatedAt: "Today, 10:24",
@@ -1360,8 +1376,8 @@ const initialTemplateRecords: TemplateRecord[] = [
     ...defaultTemplateBrandSettings,
     accentColor: "slate",
     density: "compact",
-    logoText: "GS",
-    socialLinks: "greenstudio.com / instagram / facebook",
+    logoText: printOpsSystemBrandName,
+    socialLinks: defaultTemplateBrandSettings.socialLinks,
     showProductImages: true,
     showSocialFooter: true,
     updatedAt: "May 25",
@@ -1386,8 +1402,8 @@ const initialTemplateRecords: TemplateRecord[] = [
     source: "Built-in",
     status: "Ready",
     ...defaultTemplateBrandSettings,
-    logoText: "Hello",
-    socialLinks: "@greenstudio / instagram / facebook / x",
+    logoText: printOpsSystemBrandName,
+    socialLinks: defaultTemplateBrandSettings.socialLinks,
     showProductImages: true,
     showSocialFooter: true,
     updatedAt: "Built-in",
@@ -1414,8 +1430,8 @@ const initialTemplateRecords: TemplateRecord[] = [
     ...defaultTemplateBrandSettings,
     accentColor: "forest",
     density: "compact",
-    logoText: "GS",
-    socialLinks: "@greenstudio / instagram / pinterest",
+    logoText: printOpsSystemBrandName,
+    socialLinks: defaultTemplateBrandSettings.socialLinks,
     showProductImages: true,
     showSocialFooter: true,
     updatedAt: "Built-in",
@@ -1969,8 +1985,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       : activeView === "settings"
         ? messages.pages.settingsDescription
         : messages.pages.ordersDescription;
-  const workspaceStoreName = storeProfile?.businessName?.trim() || "Zider PrintOps";
-  const workspaceStoreScope = storeProfile?.siteUrl ? getWebsiteDisplay(storeProfile.siteUrl) : messages.app.scope;
+  const workspaceStoreName = storeProfile?.businessName?.trim() || printOpsSystemBrandName;
+  const workspaceStoreScope = storeProfile?.siteUrl ? getWebsiteDisplay(storeProfile.siteUrl) : printOpsSystemSiteUrl;
   const workspaceStoreInitials = getAvatarInitials(workspaceStoreName);
   const hasUnreadProductUpdates = false;
   const pageMetrics: PageMetric[] =
@@ -5584,7 +5600,7 @@ function TemplatePaperPreview({
   logoFont = defaultTemplateBrandSettings.logoFont,
   logoFontSize = defaultTemplateBrandSettings.logoFontSize,
   logoSource = defaultTemplateBrandSettings.logoSource,
-  logoText = "GS",
+  logoText = defaultTemplateBrandSettings.logoText,
   order,
   paperSize,
   showBillTo = true,
@@ -5604,7 +5620,7 @@ function TemplatePaperPreview({
   showThankYou = true,
   showTotals = true,
   customAccentColor = defaultTemplateBrandSettings.customAccentColor,
-  socialLinks = "@greenstudio / instagram / facebook / x",
+  socialLinks = defaultTemplateBrandSettings.socialLinks,
   socialProfiles,
   thankYouText = defaultTemplateBrandSettings.thankYouText,
   variant = "detail",
@@ -5780,10 +5796,10 @@ function TemplatePaperPreview({
     <span className={styles.templatePaper} data-layout={layoutPreset} data-size={paperSize} data-variant={variant}>
       <span className={styles.paperHeaderLine}>
         <span className={styles.paperBrandBlock}>
-          <span className={styles.paperLogoMark}>GS</span>
+          <span className={styles.paperLogoMark}>ZI</span>
           <span>
-            <strong>Green Studio</strong>
-            <small>hello@greenstudio.example</small>
+            <strong>{printOpsSystemBrandName}</strong>
+            <small>{printOpsSystemSiteUrl}</small>
           </span>
         </span>
         <span className={styles.paperDocBlock}>
@@ -5802,9 +5818,9 @@ function TemplatePaperPreview({
         </span>
         <span>
           <small>From</small>
-          <strong>Green Studio</strong>
-          <span>24 Linden Ave</span>
-          <span>Portland, OR</span>
+          <strong>{printOpsSystemBrandName}</strong>
+          <span>zider.ink</span>
+          <span>Workspace</span>
         </span>
       </span>
 
@@ -6342,8 +6358,8 @@ function OrderPaperPreview({
     .filter((item): item is { label: string; platform: SocialPlatform; url: string } => Boolean(item))
     .slice(0, 4);
   const rawLogo = logoText.trim();
-  const displayLogo = rawLogo.slice(0, 4) || "GS";
-  const displayWordmark = rawLogo || "Hello";
+  const displayLogo = rawLogo.slice(0, 4) || printOpsSystemBrandName.slice(0, 4);
+  const displayWordmark = rawLogo || printOpsSystemBrandName;
   const displayBrandName = brandName.trim() || defaultTemplateBrandSettings.brandName;
   const displayFooterWebsite = footerWebsite.trim();
   const displayFooterContact = footerContact.trim();
@@ -6700,7 +6716,7 @@ function OrderPaperPreview({
 
         <span className={styles.orderCenteredFooter}>
           <strong>{displayThankYou}</strong>
-          <span>Green Studio / Shanghai, Hong Kong / support@wixcn.net</span>
+          <span>{displayFooterContact || printOpsSystemSiteUrl}</span>
         </span>
         {socialFooter}
       </span>
@@ -6764,7 +6780,7 @@ function OrderPaperPreview({
       <span className={styles.orderSlipThanks}>
         <strong>{displayThankYou}</strong>
         <span>{labels.questions}</span>
-        <span>Green Studio / Shanghai, Hong Kong / 18516526365</span>
+        <span>{displayFooterContact || printOpsSystemSiteUrl}</span>
       </span>
 
       {socialFooter}

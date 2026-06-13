@@ -165,9 +165,18 @@ Store profile cache:
 - Table: `printops_store_profiles`.
 - Key: `app_key + platform + instance_id`.
 - Source: Wix Site Properties API.
-- Cached fields: `site_url`, `business_name`, `business_email`, `logo_media_path`,
-  `logo_url`, `phone`, `address`, `language`, `locale`, `timezone`, `currency`,
-  and `raw_profile`.
+- Normalized fields: `site_id`, `site_url`, `business_name`, `business_email`,
+  `logo_media_path`, `logo_url`, `phone`, `address`, `language`, `locale`,
+  `timezone`, `currency`, and `raw_profile`.
+- Wix fields to prefer when available:
+  - Site identity: published/external site URL, domain, site ID, display name,
+    site name, business name.
+  - Business profile/contact: business email, phone, address, logo media path,
+    logo image URL.
+  - Regional defaults: site language, default language, locale/regional format,
+    timezone, payment/default currency.
+- `raw_profile` is retained so newly exposed Wix Site Properties fields can be
+  inspected without changing the app contract first.
 - First entry into the Wix PrintOps workspace refreshes the profile once.
 - Manual order sync also refreshes the profile opportunistically.
 - Template defaults prefer cached profile values for logo, store name, footer website,
@@ -175,6 +184,9 @@ Store profile cache:
 - Merchant-entered template overrides always win after the initial default application.
 - If Wix has no logo or email, the profile keeps those values empty and the template
   editor prompts the merchant to upload a logo or enter contact details manually.
+- If Wix has no site profile value, system defaults are:
+  `business_name = ZIDER` and `site_url = https://www.zider.ink/`. Do not use
+  demo store names, demo email addresses, or fake addresses as fallbacks.
 
 Account and workspace identity:
 
@@ -189,8 +201,8 @@ Account and workspace identity:
 - Wix site or business profile values are workspace/store identity, not personal user
   identity. If Wix later exposes the current dashboard operator, use it only for
   audit metadata such as `updated_by` or activity logs.
-- If `business_name` is missing, display `Zider PrintOps` as the fallback workspace
-  name. If `site_url` is missing, display `Wix orders` as the fallback scope.
+- If `business_name` is missing, display `ZIDER` as the fallback workspace name.
+  If `site_url` is missing, display `https://www.zider.ink/` as the fallback scope.
 - Merchant template overrides always win over store profile defaults. Updating the
   cached profile must not overwrite a merchant-edited template field after the first
   default application.
