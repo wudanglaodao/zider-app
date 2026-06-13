@@ -1632,7 +1632,7 @@ function createDraftFromTemplate(templateRecord: TemplateRecord, mode: TemplateE
     category: templateRecord.category,
     scenario: templateRecord.scenario,
     audience: templateRecord.audience,
-    paperSize: templateRecord.paperSize,
+    paperSize: "A4",
     orientation: templateRecord.orientation,
     marginPreset: templateRecord.marginPreset,
     layoutPreset: templateRecord.layoutPreset,
@@ -1782,10 +1782,10 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
     name: draft.name.trim(),
     description: draft.description.trim(),
     documentType: draft.documentType,
-    category: draft.category,
+    category: getDefaultCategory(draft.documentType),
     scenario: draft.scenario.trim() || "custom",
     audience: draft.audience,
-    paperSize: draft.paperSize,
+    paperSize: "A4",
     orientation: draft.orientation,
     marginPreset: draft.marginPreset,
     layoutPreset: draft.layoutPreset,
@@ -4839,14 +4839,6 @@ function TemplateEditorDrawer({
     { label: editorCopy.densitySpacious, value: "spacious" },
   ];
   const localizedDocumentTypeOptions = [{ label: editorCopy.documentInvoice, value: "Invoice" }];
-  const localizedCategoryOptions = [
-    { label: editorCopy.categoryFulfillment, value: "Fulfillment" },
-    { label: editorCopy.categoryPicking, value: "Picking" },
-    { label: editorCopy.categoryProduction, value: "Production" },
-    { label: editorCopy.categoryCustomerDocuments, value: "Customer Documents" },
-    { label: editorCopy.categoryFinanceHelper, value: "Finance Helper" },
-    { label: editorCopy.categoryStorePos, value: "Store / POS" },
-  ];
   const localizedAudienceOptions = [
     { label: editorCopy.audienceCustomer, value: "Customer" },
     { label: editorCopy.audienceWarehouse, value: "Warehouse" },
@@ -4854,7 +4846,7 @@ function TemplateEditorDrawer({
     { label: editorCopy.audienceFinance, value: "Finance" },
     { label: editorCopy.audienceStoreStaff, value: "Store staff" },
   ];
-  const templateSettingsSummary = editorCopy.fixedA4;
+  const templateSettingsSummary = editorCopy.templateSettingsDescription;
   const drawerStateLabel = mode === "duplicate" ? editorCopy.draftCopy : mode === "create" ? editorCopy.draft : editorCopy.ready;
   const editorSections = [
     {
@@ -5387,12 +5379,6 @@ function TemplateEditorDrawer({
                 onValueChange={(value) => onDraftChange({ documentType: value, category: getDefaultCategory(value) })}
               />
               <SelectField
-                label={editorCopy.category}
-                options={localizedCategoryOptions}
-                value={draft.category}
-                onValueChange={(value) => onDraftChange({ category: value as TemplateRecord["category"] })}
-              />
-              <SelectField
                 label={editorCopy.audience}
                 options={localizedAudienceOptions}
                 value={draft.audience}
@@ -5404,7 +5390,7 @@ function TemplateEditorDrawer({
               </label>
               <label className={styles.fieldGroup}>
                 <span>{editorCopy.paperSize}</span>
-                <input className={styles.textInput} readOnly value={editorCopy.fixedA4} />
+                <input className={styles.textInput} readOnly value="A4" />
               </label>
             </div>
           </div>
