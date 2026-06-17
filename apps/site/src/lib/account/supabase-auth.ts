@@ -39,6 +39,22 @@ export function createSupabaseAuthClient(storage?: ReturnType<typeof createOAuth
   });
 }
 
+export function createSupabaseAdminClient() {
+  const url = process.env.SUPABASE_URL?.trim();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+  if (!url || !serviceRoleKey) {
+    throw new Error("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for admin client");
+  }
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
 export function createOAuthStorage(initialData: OAuthStorageData = {}) {
   const data: OAuthStorageData = {
     ...initialData,

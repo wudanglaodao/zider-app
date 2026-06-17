@@ -17,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, overflowX: "hidden", backgroundColor: "#f7f7f9" }}>
+      <body style={{ margin: 0, overflowX: "hidden", backgroundColor: "#f7f7f9" }} suppressHydrationWarning>
         {children}
         <Script src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ANALYTICS_ID}`} strategy="afterInteractive" />
         <Script id="google-analytics" strategy="afterInteractive">

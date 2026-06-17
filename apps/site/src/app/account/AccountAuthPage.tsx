@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowRight, Building2, KeyRound, Mail } from "lucide-react";
+import { useFormStatus } from "react-dom";
+import { ArrowRight, Building2, KeyRound, Loader2, Mail } from "lucide-react";
 
 import type { ZiderUser } from "@/lib/account/users";
 import { sendAccountCodeAction, signOutAction, verifyAccountCodeAction } from "./actions";
@@ -171,15 +172,12 @@ export function AccountAuthPage({
                 <div className="codeField">
                   <KeyRound size={18} />
                   <input autoComplete="one-time-code" inputMode="numeric" name="code" onChange={(event) => setCode(event.target.value)} placeholder="6-digit code" required type="text" value={code} />
-                  <button disabled={!isConfigured || !email.trim()} formAction={sendAccountCodeAction} formNoValidate type="submit">{copy.codeAction}</button>
+                  <SendCodeButton codeAction={copy.codeAction} disabled={!isConfigured || !email.trim()} />
                 </div>
               </label>
             </div>
 
-            <button className="primaryButton" disabled={!isConfigured} type="submit">
-              {copy.primaryAction}
-              <ArrowRight size={17} />
-            </button>
+            <SubmitButton disabled={!isConfigured} label={copy.primaryAction} />
 
             <div className="authLinks">
               {mode === "signin" ? (
@@ -206,6 +204,34 @@ export function AccountAuthPage({
         </div>
       </section>
     </main>
+  );
+}
+
+function SendCodeButton({ codeAction, disabled }: { codeAction: string; disabled: boolean }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button
+      className="codeButton"
+      disabled={disabled || pending}
+      formAction={sendAccountCodeAction}
+      formNoValidate
+      type="submit"
+    >
+      {pending ? <Loader2 size={14} className="spin" /> : null}
+      {pending ? "Sending…" : codeAction}
+    </button>
+  );
+}
+
+function SubmitButton({ disabled, label }: { disabled: boolean; label: string }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <button className="primaryButton" disabled={disabled || pending} type="submit">
+      {pending ? <Loader2 size={17} className="spin" /> : <ArrowRight size={17} />}
+      {pending ? "Verifying…" : label}
+    </button>
   );
 }
 
@@ -676,6 +702,46 @@ function getAccountCss() {
         grid-column: 1 / -1;
         margin-bottom: 6px;
       }
+    }
+
+    .spin {
+      animation: ziderSpin 0.8s linear infinite;
+    }
+
+    @keyframes ziderSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    .codeButton {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      border-radius: 6px;
+      padding: 0 12px;
+      border: 0;
+      background: #e8f5ee;
+      color: var(--auth-green);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s ease, opacity 0.15s ease;
+    }
+
+    .codeButton:hover:not(:disabled) {
+      background: #d4ece0;
+    }
+
+    .codeButton:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .primaryButton:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
     }
   `;
 }

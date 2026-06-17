@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { isAccountAuthConfigured } from "@/lib/account/auth";
 import { getAccountActionOrigin } from "@/lib/account/origin";
 import { clearAccountSessionCookie, normalizeAccountNextPath, setAccountSessionCookie } from "@/lib/account/session";
-import { createSupabaseAuthClient, displayNameFromSupabaseUser } from "@/lib/account/supabase-auth";
+import { createSupabaseAdminClient, createSupabaseAuthClient, displayNameFromSupabaseUser } from "@/lib/account/supabase-auth";
 import {
   createOrUpdateZiderUserFromEmail,
   normalizeEmail,
@@ -30,12 +30,34 @@ export async function sendAccountCodeAction(formData: FormData) {
   }
 
   try {
+    // For registration: use Admin API to create user directly (avoids email dependency)
+    if (mode === "register") {
+      const admin = createSupabaseAdminClient();
+      const { error: createError } = await admin.auth.admin.createUser({
+        email: normalizeEmail(email),
+        email_confirm: true,
+        password: crypto.randomUUID(),
+        user_metadata: displayName.trim() ? { full_name: displayName.trim() } : undefined,
+      });
+
+      if (createError) throw createError;
+
+      redirect(
+        accountRedirectPath("signin", {
+          email,
+          nextPath,
+          sent: true,
+        }),
+      );
+    }
+
+    // Sign-in/forgot: send OTP
     const supabase = createSupabaseAuthClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizeEmail(email),
       options: {
         data: displayName.trim() ? { full_name: displayName.trim() } : undefined,
-        shouldCreateUser: mode === "register",
+        shouldCreateUser: false,
       },
     });
 
