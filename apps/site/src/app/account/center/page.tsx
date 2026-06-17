@@ -1,12 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import {
-  BadgeCheck,
   CalendarClock,
-  Home,
   KeyRound,
   LogOut,
   Mail,
+  Settings,
   ShieldCheck,
   Sparkles,
   UserRound,
@@ -41,14 +40,16 @@ export default async function AccountCenterPage() {
       <section className="accountShell" aria-labelledby="account-center-title">
         <header className="accountHeader">
           <a className="accountBrand" href="/" aria-label="ZIDER home">
-            <ZiderMark />
-            <span>ZIDER</span>
+            <ZiderLogo />
           </a>
           <div className="accountHeaderActions">
-            <a className="ghostButton" href="/">
-              <Home size={16} />
-              Home
+            <a className="ghostButton" href="/account/center/settings">
+              <Settings size={16} />
+              Settings
             </a>
+            <div className="headerAvatar" aria-label="Account menu">
+              <span className="headerAvatarInitials">{initialsForUser(session.user)}</span>
+            </div>
             <form action={signOutAction}>
               <button className="ghostButton" type="submit">
                 <LogOut size={16} />
@@ -60,16 +61,14 @@ export default async function AccountCenterPage() {
 
         <div className="accountHero">
           <div className="accountHeroCopy">
-            <p className="accountEyebrow">ZIDER ACCOUNT</p>
             <h1 id="account-center-title">Account Center</h1>
-            <p>Manage your ZIDER identity, sign-in methods, and account security from one quiet place.</p>
+            <p>Manage your ZIDER identity, sign-in methods, and account security.</p>
           </div>
           <section className="heroProfileCard" aria-label="Signed-in account">
             <div className="heroAvatar" aria-hidden="true">
               {initialsForUser(session.user)}
             </div>
             <div>
-              <span className="statusPill">Active</span>
               <h2>{session.user.displayName || "Zider member"}</h2>
               <p>{session.user.email}</p>
             </div>
@@ -77,12 +76,6 @@ export default async function AccountCenterPage() {
         </div>
 
         <div className="accountGrid">
-          <InfoCard
-            icon={<BadgeCheck size={20} />}
-            label="Account status"
-            title={capitalize(session.user.status)}
-            value={`Role: ${capitalize(session.user.role)}`}
-          />
           <InfoCard
             icon={<CalendarClock size={20} />}
             label="Last sign-in"
@@ -180,11 +173,14 @@ function InfoCard({
   );
 }
 
-function ZiderMark() {
+function ZiderLogo() {
   return (
-    <svg aria-hidden="true" viewBox="0 0 40 40">
-      <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" strokeWidth="4" />
-      <circle cx="20" cy="20" r="5" fill="currentColor" />
+    <svg aria-hidden="true" className="ziderLogo" xmlns="http://www.w3.org/2000/svg" width="163.1" height="43.5" viewBox="0 0 163.1 43.5">
+      <path
+        d="M155,2.1,133.8,35.5h21.1v7.8H119.8l21-33.4H128.2a6.31,6.31,0,0,1-3.7-1.2,3.62,3.62,0,0,1-1.8-2.8h0V0h7.4V.8a2,2,0,0,0,.2,1.1,1.94,1.94,0,0,0,.7.2Zm5.3,0h8.1V43.3h-8.1Zm16,41.3V2.2h12.3c5.3,0,9.6,1,13,3.1a18,18,0,0,1,7.3,7.9,23.23,23.23,0,0,1,2.3,10.4h0a19.5,19.5,0,0,1-2.8,10.5,18.72,18.72,0,0,1-7.5,7,22.1,22.1,0,0,1-10.4,2.4l-14.2-.1Zm8.1-7.9h4.8c4.2,0,7.6-1.1,10-3.2s3.7-5.3,3.7-9.4h0a13.85,13.85,0,0,0-2.1-7.9,10.42,10.42,0,0,0-4.8-4,13,13,0,0,0-5.1-1.1h-6.6ZM216.7,2.1h28.1V10h-20v8.8h17.7v7.8H224.8v8.9h20.8v7.8H216.7Zm66.2,41.3h-9.5l-8.7-13.1h-5.4V43.4h-8.1V2.2h12.5c5.1,0,9.1,1.2,11.9,3.7s4.2,5.9,4.2,10.2h0a16.46,16.46,0,0,1-1.6,7.2,12.29,12.29,0,0,1-4.9,5.2h0ZM259.3,10V22.4h5.8a5.8,5.8,0,0,0,4.8-1.9,6.51,6.51,0,0,0,1.5-4.2h0a7.73,7.73,0,0,0-1.3-4.2c-.9-1.4-2.5-2-5-2Z"
+        fill="#087a46"
+        transform="translate(-119.8 0)"
+      />
     </svg>
   );
 }
@@ -203,10 +199,6 @@ function initialsForUser(user: ZiderUser) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase())
     .join("");
-}
-
-function capitalize(value: string) {
-  return value.slice(0, 1).toUpperCase() + value.slice(1);
 }
 
 function formatDateTime(value: string | null) {
@@ -268,26 +260,42 @@ function getAccountCenterCss() {
       margin-bottom: 44px;
     }
 
-    .accountBrand,
-    .accountHeaderActions,
-    .ghostButton {
+    .accountBrand {
       display: inline-flex;
       align-items: center;
-    }
-
-    .accountBrand {
       gap: 10px;
       color: var(--account-ink);
-      font-size: 18px;
-      font-weight: 800;
       text-decoration: none;
-      letter-spacing: 0;
     }
 
-    .accountBrand svg {
-      width: 34px;
-      height: 34px;
-      color: var(--account-green);
+    .ziderLogo {
+      display: block;
+      width: 120px;
+      height: auto;
+    }
+
+    .accountHeaderActions {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .headerAvatar {
+      width: 36px;
+      height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      background: var(--account-green);
+      color: #ffffff;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .headerAvatarInitials {
+      line-height: 1;
     }
 
     .accountHeaderActions {
@@ -299,6 +307,8 @@ function getAccountCenterCss() {
     }
 
     .ghostButton {
+      display: inline-flex;
+      align-items: center;
       min-height: 40px;
       justify-content: center;
       gap: 8px;
@@ -332,16 +342,6 @@ function getAccountCenterCss() {
 
     .accountHeroCopy {
       max-width: 760px;
-    }
-
-    .accountEyebrow,
-    .cardKicker {
-      margin: 0;
-      color: var(--account-green);
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
     }
 
     .accountHero h1 {
@@ -388,17 +388,13 @@ function getAccountCenterCss() {
       font-weight: 850;
     }
 
-    .statusPill {
-      width: fit-content;
-      min-height: 26px;
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      background: var(--account-soft-strong);
+    .cardKicker {
+      margin: 0;
       color: var(--account-green);
-      padding: 0 10px;
       font-size: 12px;
       font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .accountGrid {
