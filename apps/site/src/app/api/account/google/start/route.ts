@@ -8,17 +8,19 @@ import {
   supabaseOAuthStorageMaxAgeSeconds,
 } from "@/lib/account/supabase-auth";
 import { isAccountAuthConfigured } from "@/lib/account/auth";
+import { getAccountRequestOrigin } from "@/lib/account/origin";
 import { normalizeAccountNextPath } from "@/lib/account/session";
 
 export async function GET(request: NextRequest) {
   const mode = accountModeFromSearch(request.nextUrl.searchParams.get("mode"));
   const nextPath = normalizeAccountNextPath(request.nextUrl.searchParams.get("next"), "/");
+  const origin = getAccountRequestOrigin(request);
 
   if (!isAccountAuthConfigured()) {
-    return NextResponse.redirect(accountRedirectUrl(request, mode, "google_config", nextPath));
+    return NextResponse.redirect(accountRedirectUrl(origin, mode, "google_config", nextPath));
   }
 
-  const callbackUrl = new URL("/api/account/auth/callback", request.nextUrl.origin);
+  const callbackUrl = new URL("/api/account/auth/callback", origin);
   callbackUrl.searchParams.set("mode", mode);
 
   if (nextPath !== "/") {
@@ -56,7 +58,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Failed to start Supabase Google sign-in", error);
 
-    return NextResponse.redirect(accountRedirectUrl(request, mode, "google_failed", nextPath));
+    return NextResponse.redirect(accountRedirectUrl(origin, mode, "google_failed", nextPath));
   }
 }
 
@@ -64,9 +66,9 @@ function accountModeFromSearch(value: string | null) {
   return value === "register" || value === "forgot" ? value : "signin";
 }
 
-function accountRedirectUrl(request: NextRequest, mode: string, error: string, nextPath: string) {
+function accountRedirectUrl(origin: string, mode: string, error: string, nextPath: string) {
   const path = mode === "register" ? "/register" : mode === "forgot" ? "/forgot-password" : "/account";
-  const url = new URL(path, request.nextUrl.origin);
+  const url = new URL(path, origin);
 
   url.searchParams.set("error", error);
 

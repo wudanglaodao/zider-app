@@ -5,6 +5,7 @@ import {
   accountSessionMaxAgeSeconds,
   createAccountSessionValue,
 } from "@/lib/account/auth";
+import { getAccountRequestOrigin } from "@/lib/account/origin";
 import { normalizeAccountNextPath } from "@/lib/account/session";
 import {
   createOAuthStorage,
@@ -21,16 +22,17 @@ export async function GET(request: NextRequest) {
   const mode = accountModeFromSearch(request.nextUrl.searchParams.get("mode"));
   const nextPath = normalizeAccountNextPath(request.nextUrl.searchParams.get("next"), "/");
   const providerError = request.nextUrl.searchParams.get("error");
+  const origin = getAccountRequestOrigin(request);
 
   if (providerError) {
-    return clearSupabaseOAuthCookie(NextResponse.redirect(accountRedirectUrl(request, mode, "google_failed", nextPath)));
+    return clearSupabaseOAuthCookie(NextResponse.redirect(accountRedirectUrl(origin, mode, "google_failed", nextPath)));
   }
 
   try {
     const supabaseUser = await resolveSupabaseUser(request);
 
     if (!supabaseUser.email) {
-      return clearSupabaseOAuthCookie(NextResponse.redirect(accountRedirectUrl(request, mode, "google_email_unverified", nextPath)));
+      return clearSupabaseOAuthCookie(NextResponse.redirect(accountRedirectUrl(origin, mode, "google_email_unverified", nextPath)));
     }
 
     const user = await createOrUpdateZiderUserFromEmail({
@@ -39,11 +41,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!user || user.status !== "active") {
-      return clearSupabaseOAuthCookie(NextResponse.redirect(accountRedirectUrl(request, mode, "forbidden", nextPath)));
+      return clearSupabaseOAuthCookie(NextResponse.redirect(accountRedirectUrl(origin, mode, "forbidden", nextPath)));
     }
 
     const activeUser = await touchZiderUserLogin(user);
-    const response = clearSupabaseOAuthCookie(NextResponse.redirect(new URL(nextPath, request.nextUrl.origin)));
+    const response = clearSupabaseOAuthCookie(NextResponse.redirect(new URL(nextPath, origin)));
 
     response.cookies.set(accountSessionCookieName, await createAccountSessionValue(activeUser.id), {
       httpOnly: true,
@@ -57,7 +59,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("Supabase account callback failed", error);
 
-    return clearSupabaseOAuthCookie(NextResponse.redirect(accountRedirectUrl(request, mode, "google_failed", nextPath)));
+    return clearSupabaseOAuthCookie(NextResponse.redirect(accountRedirectUrl(origin, mode, "google_failed", nextPath)));
   }
 }
 
@@ -111,9 +113,9 @@ function accountModeFromSearch(value: string | null): AccountMode {
   return value === "register" || value === "forgot" ? value : "signin";
 }
 
-function accountRedirectUrl(request: NextRequest, mode: AccountMode, error: string, nextPath: string) {
+function accountRedirectUrl(origin: string, mode: AccountMode, error: string, nextPath: string) {
   const path = mode === "register" ? "/register" : mode === "forgot" ? "/forgot-password" : "/account";
-  const url = new URL(path, request.nextUrl.origin);
+  const url = new URL(path, origin);
 
   url.searchParams.set("error", error);
 

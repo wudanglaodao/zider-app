@@ -1,9 +1,9 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { isAccountAuthConfigured } from "@/lib/account/auth";
+import { getAccountActionOrigin } from "@/lib/account/origin";
 import { clearAccountSessionCookie, normalizeAccountNextPath, setAccountSessionCookie } from "@/lib/account/session";
 import { createSupabaseAuthClient, displayNameFromSupabaseUser } from "@/lib/account/supabase-auth";
 import {
@@ -147,10 +147,7 @@ function accountRedirectPath(
 }
 
 async function accountAuthCallbackUrl(mode: AccountMode, nextPath: string) {
-  const requestHeaders = await headers();
-  const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
-  const proto = requestHeaders.get("x-forwarded-proto") || (host?.startsWith("localhost") ? "http" : "https");
-  const origin = host ? `${proto}://${host}` : process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3100";
+  const origin = await getAccountActionOrigin();
   const callbackUrl = new URL("/api/account/auth/callback", origin);
 
   callbackUrl.searchParams.set("mode", mode);
