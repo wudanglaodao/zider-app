@@ -35,7 +35,6 @@ export async function sendAccountCodeAction(formData: FormData) {
       email: normalizeEmail(email),
       options: {
         data: displayName.trim() ? { full_name: displayName.trim() } : undefined,
-        emailRedirectTo: await accountAuthCallbackUrl(mode, nextPath),
         shouldCreateUser: mode === "register",
       },
     });
