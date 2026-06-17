@@ -2853,11 +2853,22 @@
 .templatePaper[data-document="order"] {
   --order-accent: #087a46;
   --order-accent-2: #1a4f7a;
+  --order-body-font: Inter, Arial, sans-serif;
+  --order-body-size: 14px;
+  --order-document-title-font: Inter, Arial, sans-serif;
+  --order-document-title-size: 32px;
+  --order-thank-you-size: 24px;
   --order-soft: #f3f7f4;
   --order-line: #dce5de;
   --order-ink: #111816;
   --order-muted: #65706d;
   border-color: #ccd8d1;
+  font-family: var(--order-body-font);
+}
+
+.templatePaper[data-document="order"][data-variant="detail"],
+.templatePaper[data-document="order"][data-variant="editor"] {
+  font-size: var(--order-body-size);
 }
 
 .templatePaper[data-document="order"][dir="rtl"] {
@@ -3461,7 +3472,8 @@
 .orderCenteredFooter strong,
 .orderSlipThanks strong {
   color: #303234;
-  font-size: 1.7em;
+  font-family: var(--order-document-title-font);
+  font-size: var(--order-thank-you-size);
   line-height: 1.05;
   text-transform: uppercase;
 }
@@ -3525,7 +3537,8 @@
 .orderSlipHeader > span:first-child > strong {
   margin-bottom: 0.55em;
   color: #303234;
-  font-size: 2.24em;
+  font-family: var(--order-document-title-font);
+  font-size: var(--order-document-title-size);
   line-height: 1;
 }
 

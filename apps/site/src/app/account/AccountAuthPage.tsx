@@ -1,238 +1,246 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
-import { Eye, EyeOff, type LucideIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ArrowRight, Building2, KeyRound, Mail } from "lucide-react";
 
 import type { ZiderUser } from "@/lib/account/users";
-import { signInAction, signOutAction } from "./actions";
+import { sendAccountCodeAction, signOutAction, verifyAccountCodeAction } from "./actions";
 
-type AccountMode = "signin" | "signup";
-type PasswordFieldName = "password" | "confirmPassword";
+export type AccountMode = "signin" | "register" | "forgot";
 
-type AuthField = {
-  autoComplete: string;
-  label: string;
-  name: "name" | "email" | PasswordFieldName;
-  placeholder: string;
-  type: "text" | "email" | "password";
+type AuthCopy = {
+  eyebrow: string;
+  title: string;
+  subtitle: string;
+  primaryAction: string;
+  codeAction: string;
+  codeSent: string;
+  googleAction: string;
 };
 
-const signInFields: AuthField[] = [
-  {
-    autoComplete: "email",
-    label: "Email",
-    name: "email",
-    placeholder: "yancytien@gmail.com",
-    type: "email",
+const authCopy: Record<AccountMode, AuthCopy> = {
+  forgot: {
+    codeAction: "Send recovery code",
+    codeSent: "Recovery code sent. Enter it below to continue.",
+    eyebrow: "Account recovery",
+    googleAction: "Continue with Google",
+    primaryAction: "Verify and continue",
+    subtitle: "Use a one-time code to recover access to your Zider account.",
+    title: "Forgot password?",
   },
-  {
-    autoComplete: "current-password",
-    label: "Password",
-    name: "password",
-    placeholder: "Password",
-    type: "password",
+  register: {
+    codeAction: "Send code",
+    codeSent: "Verification code sent. Finish the form when it arrives.",
+    eyebrow: "Create account",
+    googleAction: "Sign up with Google",
+    primaryAction: "Create account",
+    subtitle: "Start with Google or verify your email with a one-time code.",
+    title: "Create your Zider account",
   },
-];
-
-const signUpFields: AuthField[] = [
-  { autoComplete: "name", label: "Name", name: "name", placeholder: "Your name", type: "text" },
-  {
-    autoComplete: "email",
-    label: "Email",
-    name: "email",
-    placeholder: "you@example.com",
-    type: "email",
+  signin: {
+    codeAction: "Send code",
+    codeSent: "Verification code sent. Enter it below to sign in.",
+    eyebrow: "Welcome back",
+    googleAction: "Continue with Google",
+    primaryAction: "Sign in",
+    subtitle: "Use Google or an email verification code. No password required.",
+    title: "Sign in to Zider",
   },
-  {
-    autoComplete: "new-password",
-    label: "Password",
-    name: "password",
-    placeholder: "Password",
-    type: "password",
-  },
-  {
-    autoComplete: "new-password",
-    label: "Confirm password",
-    name: "confirmPassword",
-    placeholder: "Confirm password",
-    type: "password",
-  },
-];
-
-const hiddenPasswords: Record<PasswordFieldName, boolean> = {
-  confirmPassword: false,
-  password: false,
 };
 
-function isPasswordFieldName(name: AuthField["name"]): name is PasswordFieldName {
-  return name === "password" || name === "confirmPassword";
+function accountHref(path: string, nextPath: string) {
+  return nextPath === "/" ? path : `${path}?next=${encodeURIComponent(nextPath)}`;
 }
 
 export function AccountAuthPage({
   error,
+  initialEmail,
   isConfigured,
   loggedOut,
   mode,
   nextPath,
+  sent,
   user,
 }: {
   error: string;
+  initialEmail: string;
   isConfigured: boolean;
   loggedOut: boolean;
   mode: AccountMode;
   nextPath: string;
+  sent: boolean;
   user: ZiderUser | null;
 }) {
-  const [visiblePasswords, setVisiblePasswords] = useState(hiddenPasswords);
-  const [signupNotice, setSignupNotice] = useState("");
-  const isSignIn = mode === "signin";
-  const authFields = isSignIn ? signInFields : signUpFields;
-  const authModeLinks = useMemo(
+  const [email, setEmail] = useState(initialEmail);
+  const [code, setCode] = useState("");
+  const [fullName, setFullName] = useState("");
+  const copy = authCopy[mode];
+  const isRegister = mode === "register";
+  const isForgot = mode === "forgot";
+  const googleHref = `/api/account/google/start?mode=${encodeURIComponent(mode)}&next=${encodeURIComponent(nextPath)}`;
+  const modeLinks = useMemo(
     () => ({
-      signin: `/account?mode=signin&next=${encodeURIComponent(nextPath)}`,
-      signup: `/account?mode=signup&next=${encodeURIComponent(nextPath)}`,
+      forgot: accountHref("/forgot-password", nextPath),
+      register: accountHref("/register", nextPath),
+      signin: accountHref("/account", nextPath),
     }),
     [nextPath],
   );
-
-  function handleSignupSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setSignupNotice("Account creation is invite-only for now. Use the seeded admin account to manage CMS.");
-  }
-
-  function togglePassword(fieldName: PasswordFieldName) {
-    setVisiblePasswords((current) => ({
-      ...current,
-      [fieldName]: !current[fieldName],
-    }));
-  }
 
   return (
     <main className="authPage">
       <style>{getAccountCss()}</style>
 
-      <section className="authArt" aria-label="ZIDER account preview">
-        <div className="authCanvas">
-          <div className="deviceWindow">
-            <span />
-            <span />
-            <span />
-            <div className="avatarTile">
-              <div />
-              <span />
-            </div>
-            <div className="messageBubble">
-              <i />
-              <strong />
-            </div>
-            <div className="linePill">
-              <span />
-            </div>
-            <div className="starPill">*****</div>
-            <div className="paperPlane" />
-          </div>
-        </div>
-      </section>
+      <aside className="authIntro">
+        <a className="authLogo" href="/" aria-label="ZIDER home">
+          <ZiderLogo />
+        </a>
+        <p className="authTagline">Components and solutions for creator websites.</p>
+      </aside>
 
-      <section className="authPanel" aria-labelledby="auth-title">
+      <section className="authPanel">
+        <div className="authCard">
+
         {user ? (
           <form action={signOutAction} className="authForm">
-            <p className="authKicker">Account</p>
-            <h1 id="auth-title">Signed in as {user.displayName || user.email}.</h1>
+            <p className="authEyebrow">Account</p>
+            <h1 id="auth-title">Signed in as {user.displayName || user.email}</h1>
             <div className="accountSummary">
               <span>{user.email}</span>
               <strong>{user.role}</strong>
             </div>
-            <button className="submitButton" type="submit">
-              Sign out
-            </button>
+            <a className="secondaryButton" href="/account/center">Account center</a>
+            <button className="primaryButton" type="submit">Sign out</button>
           </form>
         ) : (
-          <form action={isSignIn ? signInAction : undefined} className="authForm" onSubmit={isSignIn ? undefined : handleSignupSubmit}>
+          <form action={verifyAccountCodeAction} className="authForm">
+            <input name="mode" type="hidden" value={mode} />
             <input name="next" type="hidden" value={nextPath} />
-            <div className="authMode" aria-label="Account mode">
-              <a className={`authModeItem ${!isSignIn ? "authModeItemActive" : ""}`} href={authModeLinks.signup}>
-                Sign up
-              </a>
-              <a className={`authModeItem ${isSignIn ? "authModeItemActive" : ""}`} href={authModeLinks.signin}>
-                Sign in
-              </a>
-            </div>
 
-            <h1 id="auth-title">{isSignIn ? "Sign in to your ZIDER account." : "Create a ZIDER account."}</h1>
-
-            {!isConfigured ? (
-              <p className="authNotice authNoticeWarning">
-                Add Supabase env vars, run the account migration, then seed the first admin user.
-              </p>
+            {!isForgot ? (
+              <div className="authMode" aria-label="Account mode">
+                <a className={`authModeItem ${mode === "signin" ? "authModeItemActive" : ""}`} href={modeLinks.signin}>Sign in</a>
+                <a className={`authModeItem ${isRegister ? "authModeItemActive" : ""}`} href={modeLinks.register}>Register</a>
+              </div>
             ) : null}
-            {error === "invalid" ? <p className="authNotice">The email or password is incorrect.</p> : null}
-            {error === "forbidden" ? <p className="authNotice">This account does not have admin access.</p> : null}
+
+            <p className="authEyebrow">{copy.eyebrow}</p>
+            <h1 id="auth-title">{copy.title}</h1>
+            <p className="authSubtitle">{copy.subtitle}</p>
+
+            {error === "config" ? <p className="authNotice">Account service configuration is missing.</p> : null}
+            {error === "invalid" ? <p className="authNotice">The account credentials are incorrect.</p> : null}
+            {error === "invalid_code" ? <p className="authNotice">The verification code is invalid or expired.</p> : null}
+            {error === "name_required" ? <p className="authNotice">Enter your name to create an account.</p> : null}
+            {error === "code_send_failed" ? <p className="authNotice">Verification email could not be sent. Check email delivery configuration.</p> : null}
+            {error === "google_config" ? <p className="authNotice">Google sign-in is not configured yet.</p> : null}
+            {error === "google_failed" ? <p className="authNotice">Google sign-in failed. Try again or use an email code.</p> : null}
+            {error === "google_email_unverified" ? <p className="authNotice">Google did not confirm this email address.</p> : null}
+            {error === "forbidden" ? <p className="authNotice">This account does not have workspace access.</p> : null}
             {loggedOut ? <p className="authNotice authNoticeSuccess">Signed out successfully.</p> : null}
-            {signupNotice ? <p className="authNotice authNoticeWarning">{signupNotice}</p> : null}
+            {sent ? <p className="authNotice authNoticeSuccess">{copy.codeSent}</p> : null}
+
+            <a className="googleButton" href={googleHref}>
+              <GoogleLogo />
+              {copy.googleAction}
+            </a>
+
+            <div className="divider"><span>or use email code</span></div>
 
             <div className="fieldStack">
-              {authFields.map((field) => {
-                const passwordFieldName = isPasswordFieldName(field.name) ? field.name : null;
-                const isVisible = passwordFieldName ? visiblePasswords[passwordFieldName] : false;
-                const Icon: LucideIcon = isVisible ? EyeOff : Eye;
+              {isRegister ? (
+                <label className="authField">
+                  <span>用户名</span>
+                  <div>
+                    <Building2 size={18} />
+                    <input autoComplete="name" name="name" onChange={(event) => setFullName(event.target.value)} placeholder="输入你的用户名" required type="text" value={fullName} />
+                  </div>
+                </label>
+              ) : null}
 
-                return (
-                  <label className="authField" key={field.name}>
-                    <span>{field.label}</span>
-                    <input
-                      autoComplete={field.autoComplete}
-                      disabled={!isConfigured}
-                      name={field.name}
-                      placeholder={field.placeholder}
-                      required
-                      type={passwordFieldName && isVisible ? "text" : field.type}
-                    />
-                    {passwordFieldName ? (
-                      <button
-                        aria-label={`${isVisible ? "Hide" : "Show"} ${field.label.toLowerCase()}`}
-                        onClick={() => togglePassword(passwordFieldName)}
-                        type="button"
-                      >
-                        <Icon size={15} />
-                      </button>
-                    ) : null}
-                  </label>
-                );
-              })}
+              <label className="authField">
+                <span>Email</span>
+                <div>
+                  <Mail size={18} />
+                  <input autoComplete="email" name="email" onChange={(event) => setEmail(event.target.value)} placeholder="you@company.com" required type="email" value={email} />
+                </div>
+              </label>
+
+              <label className="authField">
+                <span>Verification code</span>
+                <div className="codeField">
+                  <KeyRound size={18} />
+                  <input autoComplete="one-time-code" inputMode="numeric" name="code" onChange={(event) => setCode(event.target.value)} placeholder="6-digit code" required type="text" value={code} />
+                  <button disabled={!isConfigured || !email.trim()} formAction={sendAccountCodeAction} formNoValidate type="submit">{copy.codeAction}</button>
+                </div>
+              </label>
             </div>
 
-            {!isSignIn ? (
-              <label className="consentRow">
-                <input name="updates" type="checkbox" />
-                <span>Send me product updates, release notes, and learning tips.</span>
-              </label>
-            ) : null}
-
-            <button className="submitButton" disabled={!isConfigured} type="submit">
-              {isSignIn ? "Sign in" : "Request access"}
+            <button className="primaryButton" disabled={!isConfigured} type="submit">
+              {copy.primaryAction}
+              <ArrowRight size={17} />
             </button>
 
-            <p className="authSwitch">
-              {isSignIn ? (
+            <div className="authLinks">
+              {mode === "signin" ? (
                 <>
-                  Need an account? <a href={authModeLinks.signup}>Request access</a>
+                  <a href={modeLinks.forgot}>Forgot password?</a>
+                  <a href={modeLinks.register}>Create account</a>
                 </>
-              ) : (
+              ) : null}
+              {mode === "register" ? (
                 <>
-                  Already have an account? <a href={authModeLinks.signin}>Sign in</a>
+                  <span>Already have an account?</span>
+                  <a href={modeLinks.signin}>Sign in</a>
                 </>
-              )}
-            </p>
+              ) : null}
+              {isForgot ? (
+                <>
+                  <span>Remembered it?</span>
+                  <a href={modeLinks.signin}>Back to sign in</a>
+                </>
+              ) : null}
+            </div>
           </form>
         )}
-
-        <p className="authLegal">
-          Protected by reCAPTCHA and subject to the Google <a href="/privacy">Privacy Policy</a> and{" "}
-          <a href="/privacy">Terms of Service</a>.
-        </p>
+        </div>
       </section>
     </main>
+  );
+}
+
+function ZiderLogo() {
+  return (
+    <svg aria-hidden="true" className="ziderLogo" xmlns="http://www.w3.org/2000/svg" width="163.1" height="43.5" viewBox="0 0 163.1 43.5">
+      <path
+        d="M155,2.1,133.8,35.5h21.1v7.8H119.8l21-33.4H128.2a6.31,6.31,0,0,1-3.7-1.2,3.62,3.62,0,0,1-1.8-2.8h0V0h7.4V.8a2,2,0,0,0,.2,1.1,1.94,1.94,0,0,0,.7.2Zm5.3,0h8.1V43.3h-8.1Zm16,41.3V2.2h12.3c5.3,0,9.6,1,13,3.1a18,18,0,0,1,7.3,7.9,23.23,23.23,0,0,1,2.3,10.4h0a19.5,19.5,0,0,1-2.8,10.5,18.72,18.72,0,0,1-7.5,7,22.1,22.1,0,0,1-10.4,2.4l-14.2-.1Zm8.1-7.9h4.8c4.2,0,7.6-1.1,10-3.2s3.7-5.3,3.7-9.4h0a13.85,13.85,0,0,0-2.1-7.9,10.42,10.42,0,0,0-4.8-4,13,13,0,0,0-5.1-1.1h-6.6ZM216.7,2.1h28.1V10h-20v8.8h17.7v7.8H224.8v8.9h20.8v7.8H216.7Zm66.2,41.3h-9.5l-8.7-13.1h-5.4V43.4h-8.1V2.2h12.5c5.1,0,9.1,1.2,11.9,3.7s4.2,5.9,4.2,10.2h0a16.46,16.46,0,0,1-1.6,7.2,12.29,12.29,0,0,1-4.9,5.2h0ZM259.3,10V22.4h5.8a5.8,5.8,0,0,0,4.8-1.9,6.51,6.51,0,0,0,1.5-4.2h0a7.73,7.73,0,0,0-1.3-4.2c-.9-1.4-2.5-2-5-2Z"
+        fill="#ffffff"
+        transform="translate(-119.8 0)"
+      />
+    </svg>
+  );
+}
+
+function GoogleLogo() {
+  return (
+    <svg aria-hidden="true" className="googleLogo" viewBox="0 0 24 24">
+      <path
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+        fill="#34A853"
+      />
+      <path
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+        fill="#EA4335"
+      />
+    </svg>
   );
 }
 
@@ -244,493 +252,429 @@ function getAccountCss() {
     }
 
     .authPage {
-      --auth-ink: #171a1f;
-      --auth-muted: #7a8494;
-      --auth-line: #e1e6ed;
-      --auth-green: #54d49d;
+      --auth-ink: #0a2540;
+      --auth-muted: #63758a;
+      --auth-line: #d9e4ec;
+      --auth-green: #087a46;
+      --auth-green-dark: #065f38;
       min-height: 100vh;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(440px, 1fr);
+      grid-template-columns: minmax(0, 0.95fr) minmax(380px, 1.05fr);
       background: #ffffff;
       color: var(--auth-ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-font-smoothing: antialiased;
     }
 
-    .authArt {
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      background: #e7f3d4;
-      padding: 38px;
-    }
-
-    .authCanvas {
-      width: min(100%, 830px);
-      aspect-ratio: 1.04;
-      display: grid;
-      place-items: center;
-      border: 2px dotted rgba(0, 122, 255, 0.78);
-    }
-
-    .deviceWindow {
+    /* ---- Left intro ---- */
+    .authIntro {
       position: relative;
-      width: 470px;
-      height: 330px;
-      border-radius: 8px 8px 0 0;
-      background: #9fe0ad;
-      border-bottom: 7px solid rgba(69, 198, 132, 0.45);
-    }
-
-    .deviceWindow > span {
-      position: absolute;
-      top: 25px;
-      width: 12px;
-      height: 12px;
-      border-radius: 999px;
-      background: #e7f3d4;
-    }
-
-    .deviceWindow > span:nth-child(1) {
-      left: 26px;
-    }
-
-    .deviceWindow > span:nth-child(2) {
-      left: 50px;
-    }
-
-    .deviceWindow > span:nth-child(3) {
-      left: 74px;
-    }
-
-    .avatarTile {
-      position: absolute;
-      top: -28px;
-      left: 143px;
-      width: 96px;
-      height: 96px;
-      transform: rotate(14deg);
-      border-radius: 22px;
-      background: #56cf9b;
-      display: grid;
-      place-items: center;
-    }
-
-    .avatarTile div {
-      position: absolute;
-      top: 28px;
-      width: 42px;
-      height: 42px;
-      border-radius: 999px;
-      background: #ffffff;
-    }
-
-    .avatarTile span {
-      position: absolute;
-      bottom: 18px;
-      width: 64px;
-      height: 28px;
-      border-radius: 50% 50% 0 0;
-      background: #ffffff;
-    }
-
-    .messageBubble {
-      position: absolute;
-      top: -75px;
-      right: -62px;
-      width: 178px;
-      height: 100px;
-      display: grid;
-      place-items: center;
-      border-radius: 42px;
-      background: #ffffff;
-    }
-
-    .messageBubble::after {
-      position: absolute;
-      right: 50px;
-      bottom: -31px;
-      width: 0;
-      height: 0;
-      border-style: solid;
-      border-width: 32px 0 0 56px;
-      border-color: transparent transparent transparent #ffffff;
-      content: "";
-    }
-
-    .messageBubble i {
-      width: 112px;
-      height: 54px;
-      display: block;
-      clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-      background: #dcebbd;
-    }
-
-    .messageBubble strong {
-      position: absolute;
-      width: 31px;
-      height: 31px;
-      border: 10px solid #ffffff;
-      border-radius: 999px;
-      background: #bcd682;
-    }
-
-    .linePill {
-      position: absolute;
-      left: 168px;
-      top: 166px;
-      width: 165px;
-      height: 48px;
-      display: grid;
-      place-items: center;
-      border-radius: 999px;
-      background: #e7f3d4;
-    }
-
-    .linePill span {
-      position: relative;
-      width: 62px;
-      height: 20px;
-      border-bottom: 5px solid var(--auth-green);
-      border-radius: 0 0 28px 28px;
-    }
-
-    .linePill span::before,
-    .linePill span::after {
-      position: absolute;
-      top: -3px;
-      width: 15px;
-      height: 21px;
-      border: 5px solid var(--auth-green);
-      border-top: 0;
-      border-radius: 0 0 18px 18px;
-      content: "";
-    }
-
-    .linePill span::before {
-      left: 13px;
-      transform: rotate(-28deg);
-    }
-
-    .linePill span::after {
-      right: 7px;
-      transform: rotate(18deg);
-    }
-
-    .starPill {
-      position: absolute;
-      left: 112px;
-      bottom: 47px;
-      width: 136px;
-      height: 29px;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 999px;
-      background: #e7f3d4;
-      color: #55d19a;
-      font-size: 17px;
-      font-weight: 800;
-      line-height: 1;
-    }
-
-    .paperPlane {
-      position: absolute;
-      right: -14px;
-      bottom: -4px;
-      width: 90px;
-      height: 84px;
-      clip-path: polygon(0 0, 100% 12%, 58% 44%, 49% 100%);
-      background: #55cf9b;
-    }
-
-    .authPanel {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
       flex-direction: column;
-      gap: 126px;
-      padding: 56px 42px 34px;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 48px clamp(32px, 8vw, 96px);
+      background: #087a46;
+      overflow: hidden;
+    }
+
+    .authIntro::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: 0.1;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cpattern id='grid' width='40' height='40' patternUnits='userSpaceOnUse'%3E%3Cpath d='M 40 0 L 0 0 0 40' fill='none' stroke='white' stroke-width='0.5'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width='100%25' height='100%25' fill='url(%23grid)'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    .authLogo {
+      position: relative;
+      display: block;
+      text-decoration: none;
+      margin-bottom: 28px;
+    }
+
+    .ziderLogo {
+      display: block;
+      width: 130px;
+      height: auto;
+    }
+
+    .authTagline {
+      position: relative;
+      max-width: 340px;
+      margin: 0;
+      color: #ffffff;
+      font-size: 28px;
+      line-height: 1.22;
+      font-weight: 650;
+      letter-spacing: -0.01em;
+    }
+
+    /* ---- Right panel ---- */
+    .authPanel {
+      display: grid;
+      align-content: center;
+      padding: 42px clamp(20px, 5vw, 64px);
+      background: #ffffff;
+    }
+
+    .authCard {
+      width: min(100%, 420px);
+      justify-self: center;
     }
 
     .authForm {
-      width: min(100%, 440px);
-    }
-
-    .authKicker {
-      margin: 0 0 12px;
-      color: #087a46;
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.08em;
-      text-align: center;
-      text-transform: uppercase;
+      margin: 0;
     }
 
     .authMode {
-      width: 164px;
+      width: 100%;
+      min-height: 44px;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 2px;
-      margin: 0 auto 24px;
+      gap: 4px;
+      margin-bottom: 24px;
+      padding: 4px;
       border: 1px solid var(--auth-line);
-      border-radius: 6px;
-      padding: 3px;
-      background: #f7f9fb;
+      border-radius: 8px;
+      background: #f5f7fa;
     }
 
     .authModeItem {
-      min-height: 30px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      border-radius: 4px;
+      border-radius: 6px;
       color: var(--auth-muted);
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 14px;
+      font-weight: 600;
       text-decoration: none;
+      transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .authModeItem:hover {
+      color: var(--auth-ink);
     }
 
     .authModeItemActive {
       background: #ffffff;
-      color: #101317;
-      box-shadow: 0 1px 3px rgba(16, 24, 40, 0.1);
+      color: var(--auth-green);
+      font-weight: 700;
+      box-shadow: 0 1px 4px rgba(10, 37, 64, 0.06);
     }
 
-    .authForm h1 {
-      margin: 0 0 26px;
-      text-align: center;
-      color: #111418;
-      font-size: 21px;
-      line-height: 1.25;
-      font-weight: 800;
-    }
-
-    .authNotice {
-      border: 1px solid #fecaca;
-      border-radius: 6px;
-      background: #fef2f2;
-      color: #991b1b;
-      margin: 0 0 14px;
-      padding: 10px 12px;
+    .authEyebrow {
+      margin: 0 0 8px;
+      color: var(--auth-green);
       font-size: 12px;
       font-weight: 700;
-      line-height: 1.45;
-    }
-
-    .authNoticeSuccess {
-      border-color: rgba(8, 122, 70, 0.2);
-      background: #eef9f1;
-      color: #087a46;
-    }
-
-    .authNoticeWarning {
-      border-color: #fed7aa;
-      background: #fff7ed;
-      color: #9a3412;
-    }
-
-    .accountSummary {
-      display: grid;
-      gap: 8px;
-      border: 1px solid var(--auth-line);
-      border-radius: 8px;
-      margin: 0 0 18px;
-      padding: 16px;
-      text-align: center;
-    }
-
-    .accountSummary span {
-      color: var(--auth-muted);
-      font-size: 13px;
-      font-weight: 650;
-    }
-
-    .accountSummary strong {
-      color: #087a46;
-      font-size: 12px;
-      font-weight: 800;
       letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
+    .authForm h1 {
+      margin: 0;
+      color: var(--auth-ink);
+      font-size: 26px;
+      line-height: 1.15;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .authSubtitle {
+      margin: 8px 0 20px;
+      color: var(--auth-muted);
+      font-size: 14px;
+      line-height: 1.5;
+      font-weight: 400;
+    }
+
+    .authNotice {
+      margin: 0 0 14px;
+      padding: 10px 12px;
+      border: 1px solid #f2b8b5;
+      border-radius: 8px;
+      background: #fff5f4;
+      color: #8c1d18;
+      font-size: 13px;
+      font-weight: 500;
+      line-height: 1.4;
+    }
+
+    .authNoticeSuccess {
+      border-color: #bddfcd;
+      background: #f0faf4;
+      color: #06723f;
+    }
+
+    .googleButton,
+    .secondaryButton,
+    .primaryButton,
+    .codeField button {
+      appearance: none;
+      border: 0;
+      font: inherit;
+      cursor: pointer;
+    }
+
+    .googleButton {
+      width: 100%;
+      min-height: 46px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border: 1px solid var(--auth-line);
+      border-radius: 8px;
+      background: #ffffff;
+      color: #0a2540;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .googleButton:hover {
+      border-color: #b0bec5;
+      box-shadow: 0 2px 8px rgba(10, 37, 64, 0.06);
+    }
+
+    .secondaryButton {
+      width: 100%;
+      min-height: 46px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 16px;
+      border: 1px solid var(--auth-line);
+      border-radius: 8px;
+      background: #ffffff;
+      color: var(--auth-ink);
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .secondaryButton:hover {
+      border-color: #b0bec5;
+      box-shadow: 0 2px 8px rgba(10, 37, 64, 0.06);
+    }
+
+    .googleLogo {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+    }
+
+    .divider {
+      position: relative;
+      display: flex;
+      justify-content: center;
+      margin: 18px 0;
+      color: #8f9ca8;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .divider::before {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: var(--auth-line);
+      content: "";
+    }
+
+    .divider span {
+      position: relative;
+      padding: 0 12px;
+      background: #ffffff;
+    }
+
     .fieldStack {
       display: grid;
-      gap: 13px;
+      gap: 14px;
     }
 
     .authField {
-      position: relative;
-      display: block;
+      display: grid;
+      gap: 6px;
     }
 
-    .authField span {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
+    .authField > span {
+      color: #4f5e68;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .authField > div {
+      min-height: 48px;
+      display: grid;
+      grid-template-columns: 20px minmax(0, 1fr);
+      align-items: center;
+      gap: 10px;
+      padding: 0 14px;
+      border: 1px solid var(--auth-line);
+      border-radius: 8px;
+      background: #ffffff;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .authField > div:focus-within {
+      border-color: var(--auth-green);
+      box-shadow: 0 0 0 3px rgba(8, 122, 70, 0.1);
+    }
+
+    .authField svg {
+      color: #8f9ca8;
+      flex-shrink: 0;
     }
 
     .authField input {
+      min-width: 0;
       width: 100%;
-      min-height: 42px;
-      border: 1px solid #d9e0e8;
-      border-radius: 5px;
-      background: #ffffff;
-      color: #161a21;
-      padding: 0 42px 0 13px;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 650;
-      outline: none;
-      transition: border-color 160ms ease, box-shadow 160ms ease;
-    }
-
-    .authField input:focus {
-      border-color: #151a21;
-      box-shadow: 0 0 0 3px rgba(17, 20, 24, 0.08);
-    }
-
-    .authField input:disabled {
-      cursor: not-allowed;
-      opacity: 0.6;
-    }
-
-    .authField button {
-      position: absolute;
-      top: 50%;
-      right: 12px;
-      width: 24px;
-      height: 24px;
-      display: grid;
-      place-items: center;
-      transform: translateY(-50%);
+      height: 46px;
       border: 0;
-      border-radius: 4px;
+      outline: 0;
       background: transparent;
-      color: #78818d;
-      cursor: pointer;
+      color: var(--auth-ink);
+      font-size: 15px;
+      font-weight: 400;
     }
 
-    .authField button:hover {
-      background: #f1f4f7;
-      color: #171a1f;
+    .authField input::placeholder {
+      color: #a0aeb8;
     }
 
-    .consentRow {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      margin: 22px 0 18px;
-      color: var(--auth-muted);
-      font-size: 11px;
-      line-height: 1.45;
+    .authField .codeField {
+      grid-template-columns: 20px minmax(0, 1fr) auto;
+      padding-right: 6px;
     }
 
-    .consentRow input {
-      width: 13px;
-      height: 13px;
-      flex: 0 0 auto;
-      margin: 1px 0 0;
-      accent-color: #111418;
+    .codeField button {
+      min-height: 36px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+      border-radius: 6px;
+      padding: 0 12px;
+      background: #e8f5ee;
+      color: var(--auth-green);
+      font-size: 12px;
+      font-weight: 600;
+      transition: background 0.15s ease;
     }
 
-    .submitButton {
+    .codeField button:hover {
+      background: #d4ece0;
+    }
+
+    .primaryButton {
       width: 100%;
-      min-height: 43px;
-      border: 0;
-      border-radius: 5px;
-      background: #050506;
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
+      border-radius: 8px;
+      background: var(--auth-green);
       color: #ffffff;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: background 160ms ease, transform 160ms ease;
+      font-size: 15px;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(8, 122, 70, 0.18);
+      transition: background 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .submitButton:hover:not(:disabled) {
-      background: #171a1f;
-      transform: translateY(-1px);
+    .primaryButton:hover {
+      background: var(--auth-green-dark);
+      box-shadow: 0 4px 14px rgba(8, 122, 70, 0.24);
     }
 
-    .submitButton:disabled {
+    .primaryButton:disabled,
+    .codeField button:disabled {
       cursor: not-allowed;
-      opacity: 0.5;
+      opacity: 0.55;
+      box-shadow: none;
     }
 
-    .authSwitch {
-      margin: 18px 0 0;
-      text-align: center;
+    .authLinks {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 16px;
       color: var(--auth-muted);
-      font-size: 12px;
-      line-height: 1.45;
+      font-size: 13px;
+      font-weight: 500;
     }
 
-    .authSwitch a,
-    .authLegal a {
-      color: #101317;
-      font-weight: 800;
+    .authLinks a {
+      color: var(--auth-green);
+      font-weight: 600;
+      text-decoration: none;
     }
 
-    .authLegal {
-      max-width: 320px;
-      margin: 0;
-      text-align: center;
-      color: #a0a8b3;
-      font-size: 10px;
-      line-height: 1.45;
+    .authLinks a:hover {
+      text-decoration: underline;
     }
 
-    @media (max-width: 980px) {
+    .accountSummary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 18px 0 4px;
+      padding: 12px 14px;
+      border: 1px solid var(--auth-line);
+      border-radius: 8px;
+      background: #f8fafb;
+      color: var(--auth-muted);
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .accountSummary strong {
+      color: var(--auth-green);
+      text-transform: capitalize;
+    }
+
+    @media (max-width: 780px) {
       .authPage {
         grid-template-columns: 1fr;
       }
 
-      .authArt {
+      .authIntro {
         min-height: auto;
-        padding: 22px;
+        align-items: center;
+        text-align: center;
+        padding: 36px 24px;
       }
 
-      .authCanvas {
-        width: min(100%, 520px);
-        aspect-ratio: 1.45;
-      }
-
-      .deviceWindow {
-        width: 300px;
-        height: 210px;
-        transform: scale(0.78);
+      .authTagline {
+        font-size: 20px;
+        max-width: 280px;
       }
 
       .authPanel {
-        min-height: auto;
-        gap: 72px;
-        padding: 38px 22px 30px;
+        padding: 24px 20px 40px;
       }
     }
 
-    @media (max-width: 540px) {
-      .authArt {
-        padding: 12px;
+    @media (max-width: 480px) {
+      .authField .codeField {
+        grid-template-columns: 20px minmax(0, 1fr);
+        padding-right: 14px;
       }
 
-      .authCanvas {
-        border-width: 1px;
-      }
-
-      .deviceWindow {
-        transform: scale(0.58);
-      }
-
-      .authPanel {
-        padding: 34px 18px 28px;
-      }
-
-      .authForm h1 {
-        font-size: 20px;
+      .codeField button {
+        grid-column: 1 / -1;
+        margin-bottom: 6px;
       }
     }
   `;

@@ -117,9 +117,9 @@ export function getLocaleDirection(locale: SiteLocale | PrintLocale) {
 export const printopsMessages = {
   en: {
     app: {
-      name: "Zider PrintOps",
-      scope: "Wix orders",
-      kicker: "Zider PrintOps",
+      name: "PrintOps",
+      scope: "Order printing & templates",
+      kicker: "PrintOps",
     },
     nav: {
       menu: "Menu",
@@ -341,6 +341,12 @@ export const printopsMessages = {
       logoFontSans: "Sans",
       logoFontSerif: "Serif",
       logoFontMono: "Mono",
+      typography: "Typography",
+      documentTitleFont: "Document title font",
+      documentTitleSize: "Document title size",
+      bodyTextTypography: "Body text typography",
+      bodyTextSize: "Body text size",
+      thankYouTextSize: "Thank-you text size",
       optionsTitle: "Options and format",
       optionsDescription: "Visible sections and printable fields",
       formatSettings: "Format",
@@ -394,6 +400,7 @@ export const printopsMessages = {
       textTitle: "Text and language",
       textDescription: "Labels, footer copy, and default print language",
       defaultLanguage: "Default language",
+      contactPromptText: "Contact prompt text",
       thankYouText: "Thank-you text",
       labelCustomization: "Label customization",
       labelCustomizationDescription: "Customize labels for the current print language. Empty values fall back to the built-in label.",
@@ -481,9 +488,9 @@ export const printopsMessages = {
   },
   "zh-Hant": {
     app: {
-      name: "Zider PrintOps",
-      scope: "Wix 訂單",
-      kicker: "Zider PrintOps",
+      name: "PrintOps",
+      scope: "訂單列印與模板管理",
+      kicker: "PrintOps",
     },
     nav: {
       menu: "選單",
@@ -705,6 +712,12 @@ export const printopsMessages = {
       logoFontSans: "無襯線",
       logoFontSerif: "襯線",
       logoFontMono: "等寬",
+      typography: "字體排版",
+      documentTitleFont: "文件標題字體",
+      documentTitleSize: "文件標題字號",
+      bodyTextTypography: "內文字體",
+      bodyTextSize: "內文字號",
+      thankYouTextSize: "感謝文字字號",
       optionsTitle: "選項和格式",
       optionsDescription: "可見區塊與可列印欄位",
       formatSettings: "格式",
@@ -758,6 +771,7 @@ export const printopsMessages = {
       textTitle: "文本與語言",
       textDescription: "標籤、頁腳文案和預設列印語言",
       defaultLanguage: "預設語言",
+      contactPromptText: "聯絡提示文案",
       thankYouText: "感謝文案",
       labelCustomization: "標籤自訂",
       labelCustomizationDescription: "自訂目前列印語言的標籤。留空會回到內建標籤。",

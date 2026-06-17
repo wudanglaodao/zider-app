@@ -27,7 +27,7 @@ export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageP
       initialView={initialView}
       pluginContext={{
         appKey: PRINTOPS_APP_KEY,
-        appName: "Zider PrintOps",
+        appName: "PrintOps",
         instanceId: instanceContext.instanceId,
         ordersEndpoint,
         platform: "wix",

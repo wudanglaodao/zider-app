@@ -1,38 +1,163 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { isAccountAuthConfigured } from "@/lib/account/auth";
 import { clearAccountSessionCookie, normalizeAccountNextPath, setAccountSessionCookie } from "@/lib/account/session";
-import { verifyZiderUserCredentials } from "@/lib/account/users";
+import { createSupabaseAuthClient, displayNameFromSupabaseUser } from "@/lib/account/supabase-auth";
+import {
+  createOrUpdateZiderUserFromEmail,
+  normalizeEmail,
+  touchZiderUserLogin,
+} from "@/lib/account/users";
 
-export async function signInAction(formData: FormData) {
-  const email = stringValue(formData, "email");
-  const password = stringValue(formData, "password");
-  const nextPath = normalizeAccountNextPath(stringValue(formData, "next"), "/");
-  const errorNext = encodeURIComponent(nextPath);
-
-  if (!isAccountAuthConfigured()) {
-    redirect(`/account?mode=signin&error=config&next=${errorNext}`);
-  }
-
-  const user = await verifyZiderUserCredentials(email, password);
-
-  if (!user) {
-    redirect(`/account?mode=signin&error=invalid&next=${errorNext}`);
-  }
-
-  await setAccountSessionCookie(user);
-  redirect(nextPath);
-}
+type AccountMode = "signin" | "register" | "forgot";
 
 export async function signOutAction() {
   await clearAccountSessionCookie();
   redirect("/account?mode=signin&loggedOut=1");
 }
 
+export async function sendAccountCodeAction(formData: FormData) {
+  const mode = accountModeValue(formData);
+  const email = stringValue(formData, "email");
+  const nextPath = normalizeAccountNextPath(stringValue(formData, "next"), "/");
+  const displayName = stringValue(formData, "name");
+
+  if (!isAccountAuthConfigured()) {
+    redirect(accountRedirectPath(mode, { error: "config", nextPath }));
+  }
+
+  try {
+    const supabase = createSupabaseAuthClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalizeEmail(email),
+      options: {
+        data: displayName.trim() ? { full_name: displayName.trim() } : undefined,
+        emailRedirectTo: await accountAuthCallbackUrl(mode, nextPath),
+        shouldCreateUser: mode === "register",
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+  } catch (error) {
+    console.error("Failed to request Supabase account verification code", error);
+    redirect(accountRedirectPath(mode, { email, error: "code_send_failed", nextPath }));
+  }
+
+  redirect(
+    accountRedirectPath(mode, {
+      email,
+      nextPath,
+      sent: true,
+    }),
+  );
+}
+
+export async function verifyAccountCodeAction(formData: FormData) {
+  const mode = accountModeValue(formData);
+  const nextPath = normalizeAccountNextPath(stringValue(formData, "next"), "/");
+  const email = stringValue(formData, "email");
+  const code = stringValue(formData, "code");
+  const displayName = stringValue(formData, "name");
+
+  if (!isAccountAuthConfigured()) {
+    redirect(accountRedirectPath(mode, { error: "config", nextPath }));
+  }
+
+  if (mode === "register" && !displayName.trim()) {
+    redirect(accountRedirectPath(mode, { email, error: "name_required", nextPath }));
+  }
+
+  const supabase = createSupabaseAuthClient();
+  const { data, error } = await supabase.auth.verifyOtp({
+    email: normalizeEmail(email),
+    token: code.trim(),
+    type: "email",
+  });
+
+  if (error || !data.user?.email) {
+    redirect(accountRedirectPath(mode, { email, error: "invalid_code", nextPath }));
+  }
+
+  const user = await createOrUpdateZiderUserFromEmail({
+    displayName: displayNameFromSupabaseUser(data.user, displayName),
+    email: data.user.email,
+  });
+
+  if (!user || user.status !== "active") {
+    redirect(accountRedirectPath(mode, { email, error: "forbidden", nextPath }));
+  }
+
+  await setAccountSessionCookie(await touchZiderUserLogin(user));
+  redirect(nextPath);
+}
+
 function stringValue(formData: FormData, key: string) {
   const value = formData.get(key);
 
   return typeof value === "string" ? value : "";
+}
+
+function accountModeValue(formData: FormData): AccountMode {
+  const mode = stringValue(formData, "mode");
+
+  return mode === "register" || mode === "forgot" ? mode : "signin";
+}
+
+function accountRedirectPath(
+  mode: AccountMode,
+  {
+    email,
+    error,
+    nextPath,
+    sent,
+  }: {
+    email?: string;
+    error?: string;
+    nextPath: string;
+    sent?: boolean;
+  },
+) {
+  const path = mode === "register" ? "/register" : mode === "forgot" ? "/forgot-password" : "/account";
+  const params = new URLSearchParams();
+
+  if (nextPath !== "/") {
+    params.set("next", nextPath);
+  }
+
+  if (email?.trim()) {
+    params.set("email", email.trim().toLowerCase());
+  }
+
+  if (error) {
+    params.set("error", error);
+  }
+
+  if (sent) {
+    params.set("sent", "1");
+  }
+
+  const query = params.toString();
+
+  return query ? `${path}?${query}` : path;
+}
+
+async function accountAuthCallbackUrl(mode: AccountMode, nextPath: string) {
+  const requestHeaders = await headers();
+  const host = requestHeaders.get("x-forwarded-host") || requestHeaders.get("host");
+  const proto = requestHeaders.get("x-forwarded-proto") || (host?.startsWith("localhost") ? "http" : "https");
+  const origin = host ? `${proto}://${host}` : process.env.NEXT_PUBLIC_SITE_URL?.trim() || "http://localhost:3100";
+  const callbackUrl = new URL("/api/account/auth/callback", origin);
+
+  callbackUrl.searchParams.set("mode", mode);
+
+  if (nextPath !== "/") {
+    callbackUrl.searchParams.set("next", nextPath);
+  }
+
+  return callbackUrl.toString();
 }

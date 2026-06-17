@@ -1,28 +1,26 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { AccountAuthPage } from "@/app/account/AccountAuthPage";
 import { isAccountAuthConfigured } from "@/lib/account/auth";
 import { getAccountSession, normalizeAccountNextPath } from "@/lib/account/session";
-import { AccountAuthPage } from "./AccountAuthPage";
 
 export const metadata: Metadata = {
-  title: "Account - ZIDER",
-  description: "Sign in or create a ZIDER account.",
+  title: "Forgot Password - ZIDER",
+  description: "Recover a ZIDER account with an email verification code.",
 };
 
-type AccountPageProps = {
+type ForgotPasswordPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function AccountPage({ searchParams }: AccountPageProps) {
+export default async function ForgotPasswordPage({ searchParams }: ForgotPasswordPageProps) {
   const params = (await searchParams) ?? {};
-  const modeParam = readSearchParam(params.mode);
-  const mode = modeParam === "signup" || modeParam === "register" ? "register" : modeParam === "forgot" ? "forgot" : "signin";
   const nextPath = normalizeAccountNextPath(readSearchParam(params.next), "/");
   const isConfigured = isAccountAuthConfigured();
   const session = isConfigured ? await getAccountSession() : null;
 
-  if (session && mode === "signin" && nextPath !== "/") {
+  if (session && nextPath !== "/") {
     redirect(nextPath);
   }
 
@@ -31,8 +29,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
       error={readSearchParam(params.error)}
       initialEmail={readSearchParam(params.email)}
       isConfigured={isConfigured}
-      loggedOut={Boolean(readSearchParam(params.loggedOut))}
-      mode={mode}
+      loggedOut={false}
+      mode="forgot"
       nextPath={nextPath}
       sent={readSearchParam(params.sent) === "1"}
       user={session?.user ?? null}

@@ -22,7 +22,7 @@ export const PRINTOPS_APP_KEY = "zider_printops";
 export const EXISTING_WIX_APPS: AppRegistryEntry[] = [
   {
     appKey: PRINTOPS_APP_KEY,
-    appName: "Zider PrintOps",
+    appName: "PrintOps",
     platform: "wix",
     status: "planned",
     distributionChannel: "marketplace",

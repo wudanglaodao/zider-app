@@ -6,7 +6,11 @@ export function getAccountSessionSecret() {
 }
 
 export function isAccountAuthConfigured() {
-  return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
+  return Boolean(
+    process.env.SUPABASE_URL &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY &&
+      (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY),
+  );
 }
 
 export async function createAccountSessionValue(userId: string, now = Date.now()) {

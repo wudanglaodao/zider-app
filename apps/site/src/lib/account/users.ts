@@ -1,4 +1,4 @@
-import { randomBytes, scrypt, timingSafeEqual } from "node:crypto";
+import { randomBytes, scrypt } from "node:crypto";
 import { promisify } from "node:util";
 
 import { getSupabaseAdmin } from "@/lib/supabase/server";
@@ -32,10 +32,6 @@ type ZiderUserRow = {
   updated_at: string;
 };
 
-type ZiderUserPrivateRow = ZiderUserRow & {
-  password_hash: string;
-};
-
 const ziderUserSelect = `
   id,
   email,
@@ -45,11 +41,6 @@ const ziderUserSelect = `
   last_login_at,
   created_at,
   updated_at
-`;
-
-const ziderUserPrivateSelect = `
-  ${ziderUserSelect},
-  password_hash
 `;
 
 export async function getZiderUserById(id: string) {
@@ -63,43 +54,106 @@ export async function getZiderUserById(id: string) {
   return data ? mapZiderUser(data) : null;
 }
 
-export async function verifyZiderUserCredentials(email: string, password: string) {
+export async function getZiderUserByEmail(email: string) {
   const normalizedEmail = normalizeEmail(email);
 
-  if (!normalizedEmail || !password) {
+  if (!normalizedEmail) {
     return null;
   }
 
   const supabase = getSupabaseAdmin();
   const { data, error } = await supabase
     .from("zider_users")
-    .select(ziderUserPrivateSelect)
+    .select(ziderUserSelect)
     .eq("email", normalizedEmail)
-    .eq("status", "active")
-    .maybeSingle<ZiderUserPrivateRow>();
+    .maybeSingle<ZiderUserRow>();
 
   if (error) {
-    throw new Error(`Failed to verify account user: ${error.message}`);
+    throw new Error(`Failed to load account user by email: ${error.message}`);
   }
 
-  if (!data || !(await verifyPassword(password, data.password_hash))) {
+  return data ? mapZiderUser(data) : null;
+}
+
+export async function createOrUpdateZiderUserFromEmail({
+  displayName,
+  email,
+}: {
+  displayName?: string | null;
+  email: string;
+}) {
+  const normalizedEmail = normalizeEmail(email);
+
+  if (!normalizedEmail) {
     return null;
   }
 
+  const existingUser = await getZiderUserByEmail(normalizedEmail);
+  const nextDisplayName = displayName?.trim() || existingUser?.displayName || normalizedEmail.split("@")[0] || null;
+
+  if (existingUser) {
+    if (nextDisplayName && nextDisplayName !== existingUser.displayName) {
+      const supabase = getSupabaseAdmin();
+      const now = new Date().toISOString();
+      const { data, error } = await supabase
+        .from("zider_users")
+        .update({
+          display_name: nextDisplayName,
+          updated_at: now,
+        })
+        .eq("id", existingUser.id)
+        .select(ziderUserSelect)
+        .single<ZiderUserRow>();
+
+      if (error) {
+        throw new Error(`Failed to update account user: ${error.message}`);
+      }
+
+      return mapZiderUser(data);
+    }
+
+    return existingUser;
+  }
+
+  const supabase = getSupabaseAdmin();
   const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("zider_users")
+    .insert({
+      display_name: nextDisplayName,
+      email: normalizedEmail,
+      password_hash: await hashPassword(`email-code:${randomBytes(24).toString("base64url")}`),
+      role: "member",
+      status: "active",
+      updated_at: now,
+    })
+    .select(ziderUserSelect)
+    .single<ZiderUserRow>();
+
+  if (error) {
+    throw new Error(`Failed to create account user: ${error.message}`);
+  }
+
+  return mapZiderUser(data);
+}
+
+export async function touchZiderUserLogin(user: ZiderUser) {
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+
   await supabase
     .from("zider_users")
     .update({
       last_login_at: now,
       updated_at: now,
     })
-    .eq("id", data.id);
+    .eq("id", user.id);
 
-  return mapZiderUser({
-    ...data,
-    last_login_at: now,
-    updated_at: now,
-  });
+  return {
+    ...user,
+    lastLoginAt: now,
+    updatedAt: now,
+  };
 }
 
 export async function hashPassword(password: string) {
@@ -109,20 +163,7 @@ export async function hashPassword(password: string) {
   return `${passwordHashVersion}$${salt}$${derivedKey.toString("base64url")}`;
 }
 
-async function verifyPassword(password: string, passwordHash: string) {
-  const [version, salt, storedKey] = passwordHash.split("$");
-
-  if (version !== passwordHashVersion || !salt || !storedKey) {
-    return false;
-  }
-
-  const storedBuffer = Buffer.from(storedKey, "base64url");
-  const derivedKey = (await scryptAsync(password, salt, storedBuffer.length)) as Buffer;
-
-  return storedBuffer.length === derivedKey.length && timingSafeEqual(storedBuffer, derivedKey);
-}
-
-function normalizeEmail(value: string) {
+export function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
 }
 

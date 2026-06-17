@@ -333,8 +333,14 @@ type TemplateRecord = {
   logoFontSize: number;
   logoSource: OrderTemplateLogoSource;
   logoImageUrl: string;
+  documentTitleFont: OrderTemplateLogoFont;
+  documentTitleFontSize: number;
+  thankYouFontSize: number;
+  bodyFont: OrderTemplateLogoFont;
+  bodyFontSize: number;
   footerWebsite: string;
   footerContact: string;
+  contactPromptText: string;
   thankYouText: string;
   accentColor: OrderTemplateAccent;
   customAccentColor: string;
@@ -391,8 +397,14 @@ type TemplateDraft = {
   logoFontSize: number;
   logoSource: OrderTemplateLogoSource;
   logoImageUrl: string;
+  documentTitleFont: OrderTemplateLogoFont;
+  documentTitleFontSize: number;
+  thankYouFontSize: number;
+  bodyFont: OrderTemplateLogoFont;
+  bodyFontSize: number;
   footerWebsite: string;
   footerContact: string;
+  contactPromptText: string;
   thankYouText: string;
   accentColor: OrderTemplateAccent;
   customAccentColor: string;
@@ -424,6 +436,14 @@ const printLocaleStorageKey = "printops-print-locale-v1";
 const timezoneStorageKey = "printops-timezone-v1";
 const workspaceAccentStorageKey = "printops-accent-v1";
 const deprecatedTemplateIds = new Set(["library-order-field-map"]);
+const legacyDefaultLogoFontSize = 68;
+const systemTemplateIds = new Set([
+  "store-order-clean",
+  "store-order-compact",
+  "store-order-payment-check",
+  "library-order-modern",
+  "library-order-minimal",
+]);
 
 const workspaceAccentOptions = [
   { value: "forest", color: "#087a46" },
@@ -649,11 +669,17 @@ const defaultTemplateBrandSettings = {
   brandName: printOpsSystemBrandName,
   logoText: printOpsSystemBrandName,
   logoFont: "sans",
-  logoFontSize: 68,
+  logoFontSize: 56,
   logoSource: "generated-svg",
   logoImageUrl: "",
+  documentTitleFont: "sans",
+  documentTitleFontSize: 32,
+  thankYouFontSize: 24,
+  bodyFont: "sans",
+  bodyFontSize: 14,
   footerWebsite: printOpsSystemSiteUrl,
   footerContact: printOpsSystemFooterContact,
+  contactPromptText: "Questions? Please contact us.",
   thankYouText: "Thanks for your business!",
   accentColor: "charcoal",
   customAccentColor: "#087a46",
@@ -685,8 +711,13 @@ const defaultTemplateBrandSettings = {
   | "density"
   | "footerContact"
   | "footerWebsite"
+  | "contactPromptText"
   | "addressFormat"
   | "dateFormat"
+  | "bodyFont"
+  | "bodyFontSize"
+  | "documentTitleFont"
+  | "documentTitleFontSize"
   | "logoImageUrl"
   | "logoFont"
   | "logoFontSize"
@@ -711,8 +742,29 @@ const defaultTemplateBrandSettings = {
   | "showTotals"
   | "socialLinks"
   | "socialProfiles"
+  | "thankYouFontSize"
   | "thankYouText"
 >;
+
+function normalizeStoredTemplateRecord(templateRecord: TemplateRecord): TemplateRecord {
+  const normalizedTemplateRecord = {
+    ...templateRecord,
+    contactPromptText: templateRecord.contactPromptText ?? defaultTemplateBrandSettings.contactPromptText,
+  };
+
+  if (
+    systemTemplateIds.has(normalizedTemplateRecord.id) &&
+    normalizedTemplateRecord.logoSource === "generated-svg" &&
+    normalizedTemplateRecord.logoFontSize === legacyDefaultLogoFontSize
+  ) {
+    return {
+      ...normalizedTemplateRecord,
+      logoFontSize: defaultTemplateBrandSettings.logoFontSize,
+    };
+  }
+
+  return normalizedTemplateRecord;
+}
 
 function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profile: PrintOpsStoreProfileSummary | null) {
   const businessName = cleanProfileString(profile?.businessName) ?? printOpsSystemBrandName;
@@ -1603,8 +1655,14 @@ function createBlankTemplateDraft(): TemplateDraft {
     logoFontSize: defaultTemplateBrandSettings.logoFontSize,
     logoSource: defaultTemplateBrandSettings.logoSource,
     logoImageUrl: defaultTemplateBrandSettings.logoImageUrl,
+    documentTitleFont: defaultTemplateBrandSettings.documentTitleFont,
+    documentTitleFontSize: defaultTemplateBrandSettings.documentTitleFontSize,
+    thankYouFontSize: defaultTemplateBrandSettings.thankYouFontSize,
+    bodyFont: defaultTemplateBrandSettings.bodyFont,
+    bodyFontSize: defaultTemplateBrandSettings.bodyFontSize,
     footerWebsite: defaultTemplateBrandSettings.footerWebsite,
     footerContact: defaultTemplateBrandSettings.footerContact,
+    contactPromptText: defaultTemplateBrandSettings.contactPromptText,
     thankYouText: defaultTemplateBrandSettings.thankYouText,
     accentColor: defaultTemplateBrandSettings.accentColor,
     customAccentColor: defaultTemplateBrandSettings.customAccentColor,
@@ -1657,8 +1715,14 @@ function createDraftFromTemplate(templateRecord: TemplateRecord, mode: TemplateE
     logoFontSize: templateRecord.logoFontSize ?? defaultTemplateBrandSettings.logoFontSize,
     logoSource: templateRecord.logoSource ?? defaultTemplateBrandSettings.logoSource,
     logoImageUrl: templateRecord.logoImageUrl ?? defaultTemplateBrandSettings.logoImageUrl,
+    documentTitleFont: templateRecord.documentTitleFont ?? defaultTemplateBrandSettings.documentTitleFont,
+    documentTitleFontSize: templateRecord.documentTitleFontSize ?? defaultTemplateBrandSettings.documentTitleFontSize,
+    thankYouFontSize: templateRecord.thankYouFontSize ?? defaultTemplateBrandSettings.thankYouFontSize,
+    bodyFont: templateRecord.bodyFont ?? defaultTemplateBrandSettings.bodyFont,
+    bodyFontSize: templateRecord.bodyFontSize ?? defaultTemplateBrandSettings.bodyFontSize,
     footerWebsite: templateRecord.footerWebsite ?? defaultTemplateBrandSettings.footerWebsite,
     footerContact: templateRecord.footerContact ?? defaultTemplateBrandSettings.footerContact,
+    contactPromptText: templateRecord.contactPromptText ?? defaultTemplateBrandSettings.contactPromptText,
     thankYouText: templateRecord.thankYouText ?? defaultTemplateBrandSettings.thankYouText,
     accentColor: templateRecord.accentColor ?? defaultTemplateBrandSettings.accentColor,
     customAccentColor: templateRecord.customAccentColor ?? defaultTemplateBrandSettings.customAccentColor,
@@ -1713,6 +1777,14 @@ function createTemplateId(name: string) {
       .replace(/^-|-$/g, "") || "template";
 
   return `store-${slug}-${Date.now()}`;
+}
+
+function clampTemplateNumber(value: number, min: number, max: number, fallback: number) {
+  if (!Number.isFinite(value)) {
+    return fallback;
+  }
+
+  return Math.min(Math.max(value, min), max);
 }
 
 function getTemplateLabelFallback(key: string): LocalizedText {
@@ -1809,11 +1881,17 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
     brandName: draft.brandName.trim() || defaultTemplateBrandSettings.brandName,
     logoText: draft.logoText.trim() || defaultTemplateBrandSettings.logoText,
     logoFont: draft.logoFont,
-    logoFontSize: Math.min(Math.max(Number(draft.logoFontSize) || defaultTemplateBrandSettings.logoFontSize, 28), 96),
+    logoFontSize: clampTemplateNumber(Number(draft.logoFontSize), 28, 96, defaultTemplateBrandSettings.logoFontSize),
     logoSource: draft.logoSource,
     logoImageUrl: draft.logoImageUrl.trim(),
+    documentTitleFont: draft.documentTitleFont,
+    documentTitleFontSize: clampTemplateNumber(Number(draft.documentTitleFontSize), 18, 72, defaultTemplateBrandSettings.documentTitleFontSize),
+    thankYouFontSize: clampTemplateNumber(Number(draft.thankYouFontSize), 14, 40, defaultTemplateBrandSettings.thankYouFontSize),
+    bodyFont: draft.bodyFont,
+    bodyFontSize: clampTemplateNumber(Number(draft.bodyFontSize), 10, 18, defaultTemplateBrandSettings.bodyFontSize),
     footerWebsite: draft.footerWebsite.trim(),
     footerContact: draft.footerContact.trim(),
+    contactPromptText: draft.contactPromptText.trim() || defaultTemplateBrandSettings.contactPromptText,
     thankYouText: draft.thankYouText.trim() || defaultTemplateBrandSettings.thankYouText,
     accentColor: draft.accentColor,
     customAccentColor: draft.customAccentColor.trim() || defaultTemplateBrandSettings.customAccentColor,
@@ -2069,7 +2147,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         const parsedTemplates = JSON.parse(savedTemplates) as TemplateRecord[];
 
         const supportedTemplates = Array.isArray(parsedTemplates)
-          ? parsedTemplates.filter((templateRecord) => !deprecatedTemplateIds.has(templateRecord.id))
+          ? parsedTemplates.filter((templateRecord) => !deprecatedTemplateIds.has(templateRecord.id)).map(normalizeStoredTemplateRecord)
           : [];
 
         if (supportedTemplates.length > 0) {
@@ -3979,7 +4057,12 @@ function TemplateCenter({
                         dateFormat={templateRecord.dateFormat}
                         defaultLanguage={templateRecord.defaultLanguage}
                         density={templateRecord.density}
+                        documentTitleFont={templateRecord.documentTitleFont}
+                        documentTitleFontSize={templateRecord.documentTitleFontSize}
+                        bodyFont={templateRecord.bodyFont}
+                        bodyFontSize={templateRecord.bodyFontSize}
                         documentType={templateRecord.documentType}
+                        contactPromptText={templateRecord.contactPromptText}
                         footerContact={templateRecord.footerContact}
                         footerWebsite={templateRecord.footerWebsite}
                         labelOverrides={templateRecord.labelOverrides}
@@ -4009,6 +4092,7 @@ function TemplateCenter({
                         customAccentColor={templateRecord.customAccentColor}
                         socialLinks={templateRecord.socialLinks}
                         socialProfiles={templateRecord.socialProfiles}
+                        thankYouFontSize={templateRecord.thankYouFontSize}
                         thankYouText={templateRecord.thankYouText}
                         variant="card"
                         visualStyle={templateRecord.visualStyle}
@@ -4702,7 +4786,12 @@ function TemplatePreviewModal({
                 dateFormat={templateRecord.dateFormat}
                 defaultLanguage={templateRecord.defaultLanguage}
                 density={templateRecord.density}
+                documentTitleFont={templateRecord.documentTitleFont}
+                documentTitleFontSize={templateRecord.documentTitleFontSize}
+                bodyFont={templateRecord.bodyFont}
+                bodyFontSize={templateRecord.bodyFontSize}
                 documentType={templateRecord.documentType}
+                contactPromptText={templateRecord.contactPromptText}
                 footerContact={templateRecord.footerContact}
                 footerWebsite={templateRecord.footerWebsite}
                 labelOverrides={templateRecord.labelOverrides}
@@ -4732,6 +4821,7 @@ function TemplatePreviewModal({
                 customAccentColor={templateRecord.customAccentColor}
                 socialLinks={templateRecord.socialLinks}
                 socialProfiles={templateRecord.socialProfiles}
+                thankYouFontSize={templateRecord.thankYouFontSize}
                 thankYouText={templateRecord.thankYouText}
                 variant="editor"
                 visualStyle={templateRecord.visualStyle}
@@ -5113,6 +5203,55 @@ function TemplateEditorDrawer({
               )}
             </div>
 
+            <span className={styles.settingsGroupTitle}>{editorCopy.typography}</span>
+            <div className={styles.formTwoColumns}>
+              <SelectField
+                label={editorCopy.documentTitleFont}
+                options={localizedLogoFontOptions}
+                value={draft.documentTitleFont}
+                onValueChange={(value) => onDraftChange({ documentTitleFont: value as OrderTemplateLogoFont })}
+              />
+              <label className={styles.fieldGroup}>
+                <span>{editorCopy.documentTitleSize}</span>
+                <input
+                  className={styles.textInput}
+                  min={18}
+                  max={72}
+                  type="number"
+                  value={draft.documentTitleFontSize}
+                  onChange={(event) => onDraftChange({ documentTitleFontSize: Number(event.target.value) })}
+                />
+              </label>
+              <SelectField
+                label={editorCopy.bodyTextTypography}
+                options={localizedLogoFontOptions}
+                value={draft.bodyFont}
+                onValueChange={(value) => onDraftChange({ bodyFont: value as OrderTemplateLogoFont })}
+              />
+              <label className={styles.fieldGroup}>
+                <span>{editorCopy.bodyTextSize}</span>
+                <input
+                  className={styles.textInput}
+                  min={10}
+                  max={18}
+                  type="number"
+                  value={draft.bodyFontSize}
+                  onChange={(event) => onDraftChange({ bodyFontSize: Number(event.target.value) })}
+                />
+              </label>
+              <label className={styles.fieldGroup}>
+                <span>{editorCopy.thankYouTextSize}</span>
+                <input
+                  className={styles.textInput}
+                  min={14}
+                  max={40}
+                  type="number"
+                  value={draft.thankYouFontSize}
+                  onChange={(event) => onDraftChange({ thankYouFontSize: Number(event.target.value) })}
+                />
+              </label>
+            </div>
+
             <span className={styles.settingsGroupTitle}>{editorCopy.socialFooter}</span>
             <div className={styles.formOneColumn}>
               <label className={styles.fieldGroup}>
@@ -5306,6 +5445,15 @@ function TemplateEditorDrawer({
             value={draft.defaultLanguage}
             onValueChange={(value) => isPrintLocale(value) && onDraftChange({ defaultLanguage: value })}
           />
+
+          <label className={styles.fieldGroup}>
+            <span>{editorCopy.contactPromptText}</span>
+            <input
+              className={styles.textInput}
+              value={draft.contactPromptText}
+              onChange={(event) => onDraftChange({ contactPromptText: event.target.value })}
+            />
+          </label>
 
           <label className={styles.fieldGroup}>
             <span>{editorCopy.thankYouText}</span>
@@ -5536,7 +5684,12 @@ function TemplateEditorDrawer({
                     dateFormat={draft.dateFormat}
                     defaultLanguage={draft.defaultLanguage}
                     density={draft.density}
+                    documentTitleFont={draft.documentTitleFont}
+                    documentTitleFontSize={draft.documentTitleFontSize}
+                    bodyFont={draft.bodyFont}
+                    bodyFontSize={draft.bodyFontSize}
                     documentType={draft.documentType}
+                    contactPromptText={draft.contactPromptText}
                     footerContact={draft.footerContact}
                     footerWebsite={draft.footerWebsite}
                     labelOverrides={draft.labelOverrides}
@@ -5566,6 +5719,7 @@ function TemplateEditorDrawer({
                     customAccentColor={draft.customAccentColor}
                     socialLinks={draft.socialLinks}
                     socialProfiles={draft.socialProfiles}
+                    thankYouFontSize={draft.thankYouFontSize}
                     thankYouText={draft.thankYouText}
                     variant="editor"
                     visualStyle={draft.visualStyle}
@@ -5587,7 +5741,12 @@ function TemplatePaperPreview({
   dateFormat = defaultTemplateBrandSettings.dateFormat,
   defaultLanguage = defaultPrintLocale,
   density = defaultTemplateBrandSettings.density,
+  documentTitleFont = defaultTemplateBrandSettings.documentTitleFont,
+  documentTitleFontSize = defaultTemplateBrandSettings.documentTitleFontSize,
   documentType,
+  bodyFont = defaultTemplateBrandSettings.bodyFont,
+  bodyFontSize = defaultTemplateBrandSettings.bodyFontSize,
+  contactPromptText = defaultTemplateBrandSettings.contactPromptText,
   footerContact = defaultTemplateBrandSettings.footerContact,
   footerWebsite = defaultTemplateBrandSettings.footerWebsite,
   labelOverrides = {},
@@ -5618,6 +5777,7 @@ function TemplatePaperPreview({
   customAccentColor = defaultTemplateBrandSettings.customAccentColor,
   socialLinks = defaultTemplateBrandSettings.socialLinks,
   socialProfiles,
+  thankYouFontSize = defaultTemplateBrandSettings.thankYouFontSize,
   thankYouText = defaultTemplateBrandSettings.thankYouText,
   variant = "detail",
   visualStyle,
@@ -5628,7 +5788,12 @@ function TemplatePaperPreview({
   dateFormat?: TemplateDateFormat;
   defaultLanguage?: PrintLocale;
   density?: OrderTemplateDensity;
+  documentTitleFont?: OrderTemplateLogoFont;
+  documentTitleFontSize?: number;
   documentType: string;
+  bodyFont?: OrderTemplateLogoFont;
+  bodyFontSize?: number;
+  contactPromptText?: string;
   footerContact?: string;
   footerWebsite?: string;
   labelOverrides?: TemplateLabelOverrides;
@@ -5659,6 +5824,7 @@ function TemplatePaperPreview({
   customAccentColor?: string;
   socialLinks?: string;
   socialProfiles?: TemplateSocialProfiles;
+  thankYouFontSize?: number;
   thankYouText?: string;
   variant?: "card" | "detail" | "editor";
   visualStyle?: OrderTemplateVisualStyle;
@@ -5704,6 +5870,11 @@ function TemplatePaperPreview({
         dateFormat={dateFormat}
         defaultLanguage={defaultLanguage}
         density={density}
+        documentTitleFont={documentTitleFont}
+        documentTitleFontSize={documentTitleFontSize}
+        bodyFont={bodyFont}
+        bodyFontSize={bodyFontSize}
+        contactPromptText={contactPromptText}
         footerContact={footerContact}
         footerWebsite={footerWebsite}
         labelOverrides={labelOverrides}
@@ -5734,6 +5905,7 @@ function TemplatePaperPreview({
         customAccentColor={customAccentColor}
         socialLinks={socialLinks}
         socialProfiles={socialProfiles}
+        thankYouFontSize={thankYouFontSize}
         thankYouText={thankYouText}
         variant={variant}
         visualStyle={visualStyle ?? (layoutPreset === "Compact" ? "market" : "atelier")}
@@ -6201,6 +6373,38 @@ function SocialIcon({ platform }: { platform: SocialPlatform }) {
   return <span className={styles.orderSocialIcon} data-platform={platform} aria-hidden="true" />;
 }
 
+const templateFontFamilyByType: Record<OrderTemplateLogoFont, string> = {
+  mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
+  sans: "Inter, Arial, sans-serif",
+  serif: "Georgia, 'Times New Roman', serif",
+};
+
+function getTemplateFontFamily(font: OrderTemplateLogoFont | undefined) {
+  return templateFontFamilyByType[font ?? "sans"];
+}
+
+function getOrderTemplateTypographyStyle({
+  bodyFont,
+  bodyFontSize,
+  documentTitleFont,
+  documentTitleFontSize,
+  thankYouFontSize,
+}: {
+  bodyFont: OrderTemplateLogoFont;
+  bodyFontSize: number;
+  documentTitleFont: OrderTemplateLogoFont;
+  documentTitleFontSize: number;
+  thankYouFontSize: number;
+}) {
+  return {
+    "--order-body-font": getTemplateFontFamily(bodyFont),
+    "--order-body-size": `${clampTemplateNumber(bodyFontSize, 10, 18, defaultTemplateBrandSettings.bodyFontSize)}px`,
+    "--order-document-title-font": getTemplateFontFamily(documentTitleFont),
+    "--order-document-title-size": `${clampTemplateNumber(documentTitleFontSize, 18, 72, defaultTemplateBrandSettings.documentTitleFontSize)}px`,
+    "--order-thank-you-size": `${clampTemplateNumber(thankYouFontSize, 14, 40, defaultTemplateBrandSettings.thankYouFontSize)}px`,
+  } as CSSProperties;
+}
+
 function BrandLogoAsset({
   brandName,
   font,
@@ -6219,12 +6423,7 @@ function BrandLogoAsset({
   const displayBrandName = brandName.trim() || defaultTemplateBrandSettings.brandName;
   const displayWordmark = wordmark.trim() || defaultTemplateBrandSettings.logoText;
   const uploadedLogo = logoImageUrl.trim();
-  const fontFamilyByType: Record<OrderTemplateLogoFont, string> = {
-    mono: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-    sans: "Inter, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-  };
-  const logoFontFamily = fontFamilyByType[font ?? "sans"];
+  const logoFontFamily = getTemplateFontFamily(font);
   const logoFontSize = Math.min(Math.max(fontSize ?? defaultTemplateBrandSettings.logoFontSize, 28), 96);
 
   if (logoSource === "uploaded-image" && uploadedLogo) {
@@ -6253,6 +6452,11 @@ function OrderPaperPreview({
   dateFormat,
   defaultLanguage,
   density,
+  documentTitleFont,
+  documentTitleFontSize,
+  bodyFont,
+  bodyFontSize,
+  contactPromptText,
   footerContact,
   footerWebsite,
   labelOverrides,
@@ -6283,6 +6487,7 @@ function OrderPaperPreview({
   customAccentColor,
   socialLinks,
   socialProfiles,
+  thankYouFontSize,
   thankYouText,
   variant,
   visualStyle,
@@ -6293,6 +6498,11 @@ function OrderPaperPreview({
   dateFormat: TemplateDateFormat;
   defaultLanguage: PrintLocale;
   density: OrderTemplateDensity;
+  documentTitleFont: OrderTemplateLogoFont;
+  documentTitleFontSize: number;
+  bodyFont: OrderTemplateLogoFont;
+  bodyFontSize: number;
+  contactPromptText: string;
   footerContact: string;
   footerWebsite: string;
   labelOverrides: TemplateLabelOverrides;
@@ -6323,6 +6533,7 @@ function OrderPaperPreview({
   customAccentColor: string;
   socialLinks: string;
   socialProfiles?: TemplateSocialProfiles;
+  thankYouFontSize: number;
   thankYouText: string;
   variant: "card" | "detail" | "editor";
   visualStyle: OrderTemplateVisualStyle;
@@ -6381,6 +6592,7 @@ function OrderPaperPreview({
     total: label("template.total"),
     totalItems: label("template.total_items"),
   };
+  const displayContactPrompt = contactPromptText.trim() || labels.questions;
 
   const paperProps = {
     className: styles.templatePaper,
@@ -6394,7 +6606,16 @@ function OrderPaperPreview({
     "data-variant": variant,
     dir: getLocaleDirection(defaultLanguage),
     lang: defaultLanguage,
-    style: getOrderTemplateAccentStyle(accentColor, customAccentColor),
+    style: {
+      ...getOrderTemplateAccentStyle(accentColor, customAccentColor),
+      ...getOrderTemplateTypographyStyle({
+        bodyFont,
+        bodyFontSize,
+        documentTitleFont,
+        documentTitleFontSize,
+        thankYouFontSize,
+      }),
+    },
   };
   const renderProductImage = (lineItem: OrderPrintLineItem) =>
     showProductImages ? (
@@ -6608,7 +6829,7 @@ function OrderPaperPreview({
 
         {showThankYou ? (
           <span className={styles.orderHeroThanks}>
-            <span>{labels.questions}</span>
+            <span>{displayContactPrompt}</span>
             <strong>{displayThankYou}</strong>
           </span>
         ) : null}
@@ -6700,6 +6921,7 @@ function OrderPaperPreview({
         ) : null}
 
         <span className={styles.orderCenteredFooter}>
+          <span>{displayContactPrompt}</span>
           <strong>{displayThankYou}</strong>
           <span>{displayFooterContact || printOpsSystemSiteUrl}</span>
         </span>
@@ -6764,7 +6986,7 @@ function OrderPaperPreview({
 
       <span className={styles.orderSlipThanks}>
         <strong>{displayThankYou}</strong>
-        <span>{labels.questions}</span>
+        <span>{displayContactPrompt}</span>
         <span>{displayFooterContact || printOpsSystemSiteUrl}</span>
       </span>
 
@@ -6799,7 +7021,12 @@ function OrderTemplatePrintDocument({
       dateFormat={templateRecord.dateFormat}
       defaultLanguage={printLocale}
       density={templateRecord.density}
+      documentTitleFont={templateRecord.documentTitleFont}
+      documentTitleFontSize={templateRecord.documentTitleFontSize}
+      bodyFont={templateRecord.bodyFont}
+      bodyFontSize={templateRecord.bodyFontSize}
       documentType={templateRecord.documentType}
+      contactPromptText={templateRecord.contactPromptText}
       footerContact={templateRecord.footerContact}
       footerWebsite={templateRecord.footerWebsite}
       labelOverrides={templateRecord.labelOverrides}
@@ -6830,6 +7057,7 @@ function OrderTemplatePrintDocument({
       customAccentColor={templateRecord.customAccentColor}
       socialLinks={templateRecord.socialLinks}
       socialProfiles={templateRecord.socialProfiles}
+      thankYouFontSize={templateRecord.thankYouFontSize}
       thankYouText={templateRecord.thankYouText}
       variant="detail"
       visualStyle={templateRecord.visualStyle}
