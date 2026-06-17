@@ -1,6 +1,16 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { ArrowRight, BadgeCheck, Building2, Clock3, KeyRound, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import {
+  BadgeCheck,
+  CalendarClock,
+  Home,
+  KeyRound,
+  LogOut,
+  Mail,
+  ShieldCheck,
+  Sparkles,
+  UserRound,
+} from "lucide-react";
 
 import { isAccountAuthConfigured } from "@/lib/account/auth";
 import { getAccountSession } from "@/lib/account/session";
@@ -9,7 +19,7 @@ import { signOutAction } from "../actions";
 
 export const metadata: Metadata = {
   title: "Account Center - ZIDER",
-  description: "Manage your ZIDER account profile and workspace access.",
+  description: "Manage your ZIDER account profile, sign-in methods, and security settings.",
 };
 
 export default async function AccountCenterPage() {
@@ -25,8 +35,6 @@ export default async function AccountCenterPage() {
     redirect(signInPath);
   }
 
-  const workspaceUrl = process.env.NEXT_PUBLIC_WORKSPACE_URL?.trim() || "https://workspace.zider.ink/app";
-
   return (
     <main className="accountCenterPage">
       <style>{getAccountCenterCss()}</style>
@@ -37,9 +45,9 @@ export default async function AccountCenterPage() {
             <span>ZIDER</span>
           </a>
           <div className="accountHeaderActions">
-            <a className="ghostButton" href={workspaceUrl}>
-              Workspace
-              <ArrowRight size={16} />
+            <a className="ghostButton" href="/">
+              <Home size={16} />
+              Home
             </a>
             <form action={signOutAction}>
               <button className="ghostButton" type="submit">
@@ -51,23 +59,24 @@ export default async function AccountCenterPage() {
         </header>
 
         <div className="accountHero">
-          <p className="accountEyebrow">ZIDER ACCOUNT</p>
-          <h1 id="account-center-title">Account Center</h1>
-          <p>{session.user.email}</p>
-        </div>
-
-        <div className="accountGrid">
-          <section className="profileCard">
-            <div className="profileAvatar" aria-hidden="true">
+          <div className="accountHeroCopy">
+            <p className="accountEyebrow">ZIDER ACCOUNT</p>
+            <h1 id="account-center-title">Account Center</h1>
+            <p>Manage your ZIDER identity, sign-in methods, and account security from one quiet place.</p>
+          </div>
+          <section className="heroProfileCard" aria-label="Signed-in account">
+            <div className="heroAvatar" aria-hidden="true">
               {initialsForUser(session.user)}
             </div>
             <div>
-              <p className="cardKicker">Profile</p>
+              <span className="statusPill">Active</span>
               <h2>{session.user.displayName || "Zider member"}</h2>
               <p>{session.user.email}</p>
             </div>
           </section>
+        </div>
 
+        <div className="accountGrid">
           <InfoCard
             icon={<BadgeCheck size={20} />}
             label="Account status"
@@ -75,7 +84,7 @@ export default async function AccountCenterPage() {
             value={`Role: ${capitalize(session.user.role)}`}
           />
           <InfoCard
-            icon={<Clock3 size={20} />}
+            icon={<CalendarClock size={20} />}
             label="Last sign-in"
             title={formatDateTime(session.user.lastLoginAt)}
             value={`Session expires ${formatDateTime(session.expiresAt)}`}
@@ -86,10 +95,16 @@ export default async function AccountCenterPage() {
             title="Google + email code"
             value="Managed by Supabase Auth"
           />
+          <InfoCard
+            icon={<Mail size={20} />}
+            label="Primary email"
+            title={session.user.email}
+            value="Used for account recovery and ownership checks"
+          />
         </div>
 
         <div className="accountSections">
-          <section className="accountPanel">
+          <section className="accountPanel accountPanel--wide">
             <div className="panelTitle">
               <UserRound size={20} />
               <h2>Account details</h2>
@@ -116,23 +131,6 @@ export default async function AccountCenterPage() {
 
           <section className="accountPanel">
             <div className="panelTitle">
-              <Building2 size={20} />
-              <h2>Connected workspace</h2>
-            </div>
-            <div className="workspaceRow">
-              <div>
-                <strong>ZIDER Workspace</strong>
-                <span>Apps, widgets, and merchant tools</span>
-              </div>
-              <a className="primaryLink" href={workspaceUrl}>
-                Open
-                <ArrowRight size={16} />
-              </a>
-            </div>
-          </section>
-
-          <section className="accountPanel">
-            <div className="panelTitle">
               <ShieldCheck size={20} />
               <h2>Security</h2>
             </div>
@@ -144,6 +142,16 @@ export default async function AccountCenterPage() {
               <span>Google sign-in</span>
               <strong>Available</strong>
             </div>
+          </section>
+
+          <section className="accountPanel">
+            <div className="panelTitle">
+              <Sparkles size={20} />
+              <h2>Account scope</h2>
+            </div>
+            <p className="panelCopy">
+              This center only manages your ZIDER identity. App permissions and merchant access stay controlled inside each connected app.
+            </p>
           </section>
         </div>
       </section>
@@ -230,33 +238,39 @@ function getAccountCenterCss() {
       --account-muted: #64746e;
       --account-line: #d7e2dc;
       --account-soft: #f3f7f4;
+      --account-soft-strong: #e8f4ee;
       --account-green: #087a46;
+      --account-page-max: 1440px;
+      --account-page-gutter: clamp(192px, 18vw, 360px);
+      --account-page-width: min(var(--account-page-max), calc(100% - var(--account-page-gutter)));
       min-height: 100vh;
-      padding: 32px;
-      background: #f7faf8;
+      padding: 0 0 72px;
+      background:
+        linear-gradient(90deg, transparent 0 calc((100% - var(--account-page-max)) / 2), rgba(10, 37, 64, 0.08) calc((100% - var(--account-page-max)) / 2), rgba(10, 37, 64, 0.08) calc((100% - var(--account-page-max)) / 2 + 1px), transparent calc((100% - var(--account-page-max)) / 2 + 1px)),
+        linear-gradient(90deg, transparent 0 calc((100% + var(--account-page-max)) / 2), rgba(10, 37, 64, 0.08) calc((100% + var(--account-page-max)) / 2), rgba(10, 37, 64, 0.08) calc((100% + var(--account-page-max)) / 2 + 1px), transparent calc((100% + var(--account-page-max)) / 2 + 1px)),
+        linear-gradient(180deg, #ffffff 0%, #f7faf8 58%, #ffffff 100%);
       color: var(--account-ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       -webkit-font-smoothing: antialiased;
     }
 
     .accountShell {
-      width: min(1120px, 100%);
+      width: var(--account-page-width);
       margin: 0 auto;
     }
 
     .accountHeader {
-      min-height: 60px;
+      min-height: 86px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      margin-bottom: 56px;
+      margin-bottom: 44px;
     }
 
     .accountBrand,
     .accountHeaderActions,
-    .ghostButton,
-    .primaryLink {
+    .ghostButton {
       display: inline-flex;
       align-items: center;
     }
@@ -267,6 +281,7 @@ function getAccountCenterCss() {
       font-size: 18px;
       font-weight: 800;
       text-decoration: none;
+      letter-spacing: 0;
     }
 
     .accountBrand svg {
@@ -283,8 +298,7 @@ function getAccountCenterCss() {
       margin: 0;
     }
 
-    .ghostButton,
-    .primaryLink {
+    .ghostButton {
       min-height: 40px;
       justify-content: center;
       gap: 8px;
@@ -301,15 +315,23 @@ function getAccountCenterCss() {
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
-    .ghostButton:hover,
-    .primaryLink:hover {
+    .ghostButton:hover {
       border-color: #b8c8c0;
       box-shadow: 0 8px 20px rgba(16, 24, 22, 0.06);
     }
 
     .accountHero {
-      max-width: 720px;
-      margin-bottom: 28px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+      align-items: end;
+      gap: clamp(28px, 4vw, 64px);
+      margin-bottom: 20px;
+      padding: 30px 0 28px;
+      border-bottom: 1px solid var(--account-line);
+    }
+
+    .accountHeroCopy {
+      max-width: 760px;
     }
 
     .accountEyebrow,
@@ -324,28 +346,68 @@ function getAccountCenterCss() {
 
     .accountHero h1 {
       margin: 8px 0 10px;
-      font-size: clamp(44px, 7vw, 82px);
-      line-height: 0.96;
+      font-size: clamp(48px, 6.1vw, 92px);
+      line-height: 0.94;
       font-weight: 850;
+      letter-spacing: 0;
     }
 
     .accountHero p,
     .infoCard p,
-    .profileCard p,
-    .workspaceRow span {
+    .heroProfileCard p,
+    .panelCopy {
       color: var(--account-muted);
       font-size: 15px;
       line-height: 1.5;
     }
 
+    .heroProfileCard {
+      min-height: 178px;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 18px;
+      border: 1px solid var(--account-line);
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(8, 122, 70, 0.08), transparent 54%),
+        #ffffff;
+      padding: 22px;
+      box-shadow: 0 20px 54px rgba(16, 24, 22, 0.06);
+    }
+
+    .heroAvatar {
+      width: 78px;
+      height: 78px;
+      display: grid;
+      place-items: center;
+      border-radius: 8px;
+      background: var(--account-green);
+      color: #ffffff;
+      font-size: 28px;
+      font-weight: 850;
+    }
+
+    .statusPill {
+      width: fit-content;
+      min-height: 26px;
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      background: var(--account-soft-strong);
+      color: var(--account-green);
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
     .accountGrid {
       display: grid;
-      grid-template-columns: minmax(280px, 1.25fr) repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 14px;
       margin-bottom: 14px;
     }
 
-    .profileCard,
     .infoCard,
     .accountPanel {
       border: 1px solid var(--account-line);
@@ -354,28 +416,7 @@ function getAccountCenterCss() {
       box-shadow: 0 12px 32px rgba(16, 24, 22, 0.04);
     }
 
-    .profileCard {
-      min-height: 162px;
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      align-items: center;
-      gap: 18px;
-      padding: 22px;
-    }
-
-    .profileAvatar {
-      width: 72px;
-      height: 72px;
-      display: grid;
-      place-items: center;
-      border-radius: 8px;
-      background: var(--account-green);
-      color: #ffffff;
-      font-size: 26px;
-      font-weight: 850;
-    }
-
-    .profileCard h2,
+    .heroProfileCard h2,
     .infoCard h2,
     .accountPanel h2 {
       margin: 6px 0 4px;
@@ -386,8 +427,10 @@ function getAccountCenterCss() {
     }
 
     .infoCard {
-      min-height: 162px;
-      padding: 18px;
+      min-height: 176px;
+      display: flex;
+      flex-direction: column;
+      padding: 20px;
     }
 
     .cardIcon {
@@ -403,7 +446,7 @@ function getAccountCenterCss() {
 
     .accountSections {
       display: grid;
-      grid-template-columns: 1.25fr 1fr 1fr;
+      grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.9fr) minmax(280px, 0.9fr);
       gap: 14px;
     }
 
@@ -425,13 +468,13 @@ function getAccountCenterCss() {
 
     .detailList {
       display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
       margin: 0;
     }
 
     .detailList div,
-    .securityRow,
-    .workspaceRow {
+    .securityRow {
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -459,39 +502,37 @@ function getAccountCenterCss() {
       overflow-wrap: anywhere;
     }
 
-    .workspaceRow {
-      align-items: flex-start;
-    }
-
-    .workspaceRow div {
-      display: grid;
-      gap: 4px;
-    }
-
-    .workspaceRow strong,
     .securityRow strong {
       color: var(--account-ink);
       font-size: 15px;
       font-weight: 800;
     }
 
-    .primaryLink {
-      flex: 0 0 auto;
-      border-color: var(--account-green);
-      background: var(--account-green);
-      color: #ffffff;
-    }
-
-    .primaryLink:hover {
-      border-color: #069456;
-      background: #069456;
-    }
-
     .securityRow + .securityRow {
       margin-top: 12px;
     }
 
+    .panelCopy {
+      min-height: 116px;
+      margin: 0;
+      border: 1px solid var(--account-line);
+      border-radius: 8px;
+      background: var(--account-soft);
+      padding: 14px;
+    }
+
+    @media (max-width: 1180px) {
+      .accountGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
     @media (max-width: 980px) {
+      .accountCenterPage {
+        --account-page-width: calc(100% - 48px);
+      }
+
+      .accountHero,
       .accountGrid,
       .accountSections {
         grid-template-columns: 1fr;
@@ -500,25 +541,29 @@ function getAccountCenterCss() {
 
     @media (max-width: 620px) {
       .accountCenterPage {
-        padding: 20px;
+        --account-page-width: calc(100% - 36px);
+        padding-bottom: 46px;
       }
 
       .accountHeader,
       .accountHeaderActions,
       .detailList div,
-      .workspaceRow,
       .securityRow {
         align-items: stretch;
         flex-direction: column;
       }
 
       .accountHeaderActions,
-      .ghostButton,
-      .primaryLink {
+      .ghostButton {
         width: 100%;
       }
 
-      .profileCard {
+      .accountHero {
+        padding-top: 16px;
+      }
+
+      .heroProfileCard,
+      .detailList {
         grid-template-columns: 1fr;
       }
 

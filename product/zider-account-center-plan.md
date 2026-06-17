@@ -1,7 +1,7 @@
 # Zider 用户中心、账号与 Workspace 规划
 
 版本：v0.1  
-更新日期：2026-06-16  
+更新日期：2026-06-17
 适用范围：Zider 官网、Zider Workspace、PrintOps、Wix / Shopify / WooCommerce 等平台插件
 
 ## 1. 目标
@@ -14,6 +14,25 @@ Zider 后续会同时存在官网、Workspace 产品后台、Wix 插件、Shopif
 - Wix / Shopify 安装后可以立即使用对应应用。
 - 平台安装、平台账号、Zider 账号、Workspace 归属之间边界清晰。
 - 后续支持将 Wix 自动创建的账号/工作区连接到真实 Zider 账号。
+
+## 1.1 第一版产品决策
+
+第一版以 Wix 安装使用为主：
+
+- Wix 安装 PrintOps 时自动创建或解析工作区和应用实例。
+- 不强制用户先注册 Zider Account。
+- Wix 商家可以直接进入 PrintOps 同步订单、配置模板、下载 PDF 和打印。
+- 当用户需要账号能力时，再引导使用 Google 或邮箱验证码认领。
+- 官网注册入口保留，后续作为统一用户中心入口。
+- Wix 用户和官网用户通过邮箱验证、Google 登录或 Wix 授权身份做安全合并。
+
+第一版的关键边界：
+
+```text
+Wix app instance is usable immediately.
+Zider Account ownership is claimed later.
+Account merge requires explicit verified intent.
+```
 
 ## 2. 核心原则
 
@@ -71,7 +90,7 @@ app.zider.ink
 
 ### Zider Account
 
-一个真实用户账号，可通过邮箱密码、Google、Wix、Shopify 等身份登录。
+一个真实用户账号，可通过 Google、邮箱验证码或后续平台身份登录。
 
 ### User Identity
 
@@ -259,7 +278,7 @@ metadata
 created_at
 ```
 
-## 6. Wix 安装后自动创建账号逻辑
+## 6. Wix 安装后自动创建工作区逻辑
 
 当用户从 Wix 安装并首次打开 PrintOps：
 
@@ -272,12 +291,14 @@ Wix opens PrintOps
 -> Request Wix access token
 -> Fetch Wix site profile
 -> Upsert printops_store_profiles
--> Find or create Wix shadow user
--> Find or create workspace for this instance
--> Find or create store
--> Create workspace_store_connection
+-> Find or create Wix installation identity
+-> Find or create unclaimed workspace for this instance
+-> Find or create store for this instance
+-> Create or confirm workspace_store_connection
 -> Enter PrintOps
 ```
+
+这个流程不要求商家先注册 Zider Account。第一版可以先用 Wix `instance_id` 作为运行时数据边界，后续再把它映射到显式 `workspace_id`、`store_id` 和真实用户成员关系。
 
 ### Shadow user
 
@@ -297,7 +318,7 @@ provider_subject = siteOwnerId 或 instanceId
 instance_id = Wix instanceId
 ```
 
-shadow user 只用于承接当前 Wix 安装上下文，不应作为完整官网登录账号。
+shadow user 只用于承接当前 Wix 安装上下文，不应作为完整官网登录账号，也不应要求用户感知或主动管理。
 
 ## 7. Wix 站点资料默认值
 

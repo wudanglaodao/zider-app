@@ -1,10 +1,14 @@
-import { ArrowRight, Menu, X } from "lucide-react";
+import { ArrowRight, Menu, UserRound, X } from "lucide-react";
+
+import { isAccountAuthConfigured } from "@/lib/account/auth";
+import { getAccountSession } from "@/lib/account/session";
 
 const ziderLogoUrl = "https://assets.lopuo.com/app/zider/uploads/2024/07/zider-def.png";
 
 const navItems = [
   { href: "/blog", label: "Blog" },
   { href: "/forum", label: "Forum" },
+  { href: "/contact", label: "Contact" },
 ];
 const platformLogos = [
   { iconUrl: "https://cdn.simpleicons.org/wix/63758A", name: "Wix" },
@@ -22,7 +26,12 @@ const footerLinks = [
   { href: "/privacy", label: "Privacy" },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const accountSession = isAccountAuthConfigured() ? await getAccountSession() : null;
+  const accountNextPath = "/account/center";
+  const accountNext = encodeURIComponent(accountNextPath);
+  const accountInitials = homeAccountInitials(accountSession?.user.displayName, accountSession?.user.email);
+
   return (
     <main className="zider-stripe">
       <style>{getStripeLandingCss()}</style>
@@ -42,9 +51,23 @@ export default function HomePage() {
           </nav>
 
           <div className="header-actions">
-            <a className="contact-button" href="/contact">
-              Contact
-            </a>
+            {accountSession ? (
+              <a className="account-button account-button--signed" href={accountNextPath}>
+                <span className="account-button__avatar" aria-hidden="true">
+                  {accountInitials}
+                </span>
+                <span>Account</span>
+              </a>
+            ) : (
+              <>
+                <a className="auth-link" href={`/account?mode=signin&next=${accountNext}`}>
+                  Sign in
+                </a>
+                <a className="auth-button" href={`/register?next=${accountNext}`}>
+                  Sign up
+                </a>
+              </>
+            )}
             <details className="mobile-menu">
               <summary aria-label="Open menu">
                 <Menu className="mobile-menu__icon-open" size={18} />
@@ -63,13 +86,22 @@ export default function HomePage() {
                   ))}
                 </nav>
                 <div className="mobile-menu__actions">
-                  <a className="mobile-menu__primary" href="/contact">
-                    Contact
-                    <ArrowRight size={15} />
-                  </a>
-                  <a className="mobile-menu__secondary" href="#blog">
-                    Read Blog
-                  </a>
+                  {accountSession ? (
+                    <a className="mobile-menu__primary" href={accountNextPath}>
+                      <UserRound size={15} />
+                      Account
+                    </a>
+                  ) : (
+                    <>
+                      <a className="mobile-menu__primary" href={`/register?next=${accountNext}`}>
+                        Sign up
+                        <ArrowRight size={15} />
+                      </a>
+                      <a className="mobile-menu__secondary" href={`/account?mode=signin&next=${accountNext}`}>
+                        Sign in
+                      </a>
+                    </>
+                  )}
                 </div>
               </div>
             </details>
@@ -220,6 +252,17 @@ export default function HomePage() {
   );
 }
 
+function homeAccountInitials(displayName?: string | null, email?: string | null) {
+  const source = displayName?.trim() || email?.trim() || "Z";
+
+  return source
+    .split(/\s+|@/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
 function getStripeLandingCss() {
   return `
     :root {
@@ -334,7 +377,9 @@ function getStripeLandingCss() {
       gap: 8px;
     }
 
-    .contact-button {
+    .auth-link,
+    .auth-button,
+    .account-button {
       min-height: 40px;
       position: relative;
       display: inline-flex;
@@ -348,7 +393,15 @@ function getStripeLandingCss() {
       transition: transform 160ms ease, background 160ms ease, box-shadow 160ms ease, border-color 160ms ease, color 160ms ease;
     }
 
-    .contact-button {
+    .auth-link {
+      gap: 7px;
+      border: 1px solid rgba(8, 122, 70, 0.22);
+      background: rgba(255, 255, 255, 0.84);
+      color: var(--green);
+    }
+
+    .auth-button,
+    .account-button--signed {
       gap: 8px;
       border: 1px solid var(--green);
       background: var(--green);
@@ -356,43 +409,67 @@ function getStripeLandingCss() {
       box-shadow: 0 12px 28px rgba(8, 122, 70, 0.22);
     }
 
-    .zider-stripe a.contact-button,
+    .account-button__avatar {
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      color: #ffffff;
+      font-size: 11px;
+      font-weight: 820;
+      line-height: 1;
+    }
+
+    .zider-stripe a.auth-button,
+    .zider-stripe a.account-button--signed,
     .zider-stripe a.primary-button {
       color: #ffffff !important;
     }
 
-    .zider-stripe a.contact-button svg,
+    .zider-stripe a.auth-button svg,
+    .zider-stripe a.account-button--signed svg,
     .zider-stripe a.primary-button svg {
       color: #ffffff;
     }
 
+    .zider-stripe a.auth-link,
     .zider-stripe a.secondary-button {
       color: var(--green) !important;
     }
 
-    .contact-button:hover {
+    .auth-link:hover,
+    .auth-button:hover,
+    .account-button:hover {
       transform: translateY(-1px);
     }
 
-    .contact-button:hover,
+    .auth-button:hover,
+    .account-button--signed:hover,
     .primary-button:hover {
       background: #069456;
       border-color: #069456;
     }
 
+    .auth-link:hover,
     .secondary-button:hover {
       border-color: rgba(8, 122, 70, 0.42);
       background: rgba(223, 247, 234, 0.48);
       box-shadow: 0 12px 26px rgba(8, 122, 70, 0.08);
     }
 
-    .contact-button:active,
+    .auth-link:active,
+    .auth-button:active,
+    .account-button:active,
     .primary-button:active,
     .secondary-button:active {
       transform: translateY(0) scale(0.98);
     }
 
-    .contact-button:focus-visible,
+    .auth-link:focus-visible,
+    .auth-button:focus-visible,
+    .account-button:focus-visible,
     .primary-button:focus-visible,
     .secondary-button:focus-visible {
       outline: 3px solid rgba(19, 183, 122, 0.28);
@@ -727,7 +804,9 @@ function getStripeLandingCss() {
       transform: translateY(-2px);
     }
 
-    .contact-button:active,
+    .auth-link:active,
+    .auth-button:active,
+    .account-button:active,
     .primary-button:active,
     .secondary-button:active {
       transform: translateY(0) scale(0.98);
@@ -1547,7 +1626,9 @@ function getStripeLandingCss() {
         gap: 6px;
       }
 
-      .contact-button {
+      .auth-link,
+      .auth-button,
+      .account-button {
         min-height: 36px;
         border-radius: 5px;
         padding: 0 10px;
@@ -1762,9 +1843,15 @@ function getStripeLandingCss() {
         width: 78px;
       }
 
-      .contact-button {
+      .auth-link,
+      .auth-button,
+      .account-button {
         min-height: 34px;
         padding: 0 9px;
+      }
+
+      .header-actions > .auth-link {
+        display: none;
       }
 
       .mobile-menu summary {

@@ -155,10 +155,12 @@ Historical P0 backfill:
 6. PrintOps resolves `instanceId`.
 7. PrintOps exchanges `instanceId` for a Wix access token.
 8. PrintOps fetches Wix site properties and upserts `printops_store_profiles`.
-9. User clicks `Sync latest` or `Sync last 7 days`.
-10. PrintOps searches Wix orders by `updatedDate`.
-11. PrintOps upserts normalized orders into `printops_orders`.
-12. PrintOps returns normalized orders, line items, SKU, item options, and custom fields for invoice rendering.
+9. PrintOps creates or resolves the isolated workspace/app context for this Wix instance.
+10. Merchant enters PrintOps without a required Zider Account login.
+11. User clicks `Sync latest` or `Sync last 7 days`.
+12. PrintOps searches Wix orders by `updatedDate`.
+13. PrintOps upserts normalized orders into `printops_orders`.
+14. PrintOps returns normalized orders, line items, SKU, item options, and custom fields for invoice rendering.
 
 Store profile cache:
 
@@ -191,23 +193,31 @@ Store profile cache:
 Account and workspace identity:
 
 - P0 does not create a separate PrintOps username/password login for Wix merchants.
+- Wix installation is the first-class P0 entry point. It creates or resolves an
+  isolated PrintOps workspace/app context for the current Wix `instance_id`.
 - The dashboard session is identified by the signed Wix `instance` and the resolved
   `instance_id`.
 - Data isolation uses `app_key + platform + instance_id`; these values are the
-  primary boundary for orders, templates, and store profile reads.
+  current primary boundary for orders, templates, and store profile reads.
 - `printops_store_profiles` is the workspace display source after installation.
   The top-right account area should prefer `business_name`, `site_url`, logo, locale,
   timezone, and currency from this cache.
 - Wix site or business profile values are workspace/store identity, not personal user
   identity. If Wix later exposes the current dashboard operator, use it only for
   audit metadata such as `updated_by` or activity logs.
+- When account-level features are needed, prompt the merchant to claim the workspace
+  with Google or email OTP. Do not block the base Wix app flow on this claim.
+- Claiming or merging into an existing Zider Account must use an explicit
+  `account_link_intent`; matching email, domain, site name, or Wix owner id is only
+  a hint and must not merge accounts by itself.
 - If `business_name` is missing, display `ZIDER` as the fallback workspace name.
   If `site_url` is missing, display `https://www.zider.ink/` as the fallback scope.
 - Merchant template overrides always win over store profile defaults. Updating the
   cached profile must not overwrite a merchant-edited template field after the first
   default application.
-- Future Zider account support can map `instance_id` to `workspace_id`, `store_id`,
-  and user memberships, but Wix app access remains valid through the app installation.
+- Future explicit workspace tables should map `instance_id` to `workspace_id`,
+  `store_id`, and user memberships. Wix app access remains valid through the app
+  installation even before the merchant claims a Zider Account.
 
 Billing lifecycle:
 
