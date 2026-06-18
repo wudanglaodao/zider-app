@@ -33,8 +33,14 @@ export async function getAccountActionOrigin() {
 function accountOriginFromParts(parts: OriginParts) {
   const configuredOrigin = normalizeOrigin(process.env.NEXT_PUBLIC_SITE_URL || process.env.SITE_URL);
   const vercelProductionOrigin = normalizeOrigin(process.env.VERCEL_PROJECT_PRODUCTION_URL);
+  const requestOrigin = originFromHost(parts.forwardedHost || parts.host, parts.forwardedProto)
+    || normalizeOrigin(parts.requestOrigin);
 
   if (process.env.NODE_ENV === "production") {
+    if (requestOrigin && !isLocalOrigin(requestOrigin) && !isVercelAppOrigin(requestOrigin)) {
+      return requestOrigin;
+    }
+
     if (configuredOrigin && !isLocalOrigin(configuredOrigin)) {
       return configuredOrigin;
     }
@@ -46,9 +52,8 @@ function accountOriginFromParts(parts: OriginParts) {
     return productionSiteOrigin;
   }
 
-  return originFromHost(parts.forwardedHost || parts.host, parts.forwardedProto)
+  return requestOrigin
     || configuredOrigin
-    || normalizeOrigin(parts.requestOrigin)
     || localSiteOrigin;
 }
 
