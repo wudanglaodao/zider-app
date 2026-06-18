@@ -1,11 +1,16 @@
 import type { ReactNode } from "react";
-import { ArrowRight, Menu, X } from "lucide-react";
+import { ArrowRight, LogOut, Menu, Settings, X } from "lucide-react";
+
+import { signOutAction } from "@/app/account/actions";
+import { isAccountAuthConfigured } from "@/lib/account/auth";
+import { getAccountSession } from "@/lib/account/session";
 
 const ziderLogoUrl = "https://assets.lopuo.com/app/zider/uploads/2024/07/zider-def.png";
 
 const navLinks = [
   { href: "/blog", label: "Blog" },
   { href: "/forum", label: "Forum" },
+  { href: "/contact", label: "Contact" },
 ];
 
 const footerLinks = [
@@ -13,6 +18,7 @@ const footerLinks = [
   { href: "/forum", label: "Forum" },
   { href: "/contact", label: "Contact" },
   { href: "/privacy", label: "Privacy" },
+  { href: "/terms", label: "Terms" },
 ];
 
 export function PublicPage({ children }: { children: ReactNode }) {
@@ -26,7 +32,13 @@ export function PublicPage({ children }: { children: ReactNode }) {
   );
 }
 
-export function PublicHeader() {
+export async function PublicHeader() {
+  const accountSession = isAccountAuthConfigured() ? await getAccountSession() : null;
+  const accountNextPath = "/account/center";
+  const accountNext = encodeURIComponent(accountNextPath);
+  const accountInitials = publicAccountInitials(accountSession?.user.displayName, accountSession?.user.email);
+  const accountName = publicAccountName(accountSession?.user.displayName, accountSession?.user.email);
+
   return (
     <header className="publicHeader" aria-label="ZIDER website navigation">
       <div className="publicHeaderInner">
@@ -43,9 +55,47 @@ export function PublicHeader() {
         </nav>
 
         <div className="publicActions">
-          <a className="publicContactButton" href="/contact">
-            Contact
-          </a>
+          {accountSession ? (
+            <details className="publicAccountMenu">
+              <summary className="publicAccountButton" aria-label="Open account menu">
+                <span className="publicAccountAvatar" aria-hidden="true">
+                  {accountInitials}
+                </span>
+              </summary>
+              <div className="publicAccountPanel" aria-label="Account menu">
+                <div className="publicAccountSummary">
+                  <span className="publicAccountPanelAvatar" aria-hidden="true">
+                    {accountInitials}
+                  </span>
+                  <span>
+                    <strong>{accountName}</strong>
+                    <small>{accountSession.user.email}</small>
+                  </span>
+                </div>
+                <div className="publicAccountPanelActions">
+                  <a href={accountNextPath}>
+                    <Settings size={16} />
+                    Account Settings
+                  </a>
+                  <form action={signOutAction}>
+                    <button type="submit">
+                      <LogOut size={16} />
+                      Sign out
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </details>
+          ) : (
+            <>
+              <a className="publicAuthLink" href={`/account?mode=signin&next=${accountNext}`}>
+                Sign in
+              </a>
+              <a className="publicAuthButton" href={`/register?next=${accountNext}`}>
+                Sign up
+              </a>
+            </>
+          )}
           <details className="publicMobileMenu">
             <summary aria-label="Open menu">
               <Menu className="publicMobileOpen" size={18} />
@@ -63,16 +113,59 @@ export function PublicHeader() {
                   </a>
                 ))}
               </nav>
-              <a className="publicMobileContact" href="/contact">
-                Contact
-                <ArrowRight size={15} />
-              </a>
+              <div className="publicMobileActions">
+                {accountSession ? (
+                  <>
+                    <a className="publicMobilePrimary" href={accountNextPath}>
+                      <Settings size={15} />
+                      Account
+                    </a>
+                    <form action={signOutAction}>
+                      <button className="publicMobileSecondary" type="submit">
+                        <LogOut size={15} />
+                        Sign out
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  <>
+                    <a className="publicMobilePrimary" href={`/register?next=${accountNext}`}>
+                      Sign up
+                      <ArrowRight size={15} />
+                    </a>
+                    <a className="publicMobileSecondary" href={`/account?mode=signin&next=${accountNext}`}>
+                      Sign in
+                    </a>
+                  </>
+                )}
+              </div>
             </div>
           </details>
         </div>
       </div>
     </header>
   );
+}
+
+function publicAccountInitials(displayName?: string | null, email?: string | null) {
+  const source = displayName?.trim() || email?.trim() || "Z";
+
+  return source
+    .split(/\s+|@/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
+function publicAccountName(displayName?: string | null, email?: string | null) {
+  const trimmedName = displayName?.trim();
+  if (trimmedName) {
+    return trimmedName;
+  }
+
+  const emailName = email?.split("@")[0]?.trim();
+  return emailName || "ZIDER account";
 }
 
 export function PublicFooter() {
@@ -172,29 +265,189 @@ function getPublicChromeCss() {
       gap: 8px;
     }
 
-    .publicContactButton,
-    .publicMobileContact {
+    .publicAuthLink,
+    .publicAuthButton,
+    .publicAccountButton {
       min-height: 40px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      border: 1px solid var(--zider-green);
       border-radius: 5px;
-      background: var(--zider-green);
-      color: #ffffff;
       padding: 0 18px;
       font-size: 14px;
       font-weight: 700;
-      box-shadow: 0 14px 30px rgba(8, 122, 70, 0.16);
-      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
     }
 
-    .publicContactButton:hover,
-    .publicMobileContact:hover {
+    .publicAuthLink {
+      border: 1px solid rgba(8, 122, 70, 0.22);
+      background: rgba(255, 255, 255, 0.86);
+      color: var(--zider-green);
+    }
+
+    .publicAuthButton,
+    .publicAccountButton {
+      border: 1px solid var(--zider-green);
+      background: var(--zider-green);
+      color: #ffffff;
+      box-shadow: 0 14px 30px rgba(8, 122, 70, 0.16);
+    }
+
+    .publicAccountButton {
+      width: 44px;
+      min-height: 44px;
+      border-radius: 999px;
+      padding: 0;
+    }
+
+    .publicAuthButton:hover,
+    .publicAccountButton:hover {
       background: #069456;
       border-color: #069456;
       transform: translateY(-1px);
+    }
+
+    .publicAuthLink:hover {
+      border-color: rgba(8, 122, 70, 0.42);
+      background: rgba(223, 247, 234, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .publicAccountMenu {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .publicAccountMenu summary {
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .publicAccountMenu summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .publicAccountAvatar {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 820;
+      line-height: 1;
+    }
+
+    .publicAccountPanel {
+      width: 260px;
+      position: absolute;
+      top: calc(100% + 12px);
+      right: 0;
+      z-index: 80;
+      border: 1px solid rgba(8, 122, 70, 0.16);
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 24px 60px rgba(10, 37, 64, 0.14);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity 150ms ease, transform 150ms ease, visibility 150ms ease;
+      overflow: hidden;
+    }
+
+    .publicAccountPanel::before {
+      content: "";
+      position: absolute;
+      inset: -14px 0 auto;
+      height: 14px;
+    }
+
+    .publicAccountMenu:hover .publicAccountPanel,
+    .publicAccountMenu[open] .publicAccountPanel,
+    .publicAccountMenu:focus-within .publicAccountPanel {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .publicAccountSummary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .publicAccountPanelAvatar {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: rgba(8, 122, 70, 0.1);
+      color: var(--zider-green);
+      font-size: 14px;
+      font-weight: 820;
+    }
+
+    .publicAccountSummary span:last-child {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+    }
+
+    .publicAccountSummary strong {
+      color: var(--zider-ink);
+      font-size: 14px;
+      line-height: 1.2;
+      font-weight: 760;
+    }
+
+    .publicAccountSummary small {
+      color: var(--zider-muted);
+      font-size: 12px;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .publicAccountPanelActions {
+      display: grid;
+      gap: 2px;
+      border-top: 1px solid rgba(217, 228, 236, 0.68);
+      padding: 8px;
+    }
+
+    .publicAccountPanelActions a,
+    .publicAccountPanelActions button {
+      width: 100%;
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--zider-ink);
+      padding: 0 10px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 650;
+      text-align: left;
+      cursor: pointer;
+      transition: background 150ms ease, color 150ms ease;
+    }
+
+    .publicAccountPanelActions a:hover,
+    .publicAccountPanelActions button:hover {
+      background: rgba(223, 247, 234, 0.58);
+      color: var(--zider-green);
     }
 
     .publicMobileMenu {
@@ -267,8 +520,54 @@ function getPublicChromeCss() {
       color: var(--zider-green);
     }
 
-    .publicMobileContact {
+    .publicMobileActions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
       margin-top: auto;
+      padding-top: 42px;
+    }
+
+    .publicMobilePrimary,
+    .publicMobileSecondary {
+      width: 100%;
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      border-radius: 5px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease;
+    }
+
+    .publicMobilePrimary {
+      border: 1px solid var(--zider-green);
+      background: var(--zider-green);
+      color: #ffffff;
+      box-shadow: 0 14px 28px rgba(8, 122, 70, 0.16);
+    }
+
+    .publicMobileSecondary {
+      border: 1px solid rgba(8, 122, 70, 0.22);
+      background: #ffffff;
+      color: var(--zider-green);
+    }
+
+    button.publicMobileSecondary {
+      font: inherit;
+    }
+
+    .publicMobilePrimary:hover {
+      background: #069456;
+      border-color: #069456;
+    }
+
+    .publicMobileSecondary:hover {
+      border-color: rgba(8, 122, 70, 0.42);
+      background: rgba(223, 247, 234, 0.48);
     }
 
     .publicFooter {

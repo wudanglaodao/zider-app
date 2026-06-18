@@ -171,7 +171,18 @@ export function AccountAuthPage({
                 <span>Verification code</span>
                 <div className="codeField">
                   <KeyRound size={18} />
-                  <input autoComplete="one-time-code" inputMode="numeric" name="code" onChange={(event) => setCode(event.target.value)} placeholder="6-digit code" required type="text" value={code} />
+                  <input
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    maxLength={6}
+                    name="code"
+                    onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
+                    pattern="\d{6}"
+                    placeholder="6-digit code"
+                    required
+                    type="text"
+                    value={code}
+                  />
                   <SendCodeButton codeAction={copy.codeAction} disabled={!isConfigured || !email.trim()} />
                 </div>
               </label>

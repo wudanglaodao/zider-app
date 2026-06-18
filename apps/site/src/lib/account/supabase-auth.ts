@@ -105,6 +105,18 @@ export function displayNameFromSupabaseUser(user: User, fallbackName = "") {
   return metadataName || fallbackName.trim() || user.email?.split("@")[0] || null;
 }
 
+export function avatarUrlFromSupabaseUser(user: User) {
+  const metadata = user.user_metadata ?? {};
+
+  return (
+    stringMetadata(metadata.avatar_url) ||
+    stringMetadata(metadata.picture) ||
+    stringMetadata(metadata.photo_url) ||
+    stringMetadata(metadata.image_url) ||
+    null
+  );
+}
+
 function stringMetadata(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : "";
 }

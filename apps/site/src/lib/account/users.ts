@@ -11,6 +11,7 @@ export type ZiderUserRole = "admin" | "editor" | "member";
 export type ZiderUserStatus = "active" | "disabled";
 
 export type ZiderUser = {
+  avatarUrl: string | null;
   id: string;
   email: string;
   displayName: string | null;
@@ -22,6 +23,7 @@ export type ZiderUser = {
 };
 
 type ZiderUserRow = {
+  avatar_url: string | null;
   created_at: string;
   display_name: string | null;
   email: string;
@@ -35,6 +37,7 @@ type ZiderUserRow = {
 const ziderUserSelect = `
   id,
   email,
+  avatar_url,
   display_name,
   role,
   status,
@@ -76,9 +79,11 @@ export async function getZiderUserByEmail(email: string) {
 }
 
 export async function createOrUpdateZiderUserFromEmail({
+  avatarUrl,
   displayName,
   email,
 }: {
+  avatarUrl?: string | null;
   displayName?: string | null;
   email: string;
 }) {
@@ -90,17 +95,30 @@ export async function createOrUpdateZiderUserFromEmail({
 
   const existingUser = await getZiderUserByEmail(normalizedEmail);
   const nextDisplayName = displayName?.trim() || existingUser?.displayName || normalizedEmail.split("@")[0] || null;
+  const nextAvatarUrl = avatarUrl?.trim() || existingUser?.avatarUrl || null;
 
   if (existingUser) {
+    const updates: {
+      avatar_url?: string | null;
+      display_name?: string;
+      updated_at?: string;
+    } = {};
+
     if (nextDisplayName && nextDisplayName !== existingUser.displayName) {
+      updates.display_name = nextDisplayName;
+    }
+
+    if (nextAvatarUrl && nextAvatarUrl !== existingUser.avatarUrl) {
+      updates.avatar_url = nextAvatarUrl;
+    }
+
+    if (Object.keys(updates).length > 0) {
       const supabase = getSupabaseAdmin();
       const now = new Date().toISOString();
+      updates.updated_at = now;
       const { data, error } = await supabase
         .from("zider_users")
-        .update({
-          display_name: nextDisplayName,
-          updated_at: now,
-        })
+        .update(updates)
         .eq("id", existingUser.id)
         .select(ziderUserSelect)
         .single<ZiderUserRow>();
@@ -120,6 +138,7 @@ export async function createOrUpdateZiderUserFromEmail({
   const { data, error } = await supabase
     .from("zider_users")
     .insert({
+      avatar_url: nextAvatarUrl,
       display_name: nextDisplayName,
       email: normalizedEmail,
       password_hash: await hashPassword(`email-code:${randomBytes(24).toString("base64url")}`),
@@ -132,6 +151,38 @@ export async function createOrUpdateZiderUserFromEmail({
 
   if (error) {
     throw new Error(`Failed to create account user: ${error.message}`);
+  }
+
+  return mapZiderUser(data);
+}
+
+export async function updateZiderUserDisplayName({
+  displayName,
+  id,
+}: {
+  displayName: string;
+  id: string;
+}) {
+  const nextDisplayName = displayName.trim();
+
+  if (!nextDisplayName) {
+    return null;
+  }
+
+  const supabase = getSupabaseAdmin();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("zider_users")
+    .update({
+      display_name: nextDisplayName,
+      updated_at: now,
+    })
+    .eq("id", id)
+    .select(ziderUserSelect)
+    .single<ZiderUserRow>();
+
+  if (error) {
+    throw new Error(`Failed to update account profile: ${error.message}`);
   }
 
   return mapZiderUser(data);
@@ -169,6 +220,7 @@ export function normalizeEmail(value: string) {
 
 function mapZiderUser(row: ZiderUserRow): ZiderUser {
   return {
+    avatarUrl: row.avatar_url,
     createdAt: row.created_at,
     displayName: row.display_name,
     email: row.email,

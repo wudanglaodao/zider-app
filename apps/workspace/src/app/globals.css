@@ -118,6 +118,157 @@ a {
   max-width: 640px;
 }
 
+.printOpsAccessShell {
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(8, 122, 70, 0.055) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(8, 122, 70, 0.045) 1px, transparent 1px),
+    #f7faf7;
+  background-size: 52px 52px;
+  padding: 28px;
+}
+
+.printOpsAccessHeader {
+  max-width: 1180px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 0 auto;
+  padding: 14px 0;
+}
+
+.printOpsAccessBrand {
+  display: inline-flex;
+  align-items: center;
+}
+
+.printOpsAccessBrand img {
+  width: 112px;
+  height: auto;
+  display: block;
+}
+
+.printOpsAccessNav,
+.printOpsAccessActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.printOpsAccessNav a,
+.printOpsAccessPrimary,
+.printOpsAccessSecondary {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(8, 122, 70, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #123226;
+  font-weight: 850;
+  padding: 0 18px;
+}
+
+.printOpsAccessNav .isPrimary,
+.printOpsAccessPrimary {
+  border-color: var(--zider-green);
+  background: var(--zider-green);
+  color: #fff;
+  box-shadow: 0 18px 44px rgba(8, 122, 70, 0.2);
+}
+
+.printOpsAccessHero {
+  max-width: 1180px;
+  min-height: min(720px, calc(100vh - 116px));
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(360px, 0.72fr);
+  align-items: center;
+  gap: 56px;
+  margin: 0 auto;
+  padding: 54px 0 44px;
+}
+
+.printOpsAccessCopy {
+  display: grid;
+  gap: 22px;
+}
+
+.printOpsAccessEyebrow {
+  margin: 0;
+  color: var(--zider-green);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.printOpsAccessCopy h1 {
+  max-width: 720px;
+  margin: 0;
+  color: #101915;
+  font-size: clamp(46px, 7vw, 82px);
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 0.95;
+}
+
+.printOpsAccessCopy p {
+  max-width: 640px;
+  margin: 0;
+  color: #53665c;
+  font-size: 19px;
+  line-height: 1.58;
+}
+
+.printOpsAccessCard {
+  display: grid;
+  gap: 12px;
+  border: 1px solid rgba(8, 122, 70, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 28px 72px rgba(22, 36, 29, 0.14);
+  padding: 18px;
+}
+
+.printOpsAccessCard div {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 4px 14px;
+  border: 1px solid #dce8e1;
+  border-radius: 8px;
+  background: #fbfdfb;
+  padding: 16px;
+}
+
+.printOpsAccessCard span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  border-radius: 50%;
+  background: #e8f4ed;
+  color: var(--zider-green);
+  font-weight: 950;
+}
+
+.printOpsAccessCard strong {
+  color: #101915;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.printOpsAccessCard p {
+  margin: 0;
+  color: #64766d;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 .landingTopbar {
   max-width: 1180px;
   display: flex;
@@ -481,6 +632,41 @@ a {
 
   .landingShell {
     padding: 18px;
+  }
+
+  .printOpsAccessShell {
+    padding: 18px;
+  }
+
+  .printOpsAccessHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .printOpsAccessNav,
+  .printOpsAccessActions {
+    width: 100%;
+  }
+
+  .printOpsAccessNav a,
+  .printOpsAccessPrimary,
+  .printOpsAccessSecondary {
+    flex: 1 1 160px;
+  }
+
+  .printOpsAccessHero {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 28px;
+    padding: 34px 0;
+  }
+
+  .printOpsAccessCopy h1 {
+    font-size: clamp(42px, 13vw, 62px);
+  }
+
+  .printOpsAccessCard {
+    padding: 12px;
   }
 
   .landingTopbar {

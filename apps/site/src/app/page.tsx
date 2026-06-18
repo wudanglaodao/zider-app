@@ -1,5 +1,6 @@
-import { ArrowRight, Menu, UserRound, X } from "lucide-react";
+import { ArrowRight, LogOut, Menu, Settings, UserRound, X } from "lucide-react";
 
+import { signOutAction } from "@/app/account/actions";
 import { isAccountAuthConfigured } from "@/lib/account/auth";
 import { getAccountSession } from "@/lib/account/session";
 
@@ -24,6 +25,7 @@ const footerLinks = [
   { href: "/forum", label: "Forum" },
   { href: "/contact", label: "Contact" },
   { href: "/privacy", label: "Privacy" },
+  { href: "/terms", label: "Terms" },
 ];
 
 export default async function HomePage() {
@@ -31,6 +33,7 @@ export default async function HomePage() {
   const accountNextPath = "/account/center";
   const accountNext = encodeURIComponent(accountNextPath);
   const accountInitials = homeAccountInitials(accountSession?.user.displayName, accountSession?.user.email);
+  const accountName = homeAccountName(accountSession?.user.displayName, accountSession?.user.email);
 
   return (
     <main className="zider-stripe">
@@ -52,12 +55,36 @@ export default async function HomePage() {
 
           <div className="header-actions">
             {accountSession ? (
-              <a className="account-button account-button--signed" href={accountNextPath}>
-                <span className="account-button__avatar" aria-hidden="true">
-                  {accountInitials}
-                </span>
-                <span>Account</span>
-              </a>
+              <details className="account-menu">
+                <summary className="account-button account-button--signed" aria-label="Open account menu">
+                  <span className="account-button__avatar" aria-hidden="true">
+                    {accountInitials}
+                  </span>
+                </summary>
+                <div className="account-menu__panel" aria-label="Account menu">
+                  <div className="account-menu__summary">
+                    <span className="account-menu__avatar" aria-hidden="true">
+                      {accountInitials}
+                    </span>
+                    <span>
+                      <strong>{accountName}</strong>
+                      <small>{accountSession.user.email}</small>
+                    </span>
+                  </div>
+                  <div className="account-menu__actions">
+                    <a href={accountNextPath}>
+                      <Settings size={16} />
+                      Account Settings
+                    </a>
+                    <form action={signOutAction}>
+                      <button type="submit">
+                        <LogOut size={16} />
+                        Sign out
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </details>
             ) : (
               <>
                 <a className="auth-link" href={`/account?mode=signin&next=${accountNext}`}>
@@ -263,6 +290,16 @@ function homeAccountInitials(displayName?: string | null, email?: string | null)
     .join("");
 }
 
+function homeAccountName(displayName?: string | null, email?: string | null) {
+  const trimmedName = displayName?.trim();
+  if (trimmedName) {
+    return trimmedName;
+  }
+
+  const emailName = email?.split("@")[0]?.trim();
+  return emailName || "ZIDER account";
+}
+
 function getStripeLandingCss() {
   return `
     :root {
@@ -422,10 +459,156 @@ function getStripeLandingCss() {
       line-height: 1;
     }
 
+    .account-menu .account-button--signed {
+      width: 44px;
+      min-height: 44px;
+      border-radius: 999px;
+      padding: 0;
+    }
+
+    .account-menu .account-button__avatar {
+      width: 30px;
+      height: 30px;
+      background: rgba(255, 255, 255, 0.2);
+      font-size: 12px;
+    }
+
+    .account-menu {
+      position: relative;
+      display: inline-flex;
+    }
+
+    .account-menu summary {
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .account-menu summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .account-menu__panel {
+      width: 260px;
+      position: absolute;
+      top: calc(100% + 12px);
+      right: 0;
+      z-index: 80;
+      border: 1px solid rgba(8, 122, 70, 0.16);
+      border-radius: 10px;
+      background: #ffffff;
+      box-shadow: 0 24px 60px rgba(10, 37, 64, 0.14);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-4px);
+      transition: opacity 150ms ease, transform 150ms ease, visibility 150ms ease;
+      overflow: hidden;
+    }
+
+    .account-menu__panel::before {
+      content: "";
+      position: absolute;
+      inset: -14px 0 auto;
+      height: 14px;
+    }
+
+    .account-menu:hover .account-menu__panel,
+    .account-menu[open] .account-menu__panel,
+    .account-menu:focus-within .account-menu__panel {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .account-menu__summary {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .account-menu__avatar {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      border-radius: 999px;
+      background: rgba(8, 122, 70, 0.1);
+      color: var(--green);
+      font-size: 14px;
+      font-weight: 820;
+    }
+
+    .account-menu__summary span:last-child {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+    }
+
+    .account-menu__summary strong {
+      color: var(--ink);
+      font-size: 14px;
+      line-height: 1.2;
+      font-weight: 760;
+    }
+
+    .account-menu__summary small {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.25;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .account-menu__actions {
+      display: grid;
+      gap: 2px;
+      border-top: 1px solid var(--line-soft);
+      padding: 8px;
+    }
+
+    .account-menu__actions a,
+    .account-menu__actions button {
+      width: 100%;
+      min-height: 38px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--ink);
+      padding: 0 10px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 650;
+      text-align: left;
+      cursor: pointer;
+      transition: background 150ms ease, color 150ms ease;
+    }
+
+    .account-menu__actions a:hover,
+    .account-menu__actions button:hover {
+      background: rgba(223, 247, 234, 0.58);
+      color: var(--green);
+    }
+
     .zider-stripe a.auth-button,
     .zider-stripe a.account-button--signed,
     .zider-stripe a.primary-button {
       color: #ffffff !important;
+    }
+
+    .zider-stripe a.account-menu__actions,
+    .zider-stripe .account-menu__actions a {
+      color: var(--ink) !important;
+    }
+
+    .zider-stripe .account-menu__actions a:hover {
+      color: var(--green) !important;
     }
 
     .zider-stripe a.auth-button svg,

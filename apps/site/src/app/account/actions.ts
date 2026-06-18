@@ -4,12 +4,18 @@ import { redirect } from "next/navigation";
 
 import { isAccountAuthConfigured } from "@/lib/account/auth";
 import { getAccountActionOrigin } from "@/lib/account/origin";
-import { clearAccountSessionCookie, normalizeAccountNextPath, setAccountSessionCookie } from "@/lib/account/session";
-import { createSupabaseAdminClient, createSupabaseAuthClient, displayNameFromSupabaseUser } from "@/lib/account/supabase-auth";
+import { clearAccountSessionCookie, getAccountSession, normalizeAccountNextPath, setAccountSessionCookie } from "@/lib/account/session";
+import {
+  avatarUrlFromSupabaseUser,
+  createSupabaseAdminClient,
+  createSupabaseAuthClient,
+  displayNameFromSupabaseUser,
+} from "@/lib/account/supabase-auth";
 import {
   createOrUpdateZiderUserFromEmail,
   normalizeEmail,
   touchZiderUserLogin,
+  updateZiderUserDisplayName,
 } from "@/lib/account/users";
 
 type AccountMode = "signin" | "register" | "forgot";
@@ -17,6 +23,35 @@ type AccountMode = "signin" | "register" | "forgot";
 export async function signOutAction() {
   await clearAccountSessionCookie();
   redirect("/account?mode=signin&loggedOut=1");
+}
+
+export async function updateAccountProfileAction(formData: FormData) {
+  const signInPath = `/account?mode=signin&next=${encodeURIComponent("/account/center")}`;
+
+  if (!isAccountAuthConfigured()) {
+    redirect(`${signInPath}&error=config`);
+  }
+
+  const session = await getAccountSession();
+
+  if (!session) {
+    redirect(signInPath);
+  }
+
+  const firstName = stringValue(formData, "firstName").trim();
+  const lastName = stringValue(formData, "lastName").trim();
+  const displayName = [firstName, lastName].filter(Boolean).join(" ").trim();
+
+  if (!displayName) {
+    redirect("/account/center?error=name_required");
+  }
+
+  await updateZiderUserDisplayName({
+    displayName,
+    id: session.user.id,
+  });
+
+  redirect("/account/center?saved=profile");
 }
 
 export async function sendAccountCodeAction(formData: FormData) {
@@ -30,28 +65,22 @@ export async function sendAccountCodeAction(formData: FormData) {
   }
 
   try {
-    // For registration: use Admin API to create user directly (avoids email dependency)
+    // For registration: create the Supabase user first, then send the same OTP email used by sign-in.
     if (mode === "register") {
       const admin = createSupabaseAdminClient();
+      const normalizedEmail = normalizeEmail(email);
       const { error: createError } = await admin.auth.admin.createUser({
-        email: normalizeEmail(email),
+        email: normalizedEmail,
         email_confirm: true,
         password: crypto.randomUUID(),
         user_metadata: displayName.trim() ? { full_name: displayName.trim() } : undefined,
       });
 
-      if (createError) throw createError;
-
-      redirect(
-        accountRedirectPath("signin", {
-          email,
-          nextPath,
-          sent: true,
-        }),
-      );
+      if (createError && !isSupabaseUserAlreadyExistsError(createError)) {
+        throw createError;
+      }
     }
 
-    // Sign-in/forgot: send OTP
     const supabase = createSupabaseAuthClient();
     const { error } = await supabase.auth.signInWithOtp({
       email: normalizeEmail(email),
@@ -105,6 +134,7 @@ export async function verifyAccountCodeAction(formData: FormData) {
   }
 
   const user = await createOrUpdateZiderUserFromEmail({
+    avatarUrl: avatarUrlFromSupabaseUser(data.user),
     displayName: displayNameFromSupabaseUser(data.user, displayName),
     email: data.user.email,
   });
@@ -127,6 +157,12 @@ function accountModeValue(formData: FormData): AccountMode {
   const mode = stringValue(formData, "mode");
 
   return mode === "register" || mode === "forgot" ? mode : "signin";
+}
+
+function isSupabaseUserAlreadyExistsError(error: { message?: string; status?: number }) {
+  const message = error.message?.toLowerCase() ?? "";
+
+  return error.status === 422 && (message.includes("already") || message.includes("registered"));
 }
 
 function accountRedirectPath(

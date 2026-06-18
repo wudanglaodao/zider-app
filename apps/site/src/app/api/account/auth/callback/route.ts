@@ -8,6 +8,7 @@ import {
 import { getAccountRequestOrigin } from "@/lib/account/origin";
 import { normalizeAccountNextPath } from "@/lib/account/session";
 import {
+  avatarUrlFromSupabaseUser,
   createOAuthStorage,
   createSupabaseAuthClient,
   decodeOAuthStorage,
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await createOrUpdateZiderUserFromEmail({
+      avatarUrl: avatarUrlFromSupabaseUser(supabaseUser),
       displayName: displayNameFromSupabaseUser(supabaseUser),
       email: supabaseUser.email,
     });
