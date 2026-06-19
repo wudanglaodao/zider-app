@@ -1,8 +1,9 @@
 import { ArrowRight, LogOut, Menu, Settings, UserRound, X } from "lucide-react";
+import { redirect } from "next/navigation";
 
 import { signOutAction } from "@/app/account/actions";
 import { isAccountAuthConfigured } from "@/lib/account/auth";
-import { getAccountSession } from "@/lib/account/session";
+import { getAccountSession, normalizeAccountNextPath } from "@/lib/account/session";
 
 const ziderLogoUrl = "https://assets.lopuo.com/app/zider/uploads/2024/07/zider-def.png";
 
@@ -28,7 +29,14 @@ const footerLinks = [
   { href: "/terms", label: "Terms" },
 ];
 
-export default async function HomePage() {
+type HomePageProps = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function HomePage({ searchParams }: HomePageProps) {
+  const params = (await searchParams) ?? {};
+  redirectSupabaseCallbackFromHome(params);
+
   const accountSession = isAccountAuthConfigured() ? await getAccountSession() : null;
   const accountNextPath = "/account/center";
   const accountNext = encodeURIComponent(accountNextPath);
@@ -298,6 +306,43 @@ function homeAccountName(displayName?: string | null, email?: string | null) {
 
   const emailName = email?.split("@")[0]?.trim();
   return emailName || "ZIDER account";
+}
+
+function redirectSupabaseCallbackFromHome(params: Record<string, string | string[] | undefined>) {
+  const code = readHomeSearchParam(params.code);
+  const error = readHomeSearchParam(params.error);
+  const tokenHash = readHomeSearchParam(params.token_hash);
+  const otpType = readHomeSearchParam(params.type);
+
+  if (!code && !error && !(tokenHash && otpType)) {
+    return;
+  }
+
+  const callbackParams = new URLSearchParams();
+  const mode = readHomeSearchParam(params.mode);
+  const nextPath = normalizeAccountNextPath(readHomeSearchParam(params.next), "/account/center");
+
+  if (code) {
+    callbackParams.set("code", code);
+  }
+
+  if (error) {
+    callbackParams.set("error", error);
+  }
+
+  if (tokenHash && otpType) {
+    callbackParams.set("token_hash", tokenHash);
+    callbackParams.set("type", otpType);
+  }
+
+  callbackParams.set("mode", mode === "register" || mode === "forgot" ? mode : "signin");
+  callbackParams.set("next", nextPath);
+
+  redirect(`/api/account/auth/callback?${callbackParams.toString()}`);
+}
+
+function readHomeSearchParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
 
 function getStripeLandingCss() {
