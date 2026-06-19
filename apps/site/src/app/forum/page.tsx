@@ -15,10 +15,11 @@ import { PublicPage } from "@/app/_components/PublicChrome";
 import type { CmsEntry } from "@/lib/cms/content";
 import {
   forumCommunitySpace,
-  forumModules,
+  forumModuleGroups,
   getForumEntryModule,
   getForumModuleHref,
   isForumCommunityEntry,
+  type ForumModuleGroup,
   type ForumModule,
 } from "@/lib/cms/forum-modules";
 
@@ -77,10 +78,22 @@ export default async function ForumPage({ searchParams }: ForumPageProps) {
             </div>
           </div>
 
-          <div className="forumModuleList">
-            <ForumModuleCard count={communityCount} module={forumCommunitySpace} />
-            {forumModules.map((module) => (
-              <ForumModuleCard count={moduleCounts.get(module.key) ?? 0} key={module.key} module={module} />
+          <div className="forumSpaceGroups">
+            <section className="forumSpaceGroup" data-group="community" aria-labelledby="forum-space-community">
+              <ForumSpaceGroupHeader
+                countLabel={formatSpaceCount(1)}
+                description="Public notes, posting rules, and shared community updates."
+                id="forum-space-community"
+                label="Announcements"
+                title={forumCommunitySpace.name}
+              />
+              <div className="forumModuleList">
+                <ForumModuleCard count={communityCount} module={forumCommunitySpace} />
+              </div>
+            </section>
+
+            {forumModuleGroups.map((group) => (
+              <ForumModuleGroupSection group={group} key={group.key} moduleCounts={moduleCounts} />
             ))}
           </div>
         </section>
@@ -94,6 +107,56 @@ export default async function ForumPage({ searchParams }: ForumPageProps) {
         </section>
       </main>
     </PublicPage>
+  );
+}
+
+function ForumModuleGroupSection({
+  group,
+  moduleCounts,
+}: {
+  group: ForumModuleGroup;
+  moduleCounts: Map<string, number>;
+}) {
+  return (
+    <section className="forumSpaceGroup" data-group={group.key} aria-labelledby={`forum-space-${group.key}`}>
+      <ForumSpaceGroupHeader
+        countLabel={formatSpaceCount(group.modules.length)}
+        description={group.description}
+        id={`forum-space-${group.key}`}
+        label={group.name}
+        title={group.name}
+      />
+      <div className="forumModuleList">
+        {group.modules.map((module) => (
+          <ForumModuleCard count={moduleCounts.get(module.key) ?? 0} key={module.key} module={module} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ForumSpaceGroupHeader({
+  countLabel,
+  description,
+  id,
+  label,
+  title,
+}: {
+  countLabel: string;
+  description: string;
+  id: string;
+  label: string;
+  title: string;
+}) {
+  return (
+    <div className="forumSpaceGroupHeader">
+      <div>
+        <p>{label}</p>
+        <h2 id={id}>{title}</h2>
+        <span>{description}</span>
+      </div>
+      <small>{countLabel}</small>
+    </div>
   );
 }
 
@@ -129,6 +192,10 @@ function getModuleCounts(entries: CmsEntry[]) {
   }
 
   return counts;
+}
+
+function formatSpaceCount(count: number) {
+  return `${count} ${count === 1 ? "space" : "spaces"}`;
 }
 
 function getContentListCss() {
@@ -347,7 +414,8 @@ function getContentListCss() {
       gap: 24px;
     }
 
-    .forumSectionHeader h2 {
+    .forumSectionHeader h2,
+    .forumSpaceGroupHeader h2 {
       margin: 0;
       color: #0a2540;
       font-size: 24px;
@@ -356,11 +424,71 @@ function getContentListCss() {
       letter-spacing: 0;
     }
 
+    .forumSpaceGroups {
+      display: grid;
+      gap: 26px;
+      margin-top: 12px;
+    }
+
+    .forumSpaceGroup {
+      display: grid;
+      gap: 14px;
+      border-top: 1px solid rgba(10, 37, 64, 0.1);
+      padding-top: 18px;
+    }
+
+    .forumSpaceGroupHeader {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    .forumSpaceGroupHeader p {
+      margin: 0 0 8px;
+      color: var(--zider-green);
+      font-size: 12px;
+      font-weight: 820;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .forumSpaceGroupHeader span {
+      display: block;
+      max-width: 560px;
+      margin-top: 8px;
+      color: var(--zider-muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .forumSpaceGroupHeader > small {
+      min-height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(10, 37, 64, 0.08);
+      border-radius: 999px;
+      background: #ffffff;
+      color: var(--zider-muted);
+      font-size: 11px;
+      font-weight: 760;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      padding: 0 9px;
+      white-space: nowrap;
+    }
+
     .forumModuleList {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 14px;
-      margin-top: 14px;
+      margin-top: 0;
+    }
+
+    .forumSpaceGroup[data-group="community"] .forumModuleList,
+    .forumSpaceGroup[data-group="workspace"] .forumModuleList {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .forumModuleCard {
@@ -727,6 +855,12 @@ function getContentListCss() {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
+      .forumSpaceGroupHeader {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 10px;
+      }
+
       .contentCard {
         grid-template-columns: minmax(0, 1fr);
         gap: 10px;
@@ -761,6 +895,11 @@ function getContentListCss() {
 
     @media (max-width: 560px) {
       .forumModuleList {
+        grid-template-columns: 1fr;
+      }
+
+      .forumSpaceGroup[data-group="community"] .forumModuleList,
+      .forumSpaceGroup[data-group="workspace"] .forumModuleList {
         grid-template-columns: 1fr;
       }
 

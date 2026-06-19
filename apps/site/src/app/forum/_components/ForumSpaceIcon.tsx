@@ -5,6 +5,7 @@ import {
   Gauge,
   Image,
   MessageSquareText,
+  Printer,
   Repeat2,
   ShoppingBag,
   type LucideIcon,
@@ -19,6 +20,7 @@ const iconMap: Record<ForumModuleIconKey, LucideIcon> = {
   gauge: Gauge,
   image: Image,
   "message-square": MessageSquareText,
+  printer: Printer,
   repeat: Repeat2,
   "shopping-bag": ShoppingBag,
 };

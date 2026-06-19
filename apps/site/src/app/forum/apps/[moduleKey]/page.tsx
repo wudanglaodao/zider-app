@@ -10,6 +10,7 @@ import {
   forumCommunitySpace,
   getForumEntryModule,
   getForumModuleBySlug,
+  getForumModuleGroup,
   getForumModuleHref,
   isForumCommunityEntry,
   type ForumModule,
@@ -40,6 +41,7 @@ export default async function ForumModulePage({ params, searchParams }: ForumMod
   }
 
   const isCommunitySpace = module.key === forumCommunitySpace.key;
+  const moduleGroup = getForumModuleGroup(module);
   const entries = await loadModuleEntries(module.key);
   const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
   const currentPage = Math.min(parsePageParam(query.page), totalPages);
@@ -56,6 +58,12 @@ export default async function ForumModulePage({ params, searchParams }: ForumMod
           <span>/</span>
           <a href="/forum">Forum</a>
           <span>/</span>
+          {moduleGroup && !isCommunitySpace ? (
+            <>
+              <strong>{moduleGroup.name}</strong>
+              <span>/</span>
+            </>
+          ) : null}
           <strong>{module.name}</strong>
         </nav>
 
@@ -64,7 +72,7 @@ export default async function ForumModulePage({ params, searchParams }: ForumMod
             <span className="moduleHeroIcon">
               <ForumSpaceIcon icon={module.icon} />
             </span>
-            <p>{isCommunitySpace ? "Public space" : "App module"}</p>
+            <p>{isCommunitySpace ? "Public space" : `${moduleGroup?.name ?? "App"} space`}</p>
           </div>
           <div className="moduleHeroTitle">
             <h1 id="module-title">{module.name}</h1>
