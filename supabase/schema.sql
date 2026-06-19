@@ -22,6 +22,7 @@ create table if not exists public.cms_entries (
 create table if not exists public.zider_users (
   id uuid primary key default gen_random_uuid(),
   email text not null,
+  avatar_url text,
   display_name text,
   password_hash text not null,
   role text not null default 'member' check (role in ('admin', 'editor', 'member')),
