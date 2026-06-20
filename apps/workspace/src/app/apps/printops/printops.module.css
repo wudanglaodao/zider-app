@@ -539,24 +539,51 @@
   outline-offset: 3px;
 }
 
+.profileMenu {
+  position: relative;
+}
+
 .profileButton {
-  min-width: 216px;
+  width: 48px;
+  min-width: 48px;
   height: 48px;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  border: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: transparent;
+  background: var(--surface);
   color: var(--ink);
-  font: inherit;
-  text-align: left;
   cursor: pointer;
+  list-style: none;
+  box-shadow: 0 8px 24px rgba(18, 24, 23, 0.05);
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.profileButton::-webkit-details-marker {
+  display: none;
+}
+
+.profileButton:hover,
+.profileMenu[open] .profileButton {
+  border-color: color-mix(in srgb, var(--green) 48%, var(--line));
+  background: var(--green-soft);
+  box-shadow: 0 12px 28px rgba(7, 128, 75, 0.12);
+  transform: translateY(-1px);
+}
+
+.profileButton:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--green) 24%, transparent);
+  outline-offset: 3px;
 }
 
 .avatar {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -568,29 +595,44 @@
   box-shadow: inset 0 0 0 2px var(--surface);
 }
 
-.profileButton > span:nth-child(2) {
-  min-width: 0;
-  flex: 1;
+.profileMenuPanel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 60;
+  min-width: 180px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: 0 24px 60px rgba(18, 24, 23, 0.14);
 }
 
-.profileButton strong,
-.profileButton small {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.profileMenuItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 820;
+  text-align: left;
+  cursor: pointer;
 }
 
-.profileButton strong {
-  font-size: 14px;
-  line-height: 1.2;
+.profileMenuItem:hover {
+  background: var(--green-soft);
+  color: var(--green-strong);
 }
 
-.profileButton small {
-  margin-top: 2px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 650;
+.profileMenuItem:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--green) 24%, transparent);
+  outline-offset: 2px;
 }
 
 .themeControl {
@@ -3160,25 +3202,9 @@
   width: 0.96em;
   height: 0.96em;
   display: block;
-  background: currentColor;
-  -webkit-mask: var(--social-icon-url) center / contain no-repeat;
-  mask: var(--social-icon-url) center / contain no-repeat;
-}
-
-.orderSocialIcon[data-platform="instagram"] {
-  --social-icon-url: url("/assets/social-icons/instagram.svg");
-}
-
-.orderSocialIcon[data-platform="facebook"] {
-  --social-icon-url: url("/assets/social-icons/facebook.svg");
-}
-
-.orderSocialIcon[data-platform="x"] {
-  --social-icon-url: url("/assets/social-icons/x.svg");
-}
-
-.orderSocialIcon[data-platform="website"] {
-  --social-icon-url: url("/assets/social-icons/website.svg");
+  flex: 0 0 auto;
+  color: currentColor;
+  background: transparent;
 }
 
 .orderHeroHeader,
@@ -3240,6 +3266,16 @@
   width: min(18em, 100%);
   display: block;
   line-height: 1;
+  text-align: right;
+}
+
+.orderHeroLogoSlot .orderClassicLogoText {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.orderHeroLogoSlot .orderClassicLogoImage {
+  object-position: right center;
 }
 
 .orderHeroMeta {
@@ -5392,17 +5428,15 @@
     min-width: 42px;
     width: 42px;
     height: 42px;
-    gap: 0;
   }
 
-  .profileButton > span:nth-child(2),
-  .profileButton > svg {
-    display: none;
+  .profileMenuPanel {
+    min-width: 160px;
   }
 
   .avatar {
-    width: 42px;
-    height: 42px;
+    width: 34px;
+    height: 34px;
   }
 
   .metrics {

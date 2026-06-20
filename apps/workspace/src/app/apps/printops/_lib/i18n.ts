@@ -1,7 +1,8 @@
 export const printLocales = ["en", "es", "de", "ja", "fr", "pt", "zh-Hans", "zh-Hant", "ar", "nl", "it", "ko"] as const;
+export const interfaceLocales = ["en", "zh-Hans", "zh-Hant"] as const;
 
 export type PrintLocale = (typeof printLocales)[number];
-export type SiteLocale = PrintLocale;
+export type SiteLocale = (typeof interfaceLocales)[number];
 
 export type LocalizedText = {
   default: string;
@@ -12,20 +13,11 @@ export const defaultPrintLocale: PrintLocale = "en";
 
 const siteLocaleLabels: Record<SiteLocale, string> = {
   en: "English",
-  es: "Español",
-  de: "Deutsch",
-  ja: "日本語",
-  fr: "Français",
-  pt: "Português",
   "zh-Hans": "简体中文",
   "zh-Hant": "繁體中文",
-  ar: "العربية",
-  nl: "Nederlands",
-  it: "Italiano",
-  ko: "한국어",
 };
 
-export const siteLocaleOptions: { label: string; value: SiteLocale }[] = printLocales.map((value) => ({
+export const siteLocaleOptions: { label: string; value: SiteLocale }[] = interfaceLocales.map((value) => ({
   label: siteLocaleLabels[value],
   value,
 }));
@@ -103,7 +95,7 @@ export function resolveLocalizedText(text: LocalizedText | string, locale: Print
 }
 
 export function isSiteLocale(value: string | null): value is SiteLocale {
-  return isPrintLocale(value);
+  return typeof value === "string" && (interfaceLocales as readonly string[]).includes(value);
 }
 
 export function isPrintLocale(value: string | null): value is PrintLocale {
@@ -236,6 +228,7 @@ export const printopsMessages = {
       previewNote: "Template label language is still controlled inside each template.",
     },
     metrics: {
+      printed: "Printed",
       unprinted: "Unprinted",
       generated: "Generated",
       failed: "Failed",
@@ -607,6 +600,7 @@ export const printopsMessages = {
       previewNote: "模板標籤語言仍在每個模板內單獨控制。",
     },
     metrics: {
+      printed: "已列印",
       unprinted: "未列印",
       generated: "已生成",
       failed: "失敗",

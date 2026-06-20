@@ -14,7 +14,6 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
-  Eye,
   FileText,
   Globe,
   Languages,
@@ -431,6 +430,7 @@ type TemplateDraft = {
 };
 
 const templateStorageKey = "printops-templates-v12";
+const selectedTemplateStorageKey = "printops-selected-template-v1";
 const siteLocaleStorageKey = "printops-site-locale-v1";
 const printLocaleStorageKey = "printops-print-locale-v1";
 const timezoneStorageKey = "printops-timezone-v1";
@@ -1927,8 +1927,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const [cachedOrders, setCachedOrders] = useState<Order[]>([]);
   const [orderSearch, setOrderSearch] = useState("");
   const [orderFilters, setOrderFilters] = useState({
-    last30Days: true,
-    unfulfilled: false,
+    printed: false,
     unprinted: false,
   });
   const [orderCacheStatus, setOrderCacheStatus] = useState<OrderCacheStatus>({
@@ -1979,13 +1978,15 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
     return cachedOrders.filter((order) => {
       const matchesSearch = !normalizedSearch || orderMatchesSearch(order, normalizedSearch);
-      const matchesDate = !orderFilters.last30Days || isOrderWithinLastDays(order, 30);
-      const matchesFulfillment = !orderFilters.unfulfilled || order.fulfillment === "Unfulfilled";
-      const matchesPrint = !orderFilters.unprinted || order.print === "Unprinted";
+      const hasPrintFilter = orderFilters.printed || orderFilters.unprinted;
+      const matchesPrint =
+        !hasPrintFilter ||
+        (orderFilters.printed && order.print === "Printed") ||
+        (orderFilters.unprinted && order.print !== "Printed");
 
-      return matchesSearch && matchesDate && matchesFulfillment && matchesPrint;
+      return matchesSearch && matchesPrint;
     });
-  }, [cachedOrders, orderFilters.last30Days, orderFilters.unfulfilled, orderFilters.unprinted, orderSearch]);
+  }, [cachedOrders, orderFilters.printed, orderFilters.unprinted, orderSearch]);
   const selectedOrders = useMemo(() => displayOrders.filter((order) => selectedIds.includes(order.id)), [displayOrders, selectedIds]);
   const selectedCount = selectedOrders.length;
   const orderMetrics = useMemo(
@@ -2017,7 +2018,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         label: messages.nav.general,
         items: [
           { icon: Settings, label: messages.nav.settings, href: viewLinks.settings, view: "settings", count: "" },
-          { icon: BookOpen, label: messages.nav.help, href: "#", view: "help", count: "" },
+          { icon: BookOpen, label: messages.nav.help, href: "https://zider.ink/forum/apps/printops", view: "help", count: "" },
         ],
       },
     ],
@@ -2061,12 +2062,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       : activeView === "settings"
         ? messages.pages.settingsTitle
         : messages.pages.ordersTitle;
-  const searchLabel =
-    activeView === "templates"
-      ? messages.topbar.searchTemplates
-      : activeView === "settings"
-        ? messages.topbar.searchSettings
-        : messages.topbar.searchOrders;
   const pageDescription =
     activeView === "templates"
       ? messages.pages.templatesDescription
@@ -2074,7 +2069,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         ? messages.pages.settingsDescription
         : messages.pages.ordersDescription;
   const workspaceStoreName = storeProfile?.businessName?.trim() || printOpsSystemBrandName;
-  const workspaceStoreScope = storeProfile?.siteUrl ? getWebsiteDisplay(storeProfile.siteUrl) : printOpsSystemSiteUrl;
   const workspaceStoreInitials = getAvatarInitials(workspaceStoreName);
   const hasUnreadProductUpdates = false;
   const pageMetrics: PageMetric[] =
@@ -2082,8 +2076,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       ? [
           { label: messages.metrics.myTemplates, value: String(templateStats.mine) },
           { label: messages.metrics.builtIn, value: String(templateStats.library) },
-          { label: messages.metrics.ready, value: String(templateStats.ready) },
-          { label: messages.metrics.needsFields, value: String(templateStats.needsFields), tone: "warning" as const },
         ]
       : activeView === "settings"
         ? []
@@ -2115,6 +2107,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     const savedPrintLocale = window.localStorage.getItem(printLocaleStorageKey);
     const savedTimezone = window.localStorage.getItem(timezoneStorageKey);
     const savedAccent = window.localStorage.getItem(workspaceAccentStorageKey);
+    const savedSelectedTemplateId = window.localStorage.getItem(selectedTemplateStorageKey);
 
     if (savedTheme === "dark") {
       setDarkTheme(true);
@@ -2152,6 +2145,10 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
         if (supportedTemplates.length > 0) {
           setTemplateRecords(supportedTemplates);
+
+          if (savedSelectedTemplateId && supportedTemplates.some((templateRecord) => templateRecord.id === savedSelectedTemplateId)) {
+            setSelectedTemplateId(savedSelectedTemplateId);
+          }
         }
       } catch {
         window.localStorage.removeItem(templateStorageKey);
@@ -2202,6 +2199,12 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       window.localStorage.setItem(templateStorageKey, JSON.stringify(templateRecords));
     }
   }, [templateRecords, templatesHydrated]);
+
+  useEffect(() => {
+    if (templatesHydrated) {
+      window.localStorage.setItem(selectedTemplateStorageKey, selectedTemplateId);
+    }
+  }, [selectedTemplateId, templatesHydrated]);
 
   useEffect(() => {
     if (!pluginContext?.instanceId || !pluginContext.storeProfileEndpoint) {
@@ -2271,19 +2274,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       ...currentFilters,
       [filter]: !currentFilters[filter],
     }));
-  }
-
-  function selectOrders(orders: Order[]) {
-    setSelectedIds(orders.map((order) => order.id));
-  }
-
-  function openOrdersPreview(orders: Order[]) {
-    if (orders.length === 0) {
-      return;
-    }
-
-    selectOrders(orders);
-    setDrawerOpen(true);
   }
 
   function requestOrderExport(action: OrderActionRequest["action"], orders: Order[]) {
@@ -2390,16 +2380,33 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   function saveTemplateDraft() {
     const existingTemplate = templateRecords.find((templateRecord) => templateRecord.id === templateDraft.id);
     const savedTemplate = createTemplateRecordFromDraft(templateDraft, templateEditorMode === "edit" ? existingTemplate : undefined);
+    const shouldUseSavedTemplateByDefault = savedTemplate.status === "Ready";
+    const nextSavedTemplate = shouldUseSavedTemplateByDefault ? { ...savedTemplate, isDefault: true } : savedTemplate;
 
     setTemplateRecords((currentTemplates) => {
       if (templateEditorMode === "edit" && existingTemplate) {
-        return currentTemplates.map((templateRecord) => (templateRecord.id === existingTemplate.id ? savedTemplate : templateRecord));
+        return currentTemplates.map((templateRecord) => {
+          if (templateRecord.id === existingTemplate.id) {
+            return nextSavedTemplate;
+          }
+
+          if (shouldUseSavedTemplateByDefault && templateRecord.documentType === savedTemplate.documentType) {
+            return { ...templateRecord, isDefault: false };
+          }
+
+          return templateRecord;
+        });
       }
 
-      return [savedTemplate, ...currentTemplates];
+      return [
+        nextSavedTemplate,
+        ...currentTemplates.map((templateRecord) =>
+          shouldUseSavedTemplateByDefault && templateRecord.documentType === savedTemplate.documentType ? { ...templateRecord, isDefault: false } : templateRecord,
+        ),
+      ];
     });
     setTemplateTab("mine");
-    setSelectedTemplateId(savedTemplate.id);
+    setSelectedTemplateId(nextSavedTemplate.id);
     setTemplateEditorOpen(false);
   }
 
@@ -2630,7 +2637,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       data-sidebar={sidebarCollapsed ? "collapsed" : "expanded"}
       data-accent={workspaceAccent}
       data-theme={darkTheme ? "dark" : "light"}
-      dir={getLocaleDirection(siteLocale)}
+      dir="ltr"
       lang={siteLocale}
     >
       <aside className={styles.sidebar} aria-label="PrintOps">
@@ -2665,6 +2672,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
               {section.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = item.view === activeView;
+                const isExternalLink = item.href.startsWith("http");
+
                 return (
                   <a
                     aria-current={isActive ? "page" : undefined}
@@ -2672,7 +2681,14 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                     data-active={isActive}
                     href={item.href}
                     key={item.label}
+                    rel={isExternalLink ? "noreferrer" : undefined}
+                    target={isExternalLink ? "_blank" : undefined}
                     onClick={(event) => {
+                      if (isExternalLink) {
+                        setMobileSidebarOpen(false);
+                        return;
+                      }
+
                       if (item.view !== "orders" && item.view !== "templates" && item.view !== "settings") {
                         setMobileSidebarOpen(false);
                         return;
@@ -2702,25 +2718,29 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             <button className={styles.mobileMenuButton} type="button" aria-label="Open menu" onClick={() => setMobileSidebarOpen(true)}>
               <MenuIcon size={20} aria-hidden />
             </button>
-            <button className={styles.globalSearch} type="button">
-              <Search size={17} aria-hidden />
-              <span>{searchLabel}</span>
-              <kbd>⌘ K</kbd>
-            </button>
           </div>
           <div className={styles.topbarActions}>
             <button className={styles.roundAction} type="button" aria-label={messages.topbar.notifications} title={messages.topbar.notifications}>
               <BellRing size={18} aria-hidden />
               {hasUnreadProductUpdates ? <span aria-hidden /> : null}
             </button>
-            <button className={styles.profileButton} type="button">
-              <span className={styles.avatar}>{workspaceStoreInitials}</span>
-              <span>
-                <strong>{workspaceStoreName}</strong>
-                <small>{workspaceStoreScope}</small>
-              </span>
-              <ChevronDown size={15} aria-hidden />
-            </button>
+            <details className={styles.profileMenu}>
+              <summary className={styles.profileButton} aria-label={messages.nav.settings} title={messages.nav.settings}>
+                <span className={styles.avatar}>{workspaceStoreInitials}</span>
+              </summary>
+              <div className={styles.profileMenuPanel}>
+                <button
+                  className={styles.profileMenuItem}
+                  type="button"
+                  onClick={() => {
+                    updateWorkspaceView("settings", viewLinks.settings);
+                  }}
+                >
+                  <Settings size={16} aria-hidden />
+                  <span>{messages.nav.settings}</span>
+                </button>
+              </div>
+            </details>
           </div>
         </header>
 
@@ -2781,23 +2801,22 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
               </>
             ) : null}
             <div className={styles.mainGrid}>
-          <section className={styles.ordersPanel}>
-            <div className={styles.filterBar}>
-            <label className={styles.search}>
-              <Search size={17} aria-hidden />
-              <input
-                aria-label="Search orders, customer, or SKU"
-                onChange={(event) => setOrderSearch(event.currentTarget.value)}
-                placeholder="Search orders, customer, SKU"
-                value={orderSearch}
-              />
-            </label>
-              <FilterChip label="30 days" active={orderFilters.last30Days} onClick={() => toggleOrderFilter("last30Days")} />
-              <FilterChip label="Unfulfilled" active={orderFilters.unfulfilled} onClick={() => toggleOrderFilter("unfulfilled")} />
-              <FilterChip label="Unprinted" active={orderFilters.unprinted} onClick={() => toggleOrderFilter("unprinted")} />
-            </div>
+              <section className={styles.ordersPanel}>
+                <div className={styles.filterBar}>
+                  <label className={styles.search}>
+                    <Search size={17} aria-hidden />
+                    <input
+                      aria-label="Search orders, customer, or SKU"
+                      onChange={(event) => setOrderSearch(event.currentTarget.value)}
+                      placeholder="Search orders, customer, SKU"
+                      value={orderSearch}
+                    />
+                  </label>
+                  <FilterChip label={messages.metrics.printed} active={orderFilters.printed} onClick={() => toggleOrderFilter("printed")} />
+                  <FilterChip label={messages.metrics.unprinted} active={orderFilters.unprinted} onClick={() => toggleOrderFilter("unprinted")} />
+                </div>
 
-            <div className={styles.tableToolbar}>
+                <div className={styles.tableToolbar}>
               <div className={styles.bulkState}>
                 {displayOrders.length > 0 ? (
                   <BaseCheckbox
@@ -2812,10 +2831,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                 </span>
               </div>
               <div className={styles.bulkActions}>
-                <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => openOrdersPreview(selectedOrders)}>
-                  <Eye size={16} aria-hidden />
-                  {messages.orderPanel.previewBatch}
-                </button>
                 <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => requestOrderExport("download", selectedOrders)}>
                   <Download size={16} aria-hidden />
                   {messages.orderPanel.downloadPdf}
@@ -3338,28 +3353,6 @@ function orderMatchesSearch(order: Order, normalizedSearch: string) {
   ];
 
   return searchableValues.some((value) => value?.toLowerCase().includes(normalizedSearch));
-}
-
-function isOrderWithinLastDays(order: Order, days: number) {
-  const timestamp = getOrderTimestamp(order);
-
-  if (!timestamp) {
-    return true;
-  }
-
-  return Date.now() - timestamp <= days * 24 * 60 * 60 * 1000;
-}
-
-function getOrderTimestamp(order: Order) {
-  const rawValue = order.updatedAt ?? order.createdAt ?? null;
-
-  if (!rawValue) {
-    return null;
-  }
-
-  const timestamp = new Date(rawValue).getTime();
-
-  return Number.isNaN(timestamp) ? null : timestamp;
 }
 
 function mapCachedPrintStatus(value: string | null): Order["print"] {
@@ -6370,7 +6363,60 @@ function formatTemplateDateFromValue(value: string | null, format: TemplateDateF
 }
 
 function SocialIcon({ platform }: { platform: SocialPlatform }) {
-  return <span className={styles.orderSocialIcon} data-platform={platform} aria-hidden="true" />;
+  const iconProps = {
+    className: styles.orderSocialIcon,
+    "data-platform": platform,
+    "aria-hidden": true,
+    focusable: "false",
+    viewBox: "0 0 24 24",
+  } as const;
+
+  switch (platform) {
+    case "instagram":
+      return (
+        <svg
+          {...iconProps}
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+        >
+          <rect height="18" rx="5" width="18" x="3" y="3" />
+          <circle cx="12" cy="12" r="4" />
+          <circle cx="17.5" cy="6.5" fill="currentColor" r="1.25" stroke="none" />
+        </svg>
+      );
+    case "facebook":
+      return (
+        <svg {...iconProps} fill="currentColor">
+          <path d="M14 8.2h2.4V4.4c-.4-.1-1.8-.2-3.4-.2-3.3 0-5.5 2-5.5 5.7v3.2H4v4.3h3.5V24h4.4v-6.6h3.6l.6-4.3h-4.2V10.3c0-1.2.3-2.1 2.1-2.1Z" />
+        </svg>
+      );
+    case "x":
+      return (
+        <svg {...iconProps} fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.1">
+          <path d="M4 4l16 16" />
+          <path d="M20 4 4 20" />
+        </svg>
+      );
+    case "website":
+    default:
+      return (
+        <svg
+          {...iconProps}
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+        >
+          <path d="M10.5 13.5l3-3" />
+          <path d="M8.7 15.3l-1.1 1.1a3.6 3.6 0 0 1-5.1-5.1l2.1-2.1a3.6 3.6 0 0 1 5.1 0" />
+          <path d="M15.3 8.7l1.1-1.1a3.6 3.6 0 0 1 5.1 5.1l-2.1 2.1a3.6 3.6 0 0 1-5.1 0" />
+        </svg>
+      );
+  }
 }
 
 const templateFontFamilyByType: Record<OrderTemplateLogoFont, string> = {

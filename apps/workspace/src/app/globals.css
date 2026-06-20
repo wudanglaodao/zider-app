@@ -615,6 +615,184 @@ a {
   color: #0b5134;
 }
 
+.workspaceNotFoundShell {
+  min-height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(8, 122, 70, 0.055) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(8, 122, 70, 0.045) 1px, transparent 1px),
+    #f7faf7;
+  background-size: 52px 52px;
+  color: var(--zider-ink);
+  padding: 28px;
+}
+
+.workspaceNotFoundHero {
+  max-width: 1180px;
+  min-height: min(600px, calc(100vh - 220px));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: clamp(28px, 8vw, 96px);
+  margin: 0 auto;
+  padding: 72px 0 44px;
+  border-bottom: 1px solid rgba(8, 122, 70, 0.14);
+}
+
+.workspaceNotFoundCode {
+  color: rgba(8, 122, 70, 0.12);
+  font-size: clamp(96px, 17vw, 220px);
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 0.78;
+  user-select: none;
+}
+
+.workspaceNotFoundCopy {
+  display: grid;
+  gap: 22px;
+}
+
+.workspaceNotFoundEyebrow {
+  margin: 0;
+  color: var(--zider-green);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.workspaceNotFoundCopy h1 {
+  max-width: 720px;
+  margin: 0;
+  color: #101915;
+  font-size: clamp(44px, 7vw, 82px);
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 0.95;
+}
+
+.workspaceNotFoundCopy p:not(.workspaceNotFoundEyebrow) {
+  max-width: 620px;
+  margin: 0;
+  color: #53665c;
+  font-size: 19px;
+  line-height: 1.55;
+}
+
+.workspaceNotFoundActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.workspaceNotFoundPrimary,
+.workspaceNotFoundSecondary {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border-radius: 8px;
+  font-weight: 850;
+  padding: 0 18px;
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.workspaceNotFoundPrimary {
+  border: 1px solid var(--zider-green);
+  background: var(--zider-green);
+  color: #fff;
+  box-shadow: 0 18px 44px rgba(8, 122, 70, 0.22);
+}
+
+.workspaceNotFoundSecondary {
+  border: 1px solid rgba(8, 122, 70, 0.2);
+  background: #fff;
+  color: #123226;
+}
+
+.workspaceNotFoundPrimary:hover,
+.workspaceNotFoundSecondary:hover {
+  transform: translateY(-1px);
+}
+
+.workspaceNotFoundPrimary:hover {
+  border-color: #069456;
+  background: #069456;
+}
+
+.workspaceNotFoundSecondary:hover {
+  border-color: rgba(8, 122, 70, 0.36);
+  color: var(--zider-green);
+}
+
+.workspaceNotFoundLinks {
+  max-width: 1180px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 22px auto 54px;
+}
+
+.workspaceNotFoundLink {
+  min-height: 146px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: start;
+  border: 1px solid rgba(8, 122, 70, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 54px rgba(22, 36, 29, 0.08);
+  padding: 20px;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.workspaceNotFoundLink:hover {
+  border-color: rgba(8, 122, 70, 0.3);
+  box-shadow: 0 22px 62px rgba(22, 36, 29, 0.12);
+  transform: translateY(-1px);
+}
+
+.workspaceNotFoundLinkIcon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: #e7f3ec;
+  color: var(--zider-green);
+}
+
+.workspaceNotFoundLink strong {
+  display: block;
+  color: #101915;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.workspaceNotFoundLink small {
+  display: block;
+  margin-top: 6px;
+  color: #53665c;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.workspaceNotFoundLinkArrow {
+  color: rgba(8, 122, 70, 0.5);
+  margin-top: 11px;
+}
+
 @media (max-width: 720px) {
   .workspaceShell {
     padding: 18px;
@@ -706,5 +884,39 @@ a {
 
   .landingApps {
     grid-template-columns: 1fr;
+  }
+
+  .workspaceNotFoundShell {
+    padding: 18px;
+  }
+
+  .workspaceNotFoundHero {
+    min-height: auto;
+    grid-template-columns: 1fr;
+    gap: 22px;
+    padding: 46px 0 30px;
+  }
+
+  .workspaceNotFoundCode {
+    order: -1;
+    font-size: clamp(82px, 28vw, 132px);
+  }
+
+  .workspaceNotFoundCopy h1 {
+    font-size: clamp(42px, 13vw, 62px);
+  }
+
+  .workspaceNotFoundActions {
+    width: 100%;
+  }
+
+  .workspaceNotFoundPrimary,
+  .workspaceNotFoundSecondary {
+    flex: 1 1 170px;
+  }
+
+  .workspaceNotFoundLinks {
+    grid-template-columns: 1fr;
+    margin-bottom: 30px;
   }
 }

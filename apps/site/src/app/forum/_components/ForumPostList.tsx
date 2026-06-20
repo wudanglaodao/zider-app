@@ -25,21 +25,23 @@ export function ForumContentList({ emptyLabel, entries }: { emptyLabel: string; 
 
 export function ForumSortTabs({
   baseHref,
+  extraParams,
   query,
   sort,
   totalCount,
 }: {
   baseHref: string;
+  extraParams?: Record<string, string | undefined>;
   query?: string;
   sort: ForumSort;
   totalCount: number;
 }) {
   return (
     <nav className="forumSortTabs" aria-label="Forum sorting">
-      <a aria-current={sort === "new" ? "page" : undefined} href={getSortHref(baseHref, "new", query)}>
+      <a aria-current={sort === "new" ? "page" : undefined} href={getSortHref(baseHref, "new", query, extraParams)}>
         New ({totalCount})
       </a>
-      <a aria-current={sort === "hot" ? "page" : undefined} href={getSortHref(baseHref, "hot", query)}>
+      <a aria-current={sort === "hot" ? "page" : undefined} href={getSortHref(baseHref, "hot", query, extraParams)}>
         Hot
       </a>
     </nav>
@@ -49,12 +51,14 @@ export function ForumSortTabs({
 export function ForumPagination({
   baseHref,
   currentPage,
+  extraParams,
   query,
   sort,
   totalPages,
 }: {
   baseHref: string;
   currentPage: number;
+  extraParams?: Record<string, string | undefined>;
   query?: string;
   sort: ForumSort;
   totalPages: number;
@@ -71,7 +75,7 @@ export function ForumPagination({
       <PaginationLink
         className="paginationStep"
         disabled={currentPage === 1}
-        href={getListingHref(baseHref, currentPage - 1, sort, query)}
+        href={getListingHref(baseHref, currentPage - 1, sort, query, extraParams)}
       >
         Previous
       </PaginationLink>
@@ -89,7 +93,7 @@ export function ForumPagination({
                   {page}
                 </span>
               ) : (
-                <a className="paginationPage" href={getListingHref(baseHref, page, sort, query)}>
+                <a className="paginationPage" href={getListingHref(baseHref, page, sort, query, extraParams)}>
                   {page}
                 </a>
               )}
@@ -101,7 +105,7 @@ export function ForumPagination({
       <PaginationLink
         className="paginationStep"
         disabled={currentPage === totalPages}
-        href={getListingHref(baseHref, currentPage + 1, sort, query)}
+        href={getListingHref(baseHref, currentPage + 1, sort, query, extraParams)}
       >
         Next
       </PaginationLink>
@@ -155,12 +159,29 @@ function PaginationLink({
   );
 }
 
-function getSortHref(baseHref: string, sort: ForumSort, query?: string) {
-  return getListingHref(baseHref, 1, sort, query);
+function getSortHref(
+  baseHref: string,
+  sort: ForumSort,
+  query?: string,
+  extraParams?: Record<string, string | undefined>,
+) {
+  return getListingHref(baseHref, 1, sort, query, extraParams);
 }
 
-function getListingHref(baseHref: string, page: number, sort: ForumSort, query?: string) {
+function getListingHref(
+  baseHref: string,
+  page: number,
+  sort: ForumSort,
+  query?: string,
+  extraParams?: Record<string, string | undefined>,
+) {
   const params = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(extraParams ?? {})) {
+    if (value) {
+      params.set(key, value);
+    }
+  }
 
   if (query) {
     params.set("q", query);

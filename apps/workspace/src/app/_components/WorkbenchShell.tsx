@@ -1,119 +1,158 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  CircleQuestionMark,
+  Component,
+  Layers,
+  LayoutDashboard,
+  Menu,
+  PanelLeftClose,
+  PanelLeftOpen,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 
 type WorkbenchSection = "dashboard" | "cursor" | "help";
+type WorkbenchIconName =
+  | "close"
+  | "components"
+  | "dashboard"
+  | "help"
+  | "menu"
+  | "panelClose"
+  | "panelOpen"
+  | "solutions";
 
-const navItems: { href: string; icon: WorkbenchIconName; label: string; section: WorkbenchSection }[] = [
-  { href: "/", icon: "dashboard", label: "Dashboard", section: "dashboard" },
-  { href: "#help", icon: "help", label: "Help Center", section: "help" },
+const navSections: Array<{
+  items: Array<{ href: string; icon: WorkbenchIconName; label: string; section?: WorkbenchSection }>;
+  label: string;
+}> = [
+  {
+    label: "Workspace",
+    items: [
+      { href: "/", icon: "dashboard", label: "Dashboard", section: "dashboard" },
+      { href: "/components", icon: "components", label: "Components" },
+      { href: "/solutions", icon: "solutions", label: "Solutions" },
+    ],
+  },
+  {
+    label: "Support",
+    items: [{ href: "#help", icon: "help", label: "Help Center", section: "help" }],
+  },
 ];
 
 export function WorkbenchShell({
   active,
   children,
-  onCreate,
 }: {
   active: WorkbenchSection;
   children: ReactNode;
   onCreate?: () => void;
 }) {
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    const savedSidebar = window.localStorage.getItem("zider-workbench-sidebar-v1");
+
+    if (savedSidebar === "collapsed") {
+      setSidebarCollapsed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("zider-workbench-sidebar-v1", sidebarCollapsed ? "collapsed" : "expanded");
+  }, [sidebarCollapsed]);
+
+  function closeMobileSidebar() {
+    setMobileSidebarOpen(false);
+  }
+
   return (
-    <div className="zider-workbench">
+    <div className="zider-workbench" data-mobile-sidebar={mobileSidebarOpen ? "open" : "closed"} data-sidebar={sidebarCollapsed ? "collapsed" : "expanded"}>
       <style>{getWorkbenchCss()}</style>
 
       <aside className="zider-workbench__sidebar" aria-label="Zider navigation">
-        <a className="zider-workbench__logo" href="/" aria-label="Zider dashboard">
-          <span>Z</span>
-        </a>
-
-        <nav className="zider-workbench__nav" aria-label="Workspace">
-          {navItems.map((item) => (
-            <a
-              aria-label={item.label}
-              data-active={active === item.section}
-              href={item.href}
-              key={item.section}
-              title={item.label}
-            >
-              <WorkbenchIcon name={item.icon} />
-            </a>
-          ))}
-        </nav>
-
-        <div className="zider-workbench__bottom">
-          {onCreate ? (
-            <button
-              className="zider-workbench__create"
-              data-active={active === "cursor"}
-              onClick={onCreate}
-              type="button"
-              aria-label="Create widget"
-              title="Create widget"
-            >
-              <WorkbenchIcon name="plus" />
-            </button>
-          ) : (
-            <a
-              className="zider-workbench__create"
-              data-active={active === "cursor"}
-              href="/widget/interactive-custom-cursor"
-              aria-label="Create widget"
-              title="Create widget"
-            >
-              <WorkbenchIcon name="plus" />
-            </a>
-          )}
-          <button className="zider-workbench__avatar" type="button" aria-label="Account">
-            YC
+        <div className="zider-workbench__brand-row">
+          <a className="zider-workbench__logo" href="/" aria-label="Zider dashboard" onClick={closeMobileSidebar}>
+            <span>Z</span>
+          </a>
+          <div className="zider-workbench__brand-copy">
+            <strong>Zider</strong>
+            <span>Widget Studio</span>
+          </div>
+          <button
+            className="zider-workbench__icon-button"
+            type="button"
+            aria-label={mobileSidebarOpen ? "Close menu" : sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={mobileSidebarOpen ? "Close menu" : sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            onClick={() => {
+              if (mobileSidebarOpen) {
+                setMobileSidebarOpen(false);
+                return;
+              }
+              setSidebarCollapsed((current) => !current);
+            }}
+          >
+            <WorkbenchIcon name={mobileSidebarOpen ? "close" : sidebarCollapsed ? "panelOpen" : "panelClose"} />
           </button>
         </div>
-      </aside>
 
-      <main className="zider-workbench__content">{children}</main>
+        <nav className="zider-workbench__nav" aria-label="Workspace">
+          {navSections.map((section) => (
+            <div className="zider-workbench__nav-section" key={section.label}>
+              <p className="zider-workbench__nav-title">{section.label}</p>
+              {section.items.map((item) => {
+                const isActive = item.section ? active === item.section : false;
+                return (
+                  <a
+                    aria-current={isActive ? "page" : undefined}
+                    className="zider-workbench__nav-item"
+                    data-active={isActive}
+                    href={item.href}
+                    key={item.label}
+                    onClick={closeMobileSidebar}
+                    title={sidebarCollapsed ? item.label : undefined}
+                  >
+                    <span className="zider-workbench__nav-icon">
+                      <WorkbenchIcon name={item.icon} />
+                    </span>
+                    <span>{item.label}</span>
+                  </a>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
+      </aside>
+      <button className="zider-workbench__mobile-backdrop" type="button" aria-label="Close menu" onClick={closeMobileSidebar} />
+
+      <main className="zider-workbench__content">
+        <button className="zider-workbench__mobile-menu" type="button" aria-label="Open menu" onClick={() => setMobileSidebarOpen(true)}>
+          <WorkbenchIcon name="menu" />
+        </button>
+        {children}
+      </main>
     </div>
   );
 }
 
-type WorkbenchIconName = "dashboard" | "help" | "plus";
+const workbenchIcons = {
+  close: X,
+  components: Component,
+  dashboard: LayoutDashboard,
+  help: CircleQuestionMark,
+  menu: Menu,
+  panelClose: PanelLeftClose,
+  panelOpen: PanelLeftOpen,
+  solutions: Layers,
+} satisfies Record<WorkbenchIconName, LucideIcon>;
 
 function WorkbenchIcon({ name }: { name: WorkbenchIconName }) {
-  const common = {
-    "aria-hidden": true,
-    fill: "none",
-    height: 22,
-    stroke: "currentColor",
-    strokeLinecap: "round" as const,
-    strokeLinejoin: "round" as const,
-    strokeWidth: 2.2,
-    viewBox: "0 0 24 24",
-    width: 22,
-  };
+  const Icon = workbenchIcons[name];
 
-  switch (name) {
-    case "dashboard":
-      return (
-        <svg {...common}>
-          <rect height="7" rx="1.6" width="7" x="3.5" y="3.5" />
-          <rect height="7" rx="1.6" width="7" x="13.5" y="3.5" />
-          <rect height="7" rx="1.6" width="7" x="3.5" y="13.5" />
-          <rect height="7" rx="1.6" width="7" x="13.5" y="13.5" />
-        </svg>
-      );
-    case "help":
-      return (
-        <svg {...common}>
-          <circle cx="12" cy="12" r="8.5" />
-          <path d="M9.8 9.4a2.4 2.4 0 0 1 4.5 1.2c0 1.9-2.3 2.1-2.3 3.8" />
-          <path d="M12 17.4h.01" />
-        </svg>
-      );
-    case "plus":
-      return (
-        <svg {...common}>
-          <path d="M12 5v14" />
-          <path d="M5 12h14" />
-        </svg>
-      );
-  }
+  return <Icon aria-hidden="true" size={22} strokeWidth={2.2} />;
 }
 
 function getWorkbenchCss() {
@@ -131,22 +170,29 @@ function getWorkbenchCss() {
 
     .zider-workbench {
       --zider-brand: #087a46;
-      --zider-brand-strong: #045f35;
-      --zider-brand-soft: #e8f7ee;
-      --zider-ink: #0d1713;
-      --zider-accent: #f6b84b;
+      --zider-brand-strong: #046137;
+      --zider-brand-soft: #e6f4ec;
+      --zider-ink: #121817;
+      --zider-muted: #65706d;
+      --zider-line: #dde5df;
+      --zider-sidebar-bg: #f8f9fa;
+      --zider-surface: #ffffff;
+      --zider-workspace-bg: #f8faf9;
       min-height: 100vh;
-      display: block;
-      padding-left: 80px;
+      display: grid;
+      grid-template-columns: 264px minmax(0, 1fr);
       background:
-        linear-gradient(115deg, rgba(8, 122, 70, 0.075) 0 1px, transparent 1px 148px),
-        linear-gradient(90deg, rgba(13, 23, 19, 0.035) 1px, transparent 1px),
-        linear-gradient(rgba(13, 23, 19, 0.025) 1px, transparent 1px),
-        #f7f8f5;
+        linear-gradient(90deg, rgba(13, 23, 19, 0.028) 1px, transparent 1px),
+        linear-gradient(rgba(13, 23, 19, 0.02) 1px, transparent 1px),
+        var(--zider-workspace-bg);
       background-size: 40px 40px;
-      color: #0d1713;
+      color: var(--zider-ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       overflow-x: hidden;
+    }
+
+    .zider-workbench[data-sidebar="collapsed"] {
+      grid-template-columns: 88px minmax(0, 1fr);
     }
 
     .zider-workbench a {
@@ -161,138 +207,157 @@ function getWorkbenchCss() {
     }
 
     .zider-workbench__sidebar {
-      position: fixed;
-      left: 0;
+      position: sticky;
       top: 0;
-      width: 80px;
       height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 26px;
-      border-right: 1px solid #e4e5eb;
-      background: rgba(255, 255, 255, 0.88);
-      padding: 28px 0 22px;
-      backdrop-filter: blur(18px);
+      gap: 28px;
+      border-right: 1px solid var(--zider-line);
+      background: var(--zider-sidebar-bg);
+      padding: 24px 18px;
       z-index: 5;
     }
 
-    .zider-workbench__logo {
-      width: 40px;
-      height: 40px;
+    .zider-workbench__brand-row {
       display: grid;
-      place-items: center;
-      border-radius: 8px;
-      border: 1px solid rgba(8, 122, 70, 0.18);
-      background:
-        linear-gradient(145deg, #ffffff 0 52%, rgba(232, 247, 238, 0.95) 52%),
-        #ffffff;
-      color: #ffffff;
-      box-shadow: 0 13px 28px rgba(8, 122, 70, 0.12);
-      transform: rotate(-2deg);
-      transition: transform 180ms ease, box-shadow 180ms ease;
-    }
-
-    .zider-workbench__logo:hover {
-      box-shadow: 0 16px 34px rgba(8, 122, 70, 0.18);
-      transform: translateY(-1px) rotate(0deg);
-    }
-
-    .zider-workbench__logo span {
-      width: 28px;
-      height: 28px;
-      display: grid;
-      place-items: center;
-      border-radius: 6px;
-      background: var(--zider-brand);
-      font-size: 18px;
-      font-weight: 850;
-      letter-spacing: 0;
-      color: #ffffff;
-    }
-
-    .zider-workbench__nav {
-      width: 100%;
-      display: grid;
-      justify-items: center;
+      grid-template-columns: 34px minmax(0, 1fr) 34px;
+      align-items: center;
       gap: 10px;
     }
 
-    .zider-workbench__nav a,
-    .zider-workbench__create,
-    .zider-workbench__avatar {
-      width: 44px;
-      height: 44px;
+    .zider-workbench__logo {
+      width: 34px;
+      height: 34px;
       display: grid;
       place-items: center;
-      border: 0;
-      border-radius: 8px;
-      color: #85868d;
+      border: 4px solid var(--zider-brand);
+      border-radius: 999px;
+      color: transparent;
       background: transparent;
-      cursor: pointer;
-      position: relative;
-      transition:
-        background 160ms ease,
-        color 160ms ease,
-        transform 160ms ease,
-        box-shadow 160ms ease;
+      font-size: 0;
+      font-weight: 850;
     }
 
-    .zider-workbench__nav a::before {
-      content: "";
-      position: absolute;
-      left: -18px;
-      top: 10px;
-      width: 4px;
-      height: 24px;
-      border-radius: 0 999px 999px 0;
+    .zider-workbench__logo span {
+      width: 8px;
+      height: 8px;
+      display: block;
+      border-radius: 999px;
       background: var(--zider-brand);
-      opacity: 0;
-      transform: translateX(-4px);
-      transition: opacity 160ms ease, transform 160ms ease;
     }
 
-    .zider-workbench__nav a:hover,
-    .zider-workbench__nav a[data-active="true"] {
+    .zider-workbench__brand-copy {
+      min-width: 0;
+    }
+
+    .zider-workbench__brand-copy strong,
+    .zider-workbench__brand-copy span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .zider-workbench__brand-copy strong {
+      color: var(--zider-ink);
+      font-size: 20px;
+      line-height: 1.25;
+    }
+
+    .zider-workbench__brand-copy span {
+      margin-top: 2px;
+      color: var(--zider-muted);
+      font-size: 12px;
+      font-weight: 720;
+    }
+
+    .zider-workbench__icon-button,
+    .zider-workbench__mobile-menu {
+      width: 34px;
+      height: 34px;
+      display: inline-grid;
+      place-items: center;
+      border: 1px solid #dce4de;
+      border-radius: 8px;
+      background: var(--zider-surface);
+      color: var(--zider-muted);
+      cursor: pointer;
+      transition: background 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+
+    .zider-workbench__icon-button:hover,
+    .zider-workbench__mobile-menu:hover {
+      border-color: rgba(8, 122, 70, 0.28);
       color: var(--zider-brand);
-      background: var(--zider-brand-soft);
       transform: translateY(-1px);
     }
 
-    .zider-workbench__nav a[data-active="true"]::before {
-      opacity: 1;
-      transform: translateX(0);
-    }
-
-    .zider-workbench__bottom {
-      width: 100%;
-      margin-top: auto;
+    .zider-workbench__nav,
+    .zider-workbench__nav-section {
       display: grid;
-      justify-items: center;
-      gap: 20px;
     }
 
-    .zider-workbench__create {
-      color: #ffffff;
-      background: var(--zider-brand);
-      box-shadow: 0 12px 24px rgba(8, 122, 70, 0.24);
+    .zider-workbench__nav {
+      gap: 24px;
     }
 
-    .zider-workbench__create:hover {
-      transform: translateY(-2px) scale(1.02);
-      box-shadow: 0 16px 28px rgba(8, 122, 70, 0.32);
+    .zider-workbench__nav-section {
+      gap: 6px;
     }
 
-    .zider-workbench__avatar {
-      color: #2f3138;
-      background: #f1f2f5;
-      font-size: 12px;
-      font-weight: 750;
+    .zider-workbench__nav-title {
+      margin: 0 0 6px;
+      padding: 0 12px;
+      color: var(--zider-muted);
+      font-size: 11px;
+      font-weight: 820;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    .zider-workbench__avatar:hover {
-      color: #0d1713;
-      background: var(--zider-brand-soft);
+    .zider-workbench__nav-item {
+      min-width: 0;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--zider-muted);
+      padding: 0 16px;
+      text-align: left;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 650;
+      transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+    }
+
+    .zider-workbench__nav-icon {
+      flex: 0 0 auto;
+    }
+
+    .zider-workbench__nav-icon {
+      width: 22px;
+      display: grid;
+      place-items: center;
+      color: currentColor;
+    }
+
+    .zider-workbench__nav-item > span:nth-child(2) {
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .zider-workbench__nav-item:hover,
+    .zider-workbench__nav-item[data-active="true"] {
+      background: var(--zider-surface);
+      color: var(--zider-brand-strong);
+      box-shadow: 0 12px 30px rgba(18, 24, 23, 0.05);
     }
 
     .zider-workbench__content {
@@ -302,68 +367,94 @@ function getWorkbenchCss() {
       padding: 56px clamp(24px, 4.5vw, 72px);
     }
 
-    @media (max-width: 760px) {
-      .zider-workbench {
-        padding-left: 0;
+    .zider-workbench__mobile-backdrop,
+    .zider-workbench__mobile-menu {
+      display: none;
+    }
+
+    .zider-workbench[data-sidebar="collapsed"] .zider-workbench__sidebar {
+      align-items: center;
+      padding-inline: 20px;
+    }
+
+    .zider-workbench[data-sidebar="collapsed"] .zider-workbench__brand-row {
+      grid-template-columns: 1fr;
+      justify-items: center;
+    }
+
+    .zider-workbench[data-sidebar="collapsed"] .zider-workbench__brand-copy,
+    .zider-workbench[data-sidebar="collapsed"] .zider-workbench__nav-title,
+    .zider-workbench[data-sidebar="collapsed"] .zider-workbench__nav-item > span:nth-child(2) {
+      display: none;
+    }
+
+    .zider-workbench[data-sidebar="collapsed"] .zider-workbench__nav-item {
+      width: 42px;
+      justify-content: center;
+      padding: 0;
+    }
+
+    @media (max-width: 900px) {
+      .zider-workbench,
+      .zider-workbench[data-sidebar="collapsed"] {
+        grid-template-columns: 1fr;
       }
 
       .zider-workbench__sidebar {
-        width: 100%;
-        max-width: 100vw;
-        position: sticky;
-        left: auto;
-        height: auto;
-        min-height: 64px;
-        flex-direction: row;
-        justify-content: space-between;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        border-right: 0;
-        border-bottom: 1px solid #e4e5eb;
-        overflow: hidden;
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 50;
+        width: min(280px, calc(100vw - 48px));
+        height: 100dvh;
+        align-items: stretch;
+        padding: 24px 18px;
+        transform: translateX(-105%);
+        transition: transform 220ms ease;
+        box-shadow: 28px 0 70px rgba(18, 24, 23, 0.18);
+        overflow-y: auto;
       }
 
-      .zider-workbench__nav {
+      .zider-workbench[data-mobile-sidebar="open"] .zider-workbench__sidebar {
+        transform: translateX(0);
+      }
+
+      .zider-workbench__mobile-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: block;
+        border: 0;
+        background: rgba(18, 24, 23, 0.42);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 180ms ease;
+      }
+
+      .zider-workbench[data-mobile-sidebar="open"] .zider-workbench__mobile-backdrop {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .zider-workbench[data-sidebar="collapsed"] .zider-workbench__brand-row,
+      .zider-workbench__brand-row {
+        grid-template-columns: 34px minmax(0, 1fr) 34px;
+        justify-items: initial;
+      }
+
+      .zider-workbench[data-sidebar="collapsed"] .zider-workbench__brand-copy,
+      .zider-workbench[data-sidebar="collapsed"] .zider-workbench__nav-title,
+      .zider-workbench[data-sidebar="collapsed"] .zider-workbench__nav-item > span:nth-child(2),
+      .zider-workbench__brand-copy,
+      .zider-workbench__nav-title,
+      .zider-workbench__nav-item > span:nth-child(2) {
+        display: block;
+      }
+
+      .zider-workbench[data-sidebar="collapsed"] .zider-workbench__nav-item,
+      .zider-workbench__nav-item {
         width: auto;
-        min-width: 0;
-        flex: 1 1 auto;
-        display: flex;
         justify-content: flex-start;
-        gap: 4px;
-        overflow-x: auto;
-        scrollbar-width: none;
-      }
-
-      .zider-workbench__nav::-webkit-scrollbar {
-        display: none;
-      }
-
-      .zider-workbench__nav a {
-        width: 38px;
-        height: 38px;
-      }
-
-      .zider-workbench__nav a::before {
-        display: none;
-      }
-
-      .zider-workbench__bottom {
-        width: auto;
-        margin: 0;
-        flex: 0 0 auto;
-        display: flex;
-        gap: 8px;
-      }
-
-      .zider-workbench__create,
-      .zider-workbench__avatar {
-        width: 38px;
-        height: 38px;
-      }
-
-      .zider-workbench__avatar {
-        display: none;
+        padding: 0 16px;
       }
 
       .zider-workbench__content {
@@ -371,6 +462,11 @@ function getWorkbenchCss() {
         max-width: 100vw;
         min-width: 0;
         padding: 24px 16px 36px;
+      }
+
+      .zider-workbench__mobile-menu {
+        display: inline-grid;
+        margin: 0 0 18px;
       }
     }
   `;

@@ -66,6 +66,15 @@ Connect Zider account
 
 并且需要通过一次性 `account_link_intent` 校验。
 
+### 2.5 保存操作必须有状态反馈
+
+账号中心、Workspace 和各应用后台的保存类操作都必须提供明确反馈：
+
+- 点击保存后按钮进入保存中状态，并禁用重复提交。
+- 保存成功后展示明确成功提示，例如 `Saved successfully` / `已保存`。
+- 保存失败或必填缺失时展示可理解的错误提示，并保留用户已输入内容。
+- 保存后的预览、PDF、打印和页面展示必须读取同一份已保存数据，避免用户误以为保存成功但实际未生效。
+
 ## 3. 域名与产品关系
 
 ```text
@@ -290,7 +299,7 @@ Wix opens PrintOps
 -> Upsert app_installations
 -> Request Wix access token
 -> Fetch Wix site profile
--> Upsert printops_store_profiles
+-> Upsert platform_store_profiles
 -> Find or create Wix installation identity
 -> Find or create unclaimed workspace for this instance
 -> Find or create store for this instance
@@ -322,7 +331,7 @@ shadow user 只用于承接当前 Wix 安装上下文，不应作为完整官网
 
 ## 7. Wix 站点资料默认值
 
-安装后应自动拉取 Wix 站点资料，保存到 `printops_store_profiles` 或未来的 `store_profiles`。
+安装后应自动拉取 Wix 站点资料，保存到 `platform_store_profiles`，作为多个 Wix app 可共享的平台店铺资料缓存。
 
 建议字段：
 

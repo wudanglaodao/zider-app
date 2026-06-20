@@ -186,7 +186,7 @@ Wix installs PrintOps
 -> Resolve instanceId / siteOwnerId / siteMemberId
 -> Request Wix access token
 -> Fetch Wix site profile
--> Upsert printops_store_profiles
+-> Upsert platform_store_profiles
 -> Find or create isolated app workspace context
 -> Find or create store context
 -> Enter PrintOps without Zider login

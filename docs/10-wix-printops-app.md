@@ -154,7 +154,7 @@ Historical P0 backfill:
 5. Wix appends signed `instance`.
 6. PrintOps resolves `instanceId`.
 7. PrintOps exchanges `instanceId` for a Wix access token.
-8. PrintOps fetches Wix site properties and upserts `printops_store_profiles`.
+8. PrintOps fetches Wix site properties and upserts `platform_store_profiles`.
 9. PrintOps creates or resolves the isolated workspace/app context for this Wix instance.
 10. Merchant enters PrintOps without a required Zider Account login.
 11. User clicks `Sync latest` or `Sync last 7 days`.
@@ -164,12 +164,14 @@ Historical P0 backfill:
 
 Store profile cache:
 
-- Table: `printops_store_profiles`.
-- Key: `app_key + platform + instance_id`.
+- Table: `platform_store_profiles`.
+- Shared key: `platform + platform_site_id`.
+- Instance fallback: `platform + last_seen_instance_id` when Wix does not expose
+  a site ID yet.
 - Source: Wix Site Properties API.
-- Normalized fields: `site_id`, `site_url`, `business_name`, `business_email`,
-  `logo_media_path`, `logo_url`, `phone`, `address`, `language`, `locale`,
-  `timezone`, `currency`, and `raw_profile`.
+- Normalized fields: `platform_site_id`, `primary_site_url`, `business_name`,
+  `business_email`, `logo_media_path`, `logo_url`, `phone`, `address`,
+  `language`, `locale`, `timezone`, `currency`, and `raw_profile`.
 - Wix fields to prefer when available:
   - Site identity: published/external site URL, domain, site ID, display name,
     site name, business name.
@@ -197,9 +199,10 @@ Account and workspace identity:
   isolated PrintOps workspace/app context for the current Wix `instance_id`.
 - The dashboard session is identified by the signed Wix `instance` and the resolved
   `instance_id`.
-- Data isolation uses `app_key + platform + instance_id`; these values are the
-  current primary boundary for orders, templates, and store profile reads.
-- `printops_store_profiles` is the workspace display source after installation.
+- Data isolation uses `app_key + platform + instance_id` for app-owned records
+  such as orders and templates. Store profile reads prefer the shared
+  `platform + platform_site_id` profile, then fall back to the current instance.
+- `platform_store_profiles` is the workspace display source after installation.
   The top-right account area should prefer `business_name`, `site_url`, logo, locale,
   timezone, and currency from this cache.
 - Wix site or business profile values are workspace/store identity, not personal user
@@ -246,7 +249,7 @@ Implemented now:
 - Latest and 7-day history order sync API.
 - Normalized order and custom field extraction.
 - `printops_orders` current-state order cache.
-- `printops_store_profiles` current-state site profile cache.
+- `platform_store_profiles` current-state site profile cache.
 - Manual sync persistence into `printops_orders`.
 - Wix site profile refresh on first workspace entry and manual order sync.
 - Template defaults seeded from Wix site profile with merchant override support.

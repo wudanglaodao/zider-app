@@ -6,6 +6,7 @@ import { ForumSpaceIcon } from "@/app/forum/_components/ForumSpaceIcon";
 import {
   FORUM_PAGE_SIZE,
   formatPostCount,
+  getFirstQueryValue,
   loadForumEntries,
   parseForumSort,
   parsePageParam,
@@ -15,11 +16,12 @@ import { PublicPage } from "@/app/_components/PublicChrome";
 import type { CmsEntry } from "@/lib/cms/content";
 import {
   forumCommunitySpace,
+  forumModules,
   forumModuleGroups,
   getForumEntryModule,
   getForumModuleHref,
   isForumCommunityEntry,
-  type ForumModuleGroup,
+  type ForumModuleGroupKey,
   type ForumModule,
 } from "@/lib/cms/forum-modules";
 
@@ -27,21 +29,33 @@ export const dynamic = "force-dynamic";
 
 type ForumPageProps = {
   searchParams?: Promise<{
+    group?: string | string[];
     page?: string | string[];
+    space?: string | string[];
     sort?: string | string[];
   }>;
 };
 
+type ForumGroupFilter = "all" | ForumModuleGroupKey;
+
 export default async function ForumPage({ searchParams }: ForumPageProps) {
   const query = searchParams ? await searchParams : {};
   const sort = parseForumSort(query.sort);
+  const selectedSpace = getForumSpaceByParam(getFirstQueryValue(query.space));
+  const activeGroup = selectedSpace ? selectedSpace.group : parseForumGroupFilter(getFirstQueryValue(query.group));
   const entries = await loadForumEntries();
-  const sortedEntries = sortForumEntries(entries, sort);
+  const filteredEntries = entries.filter((entry) => matchesForumFilter(entry, activeGroup, selectedSpace));
+  const sortedEntries = sortForumEntries(filteredEntries, sort);
   const totalPages = Math.max(1, Math.ceil(sortedEntries.length / FORUM_PAGE_SIZE));
   const currentPage = Math.min(parsePageParam(query.page), totalPages);
   const pageEntries = sortedEntries.slice((currentPage - 1) * FORUM_PAGE_SIZE, currentPage * FORUM_PAGE_SIZE);
   const moduleCounts = getModuleCounts(entries);
   const communityCount = entries.filter(isForumCommunityEntry).length;
+  const visibleSpaces = getVisibleSpaces(activeGroup, selectedSpace);
+  const listingParams = getForumListingParams(activeGroup, selectedSpace);
+  const emptyLabel = selectedSpace
+    ? `No published answers in ${selectedSpace.name} yet.`
+    : "No published community answers yet.";
 
   return (
     <PublicPage>
@@ -71,92 +85,137 @@ export default async function ForumPage({ searchParams }: ForumPageProps) {
           <ForumSearchForm sort={sort} />
         </section>
 
+        <ForumSpaceFilters
+          activeGroup={activeGroup}
+          activeSpace={selectedSpace}
+          communityCount={communityCount}
+          moduleCounts={moduleCounts}
+        />
+
         <section className="forumModules" id="app-modules" aria-labelledby="app-modules-title">
-          <div className="forumSectionHeader forumSectionHeaderInline">
+          <div className="forumSectionHeader">
             <div>
               <p id="app-modules-title">Spaces</p>
+              <h2>Choose a space.</h2>
             </div>
           </div>
 
-          <div className="forumSpaceGroups">
-            <section className="forumSpaceGroup" data-group="community" aria-labelledby="forum-space-community">
-              <ForumSpaceGroupHeader
-                countLabel={formatSpaceCount(1)}
-                description="Public notes, posting rules, and shared community updates."
-                id="forum-space-community"
-                label="Announcements"
-                title={forumCommunitySpace.name}
+          <div className="forumModuleList">
+            {visibleSpaces.map((module) => (
+              <ForumModuleCard
+                count={module.key === forumCommunitySpace.key ? communityCount : moduleCounts.get(module.key) ?? 0}
+                key={module.key}
+                module={module}
               />
-              <div className="forumModuleList">
-                <ForumModuleCard count={communityCount} module={forumCommunitySpace} />
-              </div>
-            </section>
-
-            {forumModuleGroups.map((group) => (
-              <ForumModuleGroupSection group={group} key={group.key} moduleCounts={moduleCounts} />
             ))}
           </div>
         </section>
 
         <section className="forumPosts" aria-label="Latest answers" id="forum-posts">
           <div className="forumPostToolbar">
-            <ForumSortTabs baseHref="/forum" sort={sort} totalCount={entries.length} />
+            <ForumSortTabs
+              baseHref="/forum"
+              extraParams={listingParams}
+              sort={sort}
+              totalCount={filteredEntries.length}
+            />
           </div>
-          <ForumContentList emptyLabel="No published community answers yet." entries={pageEntries} />
-          <ForumPagination baseHref="/forum" currentPage={currentPage} sort={sort} totalPages={totalPages} />
+          <ForumContentList emptyLabel={emptyLabel} entries={pageEntries} />
+          <ForumPagination
+            baseHref="/forum"
+            currentPage={currentPage}
+            extraParams={listingParams}
+            sort={sort}
+            totalPages={totalPages}
+          />
         </section>
       </main>
     </PublicPage>
   );
 }
 
-function ForumModuleGroupSection({
-  group,
+function ForumSpaceFilters({
+  activeGroup,
+  activeSpace,
+  communityCount,
   moduleCounts,
 }: {
-  group: ForumModuleGroup;
+  activeGroup: ForumGroupFilter;
+  activeSpace: ForumModule | null;
+  communityCount: number;
   moduleCounts: Map<string, number>;
 }) {
+  const spaceOptions = getVisibleSpaceOptions(activeGroup);
+
   return (
-    <section className="forumSpaceGroup" data-group={group.key} aria-labelledby={`forum-space-${group.key}`}>
-      <ForumSpaceGroupHeader
-        countLabel={formatSpaceCount(group.modules.length)}
-        description={group.description}
-        id={`forum-space-${group.key}`}
-        label={group.name}
-        title={group.name}
-      />
-      <div className="forumModuleList">
-        {group.modules.map((module) => (
-          <ForumModuleCard count={moduleCounts.get(module.key) ?? 0} key={module.key} module={module} />
-        ))}
+    <section className="forumFilterPanel" aria-label="Forum filters">
+      <div className="forumFilterRow">
+        <span className="forumFilterLabel">Groups</span>
+        <div className="forumFilterOptions">
+          <ForumFilterChip active={!activeSpace && activeGroup === "all"} href="/forum" label="All" />
+          <ForumFilterChip
+            active={!activeSpace && activeGroup === "community"}
+            href="/forum?group=community"
+            label="Announcements"
+          />
+          {forumModuleGroups.map((group) => (
+            <ForumFilterChip
+              active={!activeSpace && activeGroup === group.key}
+              href={`/forum?group=${group.key}`}
+              key={group.key}
+              label={group.name}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="forumFilterRow">
+        <span className="forumFilterLabel">Spaces</span>
+        <div className="forumFilterOptions">
+          <ForumFilterChip
+            active={!activeSpace}
+            href={activeGroup === "all" ? "/forum" : `/forum?group=${activeGroup}`}
+            label="All spaces"
+          />
+          {spaceOptions.map((module) => (
+            <ForumFilterChip
+              active={activeSpace?.key === module.key}
+              count={module.key === forumCommunitySpace.key ? communityCount : moduleCounts.get(module.key) ?? 0}
+              href={`/forum?space=${getForumSpaceSlug(module)}`}
+              icon={module}
+              key={module.key}
+              label={module.name}
+            />
+          ))}
+        </div>
       </div>
     </section>
   );
 }
 
-function ForumSpaceGroupHeader({
-  countLabel,
-  description,
-  id,
+function ForumFilterChip({
+  active,
+  count,
+  href,
+  icon,
   label,
-  title,
 }: {
-  countLabel: string;
-  description: string;
-  id: string;
+  active: boolean;
+  count?: number;
+  href: string;
+  icon?: ForumModule;
   label: string;
-  title: string;
 }) {
   return (
-    <div className="forumSpaceGroupHeader">
-      <div>
-        <p>{label}</p>
-        <h2 id={id}>{title}</h2>
-        <span>{description}</span>
-      </div>
-      <small>{countLabel}</small>
-    </div>
+    <a className="forumFilterChip" aria-current={active ? "page" : undefined} href={href}>
+      {icon ? (
+        <span className="forumFilterChipIcon">
+          <ForumSpaceIcon icon={icon.icon} size={15} />
+        </span>
+      ) : null}
+      <span>{label}</span>
+      {typeof count === "number" ? <small>{formatPostCount(count)}</small> : null}
+    </a>
   );
 }
 
@@ -166,7 +225,7 @@ function ForumModuleCard({ count, module }: { count: number; module: ForumModule
   return (
     <a
       className={`forumModuleCard${isCommunitySpace ? " forumModuleCardPublic" : ""}`}
-      href={getForumModuleHref(module)}
+      href={isCommunitySpace ? "/forum?space=community" : getForumModuleHref(module)}
     >
       <span className="forumModuleTop">
         <span className="forumModuleIcon">
@@ -194,8 +253,66 @@ function getModuleCounts(entries: CmsEntry[]) {
   return counts;
 }
 
-function formatSpaceCount(count: number) {
-  return `${count} ${count === 1 ? "space" : "spaces"}`;
+function getVisibleSpaceOptions(activeGroup: ForumGroupFilter) {
+  const spaces = [forumCommunitySpace, ...forumModules];
+
+  if (activeGroup === "all") {
+    return spaces;
+  }
+
+  return spaces.filter((module) => module.group === activeGroup);
+}
+
+function getVisibleSpaces(activeGroup: ForumGroupFilter, activeSpace: ForumModule | null) {
+  if (activeSpace) {
+    return [activeSpace];
+  }
+
+  return getVisibleSpaceOptions(activeGroup);
+}
+
+function getForumSpaceByParam(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  return [forumCommunitySpace, ...forumModules].find((module) => {
+    const slug = getForumSpaceSlug(module);
+    return module.key === value || slug === value;
+  }) ?? null;
+}
+
+function getForumSpaceSlug(module: Pick<ForumModule, "key">) {
+  return module.key.replaceAll("_", "-");
+}
+
+function getForumListingParams(activeGroup: ForumGroupFilter, activeSpace: ForumModule | null) {
+  return {
+    group: activeSpace || activeGroup === "all" ? undefined : activeGroup,
+    space: activeSpace ? getForumSpaceSlug(activeSpace) : undefined,
+  };
+}
+
+function matchesForumFilter(entry: CmsEntry, activeGroup: ForumGroupFilter, activeSpace: ForumModule | null) {
+  const module = getForumEntryModule(entry) ?? (isForumCommunityEntry(entry) ? forumCommunitySpace : null);
+
+  if (!module) {
+    return activeGroup === "all" && !activeSpace;
+  }
+
+  if (activeSpace) {
+    return module.key === activeSpace.key;
+  }
+
+  return activeGroup === "all" || module.group === activeGroup;
+}
+
+function parseForumGroupFilter(value: string): ForumGroupFilter {
+  if (value === "community" || forumModuleGroups.some((group) => group.key === value)) {
+    return value as ForumGroupFilter;
+  }
+
+  return "all";
 }
 
 function getContentListCss() {
@@ -326,7 +443,7 @@ function getContentListCss() {
 
     .forumSearchBlock {
       width: var(--public-page-width);
-      margin: 0 auto 28px;
+      margin: 0 auto 16px;
       padding: 20px 0;
       background-image: radial-gradient(rgba(10, 37, 64, 0.12) 1px, transparent 1px);
       background-size: 12px 12px;
@@ -390,6 +507,90 @@ function getContentListCss() {
       transform: translateY(-1px);
     }
 
+    .forumFilterPanel {
+      width: var(--public-page-width);
+      display: grid;
+      gap: 10px;
+      margin: 0 auto 24px;
+      border-top: 1px solid rgba(10, 37, 64, 0.08);
+      border-bottom: 1px solid rgba(10, 37, 64, 0.08);
+      padding: 14px 0;
+    }
+
+    .forumFilterRow {
+      display: grid;
+      grid-template-columns: 74px minmax(0, 1fr);
+      align-items: start;
+      gap: 14px;
+    }
+
+    .forumFilterLabel {
+      padding-top: 8px;
+      color: var(--zider-green);
+      font-size: 11px;
+      font-weight: 820;
+      letter-spacing: 0.08em;
+      line-height: 1;
+      text-transform: uppercase;
+    }
+
+    .forumFilterOptions {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .forumFilterChip {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid rgba(10, 37, 64, 0.1);
+      border-radius: 999px;
+      background: #ffffff;
+      color: #0a2540;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1;
+      padding: 0 12px;
+      transition: border-color 160ms ease, background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+    }
+
+    .forumFilterChip:hover {
+      border-color: rgba(8, 122, 70, 0.24);
+      background: #f8fcfa;
+      color: var(--zider-green);
+    }
+
+    .forumFilterChip[aria-current="page"] {
+      border-color: rgba(8, 122, 70, 0.32);
+      background: #edf8f2;
+      color: var(--zider-green);
+      box-shadow: 0 8px 20px rgba(8, 122, 70, 0.07);
+    }
+
+    .forumFilterChipIcon {
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(8, 122, 70, 0.14);
+      border-radius: 6px;
+      background: #f1f8f4;
+      color: var(--zider-green);
+      flex: 0 0 auto;
+    }
+
+    .forumFilterChip small {
+      color: var(--zider-muted);
+      font-size: 11px;
+      font-weight: 780;
+      letter-spacing: 0.02em;
+    }
+
     .forumModules {
       margin-top: 0;
     }
@@ -404,79 +605,17 @@ function getContentListCss() {
 
     .forumSectionHeader {
       display: grid;
-      gap: 0;
+      gap: 6px;
+      margin-bottom: 14px;
     }
 
-    .forumSectionHeaderInline {
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 24px;
-    }
-
-    .forumSectionHeader h2,
-    .forumSpaceGroupHeader h2 {
+    .forumSectionHeader h2 {
       margin: 0;
       color: #0a2540;
       font-size: 24px;
       font-weight: 660;
       line-height: 1.08;
       letter-spacing: 0;
-    }
-
-    .forumSpaceGroups {
-      display: grid;
-      gap: 26px;
-      margin-top: 12px;
-    }
-
-    .forumSpaceGroup {
-      display: grid;
-      gap: 14px;
-      border-top: 1px solid rgba(10, 37, 64, 0.1);
-      padding-top: 18px;
-    }
-
-    .forumSpaceGroupHeader {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 18px;
-    }
-
-    .forumSpaceGroupHeader p {
-      margin: 0 0 8px;
-      color: var(--zider-green);
-      font-size: 12px;
-      font-weight: 820;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .forumSpaceGroupHeader span {
-      display: block;
-      max-width: 560px;
-      margin-top: 8px;
-      color: var(--zider-muted);
-      font-size: 13px;
-      line-height: 1.45;
-    }
-
-    .forumSpaceGroupHeader > small {
-      min-height: 26px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border: 1px solid rgba(10, 37, 64, 0.08);
-      border-radius: 999px;
-      background: #ffffff;
-      color: var(--zider-muted);
-      font-size: 11px;
-      font-weight: 760;
-      line-height: 1;
-      letter-spacing: 0.02em;
-      padding: 0 9px;
-      white-space: nowrap;
     }
 
     .forumModuleList {
@@ -486,21 +625,16 @@ function getContentListCss() {
       margin-top: 0;
     }
 
-    .forumSpaceGroup[data-group="community"] .forumModuleList,
-    .forumSpaceGroup[data-group="workspace"] .forumModuleList {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .forumModuleCard {
       position: relative;
-      min-height: 144px;
+      min-height: 132px;
       display: grid;
       align-content: start;
-      gap: 10px;
+      gap: 9px;
       border: 1px solid rgba(10, 37, 64, 0.1);
       border-radius: 8px;
       background: linear-gradient(180deg, #ffffff 0%, #fcfefd 100%);
-      padding: 16px;
+      padding: 14px;
       box-shadow: 0 1px 0 rgba(10, 37, 64, 0.03);
       transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease, transform 160ms ease;
     }
@@ -526,8 +660,8 @@ function getContentListCss() {
     }
 
     .forumModuleIcon {
-      width: 42px;
-      height: 42px;
+      width: 38px;
+      height: 38px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -540,7 +674,7 @@ function getContentListCss() {
 
     .forumModuleCard strong {
       color: #0a2540;
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 700;
       line-height: 1.14;
       letter-spacing: 0;
@@ -837,6 +971,7 @@ function getContentListCss() {
       }
 
       .forumModules,
+      .forumFilterPanel,
       .forumSearchBlock,
       .forumPosts {
         width: calc(100% - 36px);
@@ -853,12 +988,6 @@ function getContentListCss() {
 
       .forumModuleList {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-      }
-
-      .forumSpaceGroupHeader {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 10px;
       }
 
       .contentCard {
@@ -886,20 +1015,18 @@ function getContentListCss() {
         margin-top: 0;
       }
 
-      .forumSectionHeaderInline {
-        align-items: flex-start;
-        flex-direction: column;
+      .forumFilterRow {
+        grid-template-columns: 1fr;
         gap: 8px;
+      }
+
+      .forumFilterLabel {
+        padding-top: 0;
       }
     }
 
     @media (max-width: 560px) {
       .forumModuleList {
-        grid-template-columns: 1fr;
-      }
-
-      .forumSpaceGroup[data-group="community"] .forumModuleList,
-      .forumSpaceGroup[data-group="workspace"] .forumModuleList {
         grid-template-columns: 1fr;
       }
 
