@@ -167,6 +167,7 @@ type PrintOpsStoreProfileSummary = {
   locale: string | null;
   logoMediaPath: string | null;
   logoUrl: string | null;
+  ownerEmail: string | null;
   phone: string | null;
   siteUrl: string | null;
   syncedAt: string | null;
@@ -3378,7 +3379,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             <span className={styles.titleDescription}>{pageDescription}</span>
           </div>
           {pageMetrics.length > 0 ? (
-            <div className={styles.metrics} aria-label="PrintOps summary">
+            <div className={styles.metrics} data-view={activeView} aria-label="PrintOps summary">
               {pageMetrics.map((metric) => (
                 <Metric key={metric.label} label={metric.label} value={metric.value} tone={metric.tone} />
               ))}

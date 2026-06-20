@@ -787,6 +787,15 @@
   padding: 10px 12px;
 }
 
+.metrics[data-view="templates"] .metric {
+  flex-basis: 124px;
+  min-width: 124px;
+}
+
+.metrics[data-view="templates"] .metric span {
+  white-space: nowrap;
+}
+
 .metric[data-tone="warning"] {
   background: var(--yellow-soft);
   border-color: #efd28e;
@@ -5564,6 +5573,11 @@
 
   .metric {
     flex: 1 1 calc(50% - 5px);
+  }
+
+  .metrics[data-view="templates"] .metric {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0;
   }
 
   .settingsTwoColumns,

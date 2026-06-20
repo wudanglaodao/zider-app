@@ -10,6 +10,7 @@ type WixSiteProfile = {
   locale: string | null;
   logoMediaPath: string | null;
   logoUrl: string | null;
+  ownerEmail: string | null;
   phone: string | null;
   rawProfile: Record<string, unknown>;
   siteId: string | null;
@@ -28,6 +29,7 @@ type PlatformStoreProfileRow = {
   locale: string | null;
   logo_media_path: string | null;
   logo_url: string | null;
+  owner_email: string | null;
   phone: string | null;
   platform_site_id: string | null;
   primary_site_url: string | null;
@@ -72,7 +74,16 @@ export async function syncPrintOpsStoreProfileForInstall(input: {
 }
 
 async function fetchWixSiteProfile(accessToken: string): Promise<WixSiteProfile> {
-  const response = await fetch("https://www.wixapis.com/site-properties/v4/properties", {
+  const [sitePropertiesRaw, appInstanceResult] = await Promise.all([
+    fetchRequiredWixJson("https://www.wixapis.com/site-properties/v4/properties", accessToken, "Wix site profile"),
+    fetchOptionalWixJson("https://www.wixapis.com/apps/v1/instance", accessToken),
+  ]);
+
+  return normalizeWixSiteProfile(sitePropertiesRaw, appInstanceResult);
+}
+
+async function fetchRequiredWixJson(url: string, accessToken: string, label: string) {
+  const response = await fetch(url, {
     headers: {
       Authorization: formatWixAuthorization(accessToken),
     },
@@ -80,10 +91,35 @@ async function fetchWixSiteProfile(accessToken: string): Promise<WixSiteProfile>
   const raw = (await response.json().catch(() => null)) as unknown;
 
   if (!response.ok) {
-    throw new Error(`Wix site profile request failed: ${response.status} ${JSON.stringify(raw)}`);
+    throw new Error(`${label} request failed: ${response.status} ${JSON.stringify(raw)}`);
   }
 
-  return normalizeWixSiteProperties(raw);
+  return raw;
+}
+
+async function fetchOptionalWixJson(url: string, accessToken: string) {
+  const response = await fetch(url, {
+    headers: {
+      Authorization: formatWixAuthorization(accessToken),
+    },
+  });
+  const raw = (await response.json().catch(() => null)) as unknown;
+
+  if (!response.ok) {
+    return {
+      error: {
+        body: raw,
+        status: response.status,
+        url,
+      },
+      raw: null,
+    };
+  }
+
+  return {
+    error: null,
+    raw,
+  };
 }
 
 async function upsertPlatformStoreProfile(input: WixSiteProfile & {
@@ -164,6 +200,7 @@ function mergePlatformStoreProfileRow(
     locale: input.locale ?? existing?.locale ?? null,
     logo_media_path: input.logoMediaPath ?? existing?.logo_media_path ?? null,
     logo_url: input.logoUrl ?? existing?.logo_url ?? null,
+    owner_email: input.ownerEmail ?? existing?.owner_email ?? null,
     phone: input.phone ?? existing?.phone ?? null,
     platform: input.platform,
     platform_site_id: input.siteId ?? existing?.platform_site_id ?? null,
@@ -249,6 +286,7 @@ async function readProfileRowByColumn(input: {
         "locale",
         "logo_media_path",
         "logo_url",
+        "owner_email",
         "phone",
         "platform_site_id",
         "primary_site_url",
@@ -313,6 +351,58 @@ async function updateAppInstallationStoreProfileLink(input: {
     .eq("instance_id", input.instanceId);
 }
 
+function normalizeWixSiteProfile(
+  sitePropertiesRaw: unknown,
+  appInstanceResult: { error: Record<string, unknown> | null; raw: unknown | null },
+): WixSiteProfile {
+  const sitePropertiesProfile = normalizeWixSiteProperties(sitePropertiesRaw);
+  const appInstanceRoot = getRecord(appInstanceResult.raw) ?? {};
+  const appInstanceSite = getRecord(appInstanceRoot.site) ?? getRecord(appInstanceRoot.siteInfo) ?? {};
+  const ownerInfo = getRecord(appInstanceSite.ownerInfo) ?? getRecord(appInstanceSite.owner) ?? {};
+  const ownerEmail =
+    pickStringFromRecords([ownerInfo, appInstanceSite, appInstanceRoot], ["email", "ownerEmail", "owner_email", "siteOwnerEmail", "site_owner_email"]) ??
+    null;
+  const siteUrlRecord = getRecord(appInstanceSite.siteUrl) ?? getRecord(appInstanceSite.siteUrls) ?? {};
+  const multilingual = getRecord(appInstanceSite.multilingual) ?? {};
+  const rawProfile: Record<string, unknown> = {
+    _ziderSiteProperties: sitePropertiesProfile.rawProfile,
+  };
+
+  if (appInstanceResult.raw) {
+    rawProfile._ziderAppInstance = appInstanceRoot;
+  }
+
+  if (appInstanceResult.error) {
+    rawProfile._ziderAppInstanceError = appInstanceResult.error;
+  }
+
+  return {
+    ...sitePropertiesProfile,
+    businessEmail: sitePropertiesProfile.businessEmail,
+    businessName:
+      sitePropertiesProfile.businessName ??
+      pickStringFromRecords([appInstanceSite], ["businessName", "business_name", "siteDisplayName", "displayName", "siteName", "name"]),
+    currency:
+      sitePropertiesProfile.currency ??
+      pickStringFromRecords([appInstanceSite], ["paymentCurrency", "currency", "defaultCurrency"]),
+    language:
+      sitePropertiesProfile.language ??
+      pickStringFromRecords([appInstanceSite, multilingual], ["language", "defaultLanguage", "siteLanguage", "primaryLanguage"]),
+    locale: sitePropertiesProfile.locale ?? pickStringFromRecords([appInstanceSite], ["regionalFormat", "defaultLocale", "locale"]),
+    ownerEmail,
+    rawProfile,
+    siteId: sitePropertiesProfile.siteId ?? pickString(appInstanceSite, ["siteId", "site_id", "metasiteId", "metaSiteId"]),
+    siteUrl:
+      sitePropertiesProfile.siteUrl ??
+      normalizeUrl(
+        pickStringFromRecords(
+          [appInstanceSite, siteUrlRecord],
+          ["externalSiteUrl", "publishedSiteUrl", "siteUrl", "url", "baseUrl", "domain", "primary"],
+        ),
+      ),
+  };
+}
+
 function normalizeWixSiteProperties(raw: unknown): WixSiteProfile {
   const root = getRecord(raw) ?? {};
   const properties = getRecord(root.properties) ?? getRecord(root.siteProperties) ?? root;
@@ -356,6 +446,7 @@ function normalizeWixSiteProperties(raw: unknown): WixSiteProfile {
       pickString(localeRecord, ["locale", "code", "languageTag", "id"]),
     logoMediaPath: logo.mediaPath,
     logoUrl: logo.url,
+    ownerEmail: null,
     phone: pickStringFromRecords([properties, businessInfo, contactInfo], ["phone", "businessPhone", "business_phone"]),
     rawProfile: root,
     siteId: pickString(properties, ["siteId", "site_id"]) ?? pickString(root, ["siteId", "site_id", "metasiteId", "metaSiteId"]),

@@ -17,6 +17,7 @@ export type PrintOpsStoreProfile = {
   locale: string | null;
   logoMediaPath: string | null;
   logoUrl: string | null;
+  ownerEmail: string | null;
   phone: string | null;
   platform: "wix";
   rawProfile: Record<string, unknown>;
@@ -67,6 +68,7 @@ export async function upsertPrintOpsStoreProfile(input: {
   locale: string | null;
   logoMediaPath: string | null;
   logoUrl: string | null;
+  ownerEmail: string | null;
   phone: string | null;
   platform: "wix";
   rawProfile: Record<string, unknown>;
@@ -131,6 +133,7 @@ function mapPlatformProfileToPrintOpsProfile(
     locale: profile.locale,
     logoMediaPath: profile.logoMediaPath,
     logoUrl: profile.logoUrl,
+    ownerEmail: profile.ownerEmail,
     phone: profile.phone,
     platform: profile.platform,
     rawProfile: profile.rawProfile,

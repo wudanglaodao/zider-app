@@ -12,6 +12,7 @@ export type PlatformStoreProfile = {
   locale: string | null;
   logoMediaPath: string | null;
   logoUrl: string | null;
+  ownerEmail: string | null;
   phone: string | null;
   platform: "wix";
   platformSiteId: string | null;
@@ -64,6 +65,7 @@ type PlatformStoreProfileRow = {
   locale: string | null;
   logo_media_path: string | null;
   logo_url: string | null;
+  owner_email: string | null;
   phone: string | null;
   platform: string;
   platform_site_id: string | null;
@@ -89,6 +91,7 @@ export async function upsertPlatformStoreProfile(input: {
   locale: string | null;
   logoMediaPath: string | null;
   logoUrl: string | null;
+  ownerEmail: string | null;
   phone: string | null;
   platform: "wix";
   rawProfile: Record<string, unknown>;
@@ -128,6 +131,7 @@ export async function upsertPlatformStoreProfile(input: {
     locale: input.locale ?? existingProfile?.locale ?? null,
     logo_media_path: input.logoMediaPath ?? existingProfile?.logoMediaPath ?? null,
     logo_url: input.logoUrl ?? existingProfile?.logoUrl ?? null,
+    owner_email: input.ownerEmail ?? existingProfile?.ownerEmail ?? null,
     phone: input.phone ?? existingProfile?.phone ?? null,
     platform: input.platform,
     platform_site_id: input.siteId ?? existingProfile?.platformSiteId ?? null,
@@ -424,6 +428,7 @@ function getProfileSelectColumns() {
     "locale",
     "logo_media_path",
     "logo_url",
+    "owner_email",
     "phone",
     "platform",
     "platform_site_id",
@@ -447,6 +452,7 @@ function mapPlatformStoreProfileRow(row: PlatformStoreProfileRow): PlatformStore
     locale: row.locale,
     logoMediaPath: row.logo_media_path,
     logoUrl: row.logo_url,
+    ownerEmail: row.owner_email,
     phone: row.phone,
     platform: "wix",
     platformSiteId: row.platform_site_id,

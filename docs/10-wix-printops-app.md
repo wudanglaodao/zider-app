@@ -168,15 +168,18 @@ Store profile cache:
 - Shared key: `platform + platform_site_id`.
 - Instance fallback: `platform + last_seen_instance_id` when Wix does not expose
   a site ID yet.
-- Source: Wix Site Properties API.
+- Source: Wix Site Properties API plus Wix App Instance API for owner login email.
 - Normalized fields: `platform_site_id`, `primary_site_url`, `business_name`,
-  `business_email`, `logo_media_path`, `logo_url`, `phone`, `address`,
+  `business_email`, `owner_email`, `logo_media_path`, `logo_url`, `phone`, `address`,
   `language`, `locale`, `timezone`, `currency`, and `raw_profile`.
 - Wix fields to prefer when available:
   - Site identity: published/external site URL, domain, site ID, display name,
     site name, business name.
   - Business profile/contact: business email, phone, address, logo media path,
     logo image URL.
+  - Owner identity: `site.ownerInfo.email` from Get App Instance is stored as
+    `owner_email`; do not use it as the public invoice contact email unless the
+    merchant explicitly chooses that.
   - Regional defaults: site language, default language, locale/regional format,
     timezone, payment/default currency.
 - `raw_profile` is retained so newly exposed Wix Site Properties fields can be

@@ -326,6 +326,7 @@ create table if not exists public.platform_store_profiles (
   primary_site_url text,
   business_name text,
   business_email text,
+  owner_email text,
   logo_media_path text,
   logo_url text,
   phone text,
