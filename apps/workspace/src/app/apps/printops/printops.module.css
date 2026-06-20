@@ -186,7 +186,7 @@
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) 34px;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .logo {
@@ -194,21 +194,17 @@
   height: 34px;
   display: grid;
   place-items: center;
-  border: 4px solid var(--green);
-  border-radius: 999px;
-  background: transparent;
-  color: transparent;
-  font-size: 0;
-  font-weight: 850;
-  box-shadow: none;
+  border: 0;
+  border-radius: 10px;
+  background: var(--green);
+  color: var(--accent-contrast);
+  box-shadow: 0 12px 26px var(--accent-shadow);
 }
 
-.logo::after {
-  width: 8px;
-  height: 8px;
-  content: "";
-  border-radius: 999px;
-  background: var(--green);
+.logo svg {
+  width: 19px;
+  height: 19px;
+  display: block;
 }
 
 .brandCopy {
@@ -225,8 +221,9 @@
 
 .brandCopy strong {
   color: var(--ink);
-  font-size: 20px;
-  line-height: 1.25;
+  font-size: 18px;
+  font-weight: 820;
+  line-height: 1.15;
 }
 
 .brandCopy span {
@@ -742,7 +739,10 @@
 }
 
 .titleRow {
-  align-items: flex-end;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  column-gap: 24px;
   margin: 26px 0 18px;
 }
 
@@ -770,12 +770,15 @@
 }
 
 .metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(90px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
+  margin-left: auto;
 }
 
 .metric {
+  flex: 0 0 96px;
   min-height: 62px;
   min-width: 96px;
   border: 1px solid var(--line);
@@ -1467,7 +1470,7 @@
 
 .ordersTable {
   width: 100%;
-  min-width: 1120px;
+  min-width: 1200px;
   border-collapse: separate;
   border-spacing: 0;
 }
@@ -1485,6 +1488,11 @@
 .ordersTable th,
 .ordersTable td {
   padding: 10px 12px;
+}
+
+.ordersTable th:nth-child(3),
+.ordersTable td:nth-child(3) {
+  width: 96px;
 }
 
 .ordersTable td {
@@ -1536,6 +1544,26 @@
   color: var(--muted);
   font-size: 12px;
   line-height: 1.35;
+}
+
+.ordersTable td .channelBadge {
+  width: fit-content;
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green-strong);
+  padding: 0 10px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .rowActions {
@@ -2924,6 +2952,24 @@
   text-align: right;
 }
 
+.templatePaper[data-document="order"][dir="rtl"] .orderHeroLogoSlot,
+.templatePaper[data-document="order"][dir="rtl"] .orderClassicLogo {
+  justify-self: start;
+  direction: ltr;
+  text-align: left;
+}
+
+.templatePaper[data-document="order"][dir="rtl"] .orderHeroLogoSlot .orderClassicLogoText,
+.templatePaper[data-document="order"][dir="rtl"] .orderClassicLogoText {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.templatePaper[data-document="order"][dir="rtl"] .orderHeroLogoSlot .orderClassicLogoImage,
+.templatePaper[data-document="order"][dir="rtl"] .orderClassicLogoImage {
+  object-position: left center;
+}
+
 .templatePaper[data-document="order"][dir="rtl"] .orderHeroTableHead strong:not(:first-child),
 .templatePaper[data-document="order"][dir="rtl"] .orderHeroRow > strong,
 .templatePaper[data-document="order"][dir="rtl"] .orderHeroRow > span:not(:first-child),
@@ -2937,6 +2983,20 @@
 
 .templatePaper[data-document="order"][dir="rtl"] .orderBarcodeBlock i {
   margin-inline-start: auto;
+}
+
+.templatePaper[data-document="order"][dir="rtl"] .orderHeroThanks,
+.templatePaper[data-document="order"][dir="rtl"] .orderCenteredFooter,
+.templatePaper[data-document="order"][dir="rtl"] .orderSlipThanks,
+.templatePaper[data-document="order"][dir="rtl"] .orderSocialFooter,
+.templatePaper[data-document="order"][dir="rtl"] .orderHeroSocialFooter {
+  justify-items: end;
+  text-align: right;
+}
+
+.templatePaper[data-document="order"][dir="rtl"] .orderSocialFooter .orderSocialLinks,
+.templatePaper[data-document="order"][dir="rtl"] .orderHeroSocialIcons {
+  justify-content: flex-end;
 }
 
 .templatePaper[data-document="order"][data-style="atelier"] {
@@ -3331,6 +3391,43 @@
   font-weight: 780;
 }
 
+.orderSkuBarcodeBlock {
+  width: min(9.2em, 100%);
+  display: grid;
+  gap: 0.16em;
+  margin-top: 0.1em;
+  direction: ltr;
+  text-align: left;
+}
+
+.orderSkuBarcodeBlock small {
+  color: var(--order-muted);
+  font-size: 0.68em;
+  font-weight: 820;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.orderSkuBarcodeBlock i {
+  height: 1.05em;
+  display: block;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--order-ink) 0 0.14em,
+    transparent 0.14em 0.27em,
+    var(--order-ink) 0.27em 0.35em,
+    transparent 0.35em 0.52em
+  );
+}
+
+.orderSkuBarcodeBlock em {
+  color: var(--order-muted);
+  font-size: 0.68em;
+  font-style: normal;
+  font-weight: 780;
+  line-height: 1;
+}
+
 .orderHeroAddressGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3580,8 +3677,11 @@
 
 .orderClassicLogo {
   display: block;
+  justify-self: end;
   width: min(16.5em, 100%);
   line-height: 1;
+  direction: ltr;
+  text-align: right;
 }
 
 .orderClassicLogoText {
@@ -3589,11 +3689,13 @@
   width: 100%;
   max-width: 100%;
   align-items: flex-start;
+  justify-content: flex-end;
   color: #151817;
   font-weight: 920;
   letter-spacing: 0;
   line-height: 0.92;
   overflow-wrap: anywhere;
+  text-align: right;
   text-transform: none;
 }
 
@@ -3602,6 +3704,7 @@
   max-height: 4.8em;
   display: block;
   object-fit: contain;
+  object-position: right center;
 }
 
 .orderClassicAddresses,
@@ -3656,12 +3759,26 @@
 
 .orderSocialFooter {
   margin-top: 1.2em;
-  justify-items: center;
-  text-align: center;
+  justify-items: start;
+  text-align: left;
 }
 
 .orderSocialFooter .orderSocialLinks {
-  justify-content: center;
+  justify-content: flex-start;
+}
+
+.templatePaper[data-document="order"][dir="rtl"] .orderHeroThanks,
+.templatePaper[data-document="order"][dir="rtl"] .orderCenteredFooter,
+.templatePaper[data-document="order"][dir="rtl"] .orderSlipThanks,
+.templatePaper[data-document="order"][dir="rtl"] .orderSocialFooter,
+.templatePaper[data-document="order"][dir="rtl"] .orderHeroSocialFooter {
+  justify-items: end;
+  text-align: right;
+}
+
+.templatePaper[data-document="order"][dir="rtl"] .orderSocialFooter .orderSocialLinks,
+.templatePaper[data-document="order"][dir="rtl"] .orderHeroSocialIcons {
+  justify-content: flex-end;
 }
 
 .templatePaper[data-document="order"][data-variant="card"] .orderHeroHeader,
@@ -5367,8 +5484,9 @@
   }
 
   .titleRow {
+    grid-template-columns: 1fr;
     align-items: stretch;
-    flex-direction: column;
+    row-gap: 14px;
   }
 
   .readinessGrid {
@@ -5440,7 +5558,12 @@
   }
 
   .metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+    margin-left: 0;
+  }
+
+  .metric {
+    flex: 1 1 calc(50% - 5px);
   }
 
   .settingsTwoColumns,

@@ -115,25 +115,26 @@ export async function upsertPlatformStoreProfile(input: {
     return existing;
   }
 
+  const existingProfile = existing.profile;
   const row = {
-    address: input.address,
-    business_email: input.businessEmail,
-    business_name: input.businessName,
-    currency: input.currency,
-    first_seen_app_key: existing.profile?.firstSeenAppKey ?? input.appKey,
-    language: input.language,
+    address: hasRecordContent(input.address) ? input.address : existingProfile?.address ?? {},
+    business_email: input.businessEmail ?? existingProfile?.businessEmail ?? null,
+    business_name: input.businessName ?? existingProfile?.businessName ?? null,
+    currency: input.currency ?? existingProfile?.currency ?? null,
+    first_seen_app_key: existingProfile?.firstSeenAppKey ?? input.appKey,
+    language: input.language ?? existingProfile?.language ?? null,
     last_seen_instance_id: input.instanceId,
     last_synced_app_key: input.appKey,
-    locale: input.locale,
-    logo_media_path: input.logoMediaPath,
-    logo_url: input.logoUrl,
-    phone: input.phone,
+    locale: input.locale ?? existingProfile?.locale ?? null,
+    logo_media_path: input.logoMediaPath ?? existingProfile?.logoMediaPath ?? null,
+    logo_url: input.logoUrl ?? existingProfile?.logoUrl ?? null,
+    phone: input.phone ?? existingProfile?.phone ?? null,
     platform: input.platform,
-    platform_site_id: input.siteId,
-    primary_site_url: input.siteUrl,
-    raw_profile: input.rawProfile,
+    platform_site_id: input.siteId ?? existingProfile?.platformSiteId ?? null,
+    primary_site_url: input.siteUrl ?? existingProfile?.primarySiteUrl ?? null,
+    raw_profile: hasRecordContent(input.rawProfile) ? input.rawProfile : existingProfile?.rawProfile ?? {},
     synced_at: syncedAt,
-    timezone: input.timezone,
+    timezone: input.timezone ?? existingProfile?.timezone ?? null,
     updated_at: syncedAt,
   };
   const query = existing.rowId
@@ -472,4 +473,8 @@ function getRecord(value: unknown) {
   }
 
   return null;
+}
+
+function hasRecordContent(value: Record<string, unknown>) {
+  return Object.keys(value).length > 0;
 }

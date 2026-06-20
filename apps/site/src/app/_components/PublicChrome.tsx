@@ -205,10 +205,16 @@ function getPublicChromeCss() {
       --public-page-gutter: clamp(192px, 18vw, 360px);
       --public-page-width: min(var(--public-page-max), calc(100% - var(--public-page-gutter)));
       min-height: 100vh;
+      display: flex;
+      flex-direction: column;
       background: #ffffff;
       color: var(--zider-ink);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
       -webkit-font-smoothing: antialiased;
+    }
+
+    .publicChrome > main {
+      flex: 1 0 auto;
     }
 
     .publicHeader {
@@ -571,6 +577,8 @@ function getPublicChromeCss() {
     }
 
     .publicFooter {
+      flex: 0 0 auto;
+      margin-top: auto;
       border-top: 1px solid var(--zider-line);
       background: #f7faf8;
       padding: 38px 0 24px;

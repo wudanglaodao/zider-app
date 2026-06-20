@@ -42,6 +42,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const accountNext = encodeURIComponent(accountNextPath);
   const accountInitials = homeAccountInitials(accountSession?.user.displayName, accountSession?.user.email);
   const accountName = homeAccountName(accountSession?.user.displayName, accountSession?.user.email);
+  const accountAvatarUrl = accountSession?.user.avatarUrl ?? null;
 
   return (
     <main className="zider-stripe">
@@ -66,13 +67,13 @@ export default async function HomePage({ searchParams }: HomePageProps) {
               <details className="account-menu">
                 <summary className="account-button account-button--signed" aria-label="Open account menu">
                   <span className="account-button__avatar" aria-hidden="true">
-                    {accountInitials}
+                    <HomeAccountAvatar avatarUrl={accountAvatarUrl} initials={accountInitials} />
                   </span>
                 </summary>
                 <div className="account-menu__panel" aria-label="Account menu">
                   <div className="account-menu__summary">
                     <span className="account-menu__avatar" aria-hidden="true">
-                      {accountInitials}
+                      <HomeAccountAvatar avatarUrl={accountAvatarUrl} initials={accountInitials} />
                     </span>
                     <span>
                       <strong>{accountName}</strong>
@@ -308,6 +309,14 @@ function homeAccountName(displayName?: string | null, email?: string | null) {
   return emailName || "ZIDER account";
 }
 
+function HomeAccountAvatar({ avatarUrl, initials }: { avatarUrl: string | null; initials: string }) {
+  if (avatarUrl) {
+    return <img alt="" src={avatarUrl} />;
+  }
+
+  return <span>{initials}</span>;
+}
+
 function redirectSupabaseCallbackFromHome(params: Record<string, string | string[] | undefined>) {
   const code = readHomeSearchParam(params.code);
   const error = readHomeSearchParam(params.error);
@@ -502,20 +511,41 @@ function getStripeLandingCss() {
       font-size: 11px;
       font-weight: 820;
       line-height: 1;
+      overflow: hidden;
     }
 
     .account-menu .account-button--signed {
       width: 44px;
       min-height: 44px;
+      border: 1px solid var(--green);
       border-radius: 999px;
+      background: #ffffff;
+      color: var(--green);
       padding: 0;
     }
 
     .account-menu .account-button__avatar {
-      width: 30px;
-      height: 30px;
-      background: rgba(255, 255, 255, 0.2);
+      width: 100%;
+      height: 100%;
+      background: transparent;
       font-size: 12px;
+    }
+
+    .account-button__avatar img,
+    .account-menu__avatar img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border-radius: inherit;
+      object-fit: cover;
+    }
+
+    .account-button__avatar span,
+    .account-menu__avatar span {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      place-items: center;
     }
 
     .account-menu {
@@ -580,10 +610,12 @@ function getStripeLandingCss() {
       place-items: center;
       flex: 0 0 auto;
       border-radius: 999px;
-      background: rgba(8, 122, 70, 0.1);
-      color: var(--green);
+      background: var(--green);
+      color: #ffffff;
       font-size: 14px;
       font-weight: 820;
+      box-shadow: 0 12px 28px rgba(8, 122, 70, 0.16);
+      overflow: hidden;
     }
 
     .account-menu__summary span:last-child {
@@ -678,6 +710,11 @@ function getStripeLandingCss() {
     .primary-button:hover {
       background: #069456;
       border-color: #069456;
+    }
+
+    .account-menu .account-button--signed:hover {
+      background: #ffffff;
+      border-color: var(--green);
     }
 
     .auth-link:hover,

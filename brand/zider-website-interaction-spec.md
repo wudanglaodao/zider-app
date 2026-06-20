@@ -1,7 +1,7 @@
 # ZIDER 官网交互规范
 
-更新日期：2026-05-23
-适用范围：`zider.ink` 官网、Blog、Forum、Contact、Privacy、CMS 轻后台
+更新日期：2026-06-20
+适用范围：`zider.ink` 官网、Blog、Forum、Contact、Privacy、Account Center、CMS 轻后台
 
 ## 1. 目标与气质
 
@@ -78,6 +78,35 @@ container width: min(1440px, 100% - gutter)
 - 大屏幕不要让正文贴边，也不要让视觉图压到文字后面。
 - 980px 以下进入单列布局，容器左右留白约 36px。
 - 640px 以下移动端左右留白约 24px。
+
+### 3.1 账户与 Workspace 型页面版心
+
+Account Center、Workspace、应用后台属于操作型页面，不使用官网营销页的窄版心。它们需要让表单、摘要卡片和两列信息区在大屏上有足够横向空间。
+
+桌面端建议：
+
+```text
+default content max-width: 1280px
+large screen content max-width: 1480px
+content gutter: 38px - 48px
+tablet breakpoint: 1120px
+mobile max-width: 680px
+```
+
+交互规则：
+
+- 1440px 以上不要把主要内容压在 1120px 以内，除非是文章详情或单列阅读页。
+- 1680px 以上允许操作型页面扩展到约 1480px，让卡片和表单更接近工作台密度。
+- 侧边栏存在时，主内容在剩余空间内居中，不贴侧边栏，也不贴浏览器右边缘。
+- 顶部栏左侧保留品牌识别，后台左侧优先使用 ZIDER micro Z 图标，避免完整字标过重。
+- Account Center 顶部右侧只放 `Help`、Workspace 应用网格图标和账号头像；Workspace 应用网格跳转到 `workspace.zider.ink`，不再使用 `Home` 文案或房子图标。
+- `Help` 与应用网格默认态使用低对比灰绿，鼠标移入时才显示浅绿色底色和品牌绿。
+- 真实用户头像只做圆形裁切，不加绿色描边、厚外圈或品牌色阴影；只有没有头像、使用 initials fallback 时才使用浅绿色底色。
+- P0 账号中心侧栏只保留 `Account Center`，避免出现 Billing、Members、Links 等暂不支持入口。
+- P0 账号中心侧栏底部保留 `Help center`，跳转到 `/forum` 社区支持页面，并放在当前账号摘要之上。
+- 首屏信息顺序固定为：页面标题、账号摘要、登录方式摘要、Profile 表单、登录信息、社交登录。
+- P0 Workspace 根页面只做静态账号入口壳层：顶部展示 micro Z、Help、Sign in；侧边栏只保留 Account Center；主内容只展示登录入口和用户中心入口，不展示账单、成员、链接、Store 切换或多应用管理。
+- 保存类操作必须在按钮、成功提示和后续刷新数据之间保持一致；用户保存后刷新页面应看到已保存结果。
 
 ## 4. Header
 

@@ -3,8 +3,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   CircleQuestionMark,
-  Component,
-  Layers,
   LayoutDashboard,
   Menu,
   PanelLeftClose,
@@ -16,13 +14,11 @@ import {
 type WorkbenchSection = "dashboard" | "cursor" | "help";
 type WorkbenchIconName =
   | "close"
-  | "components"
   | "dashboard"
   | "help"
   | "menu"
   | "panelClose"
-  | "panelOpen"
-  | "solutions";
+  | "panelOpen";
 
 const navSections: Array<{
   items: Array<{ href: string; icon: WorkbenchIconName; label: string; section?: WorkbenchSection }>;
@@ -30,11 +26,7 @@ const navSections: Array<{
 }> = [
   {
     label: "Workspace",
-    items: [
-      { href: "/", icon: "dashboard", label: "Dashboard", section: "dashboard" },
-      { href: "/components", icon: "components", label: "Components" },
-      { href: "/solutions", icon: "solutions", label: "Solutions" },
-    ],
+    items: [{ href: "/", icon: "dashboard", label: "Dashboard", section: "dashboard" }],
   },
   {
     label: "Support",
@@ -140,13 +132,11 @@ export function WorkbenchShell({
 
 const workbenchIcons = {
   close: X,
-  components: Component,
   dashboard: LayoutDashboard,
   help: CircleQuestionMark,
   menu: Menu,
   panelClose: PanelLeftClose,
   panelOpen: PanelLeftOpen,
-  solutions: Layers,
 } satisfies Record<WorkbenchIconName, LucideIcon>;
 
 function WorkbenchIcon({ name }: { name: WorkbenchIconName }) {

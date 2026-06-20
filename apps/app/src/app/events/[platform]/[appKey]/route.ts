@@ -1,6 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { waitUntil } from "@vercel/functions";
-import { getAppRegistryEntry, INTERACTIVE_CUSTOM_CURSOR_APP_KEY, isSupportedPlatform } from "@/lib/webhooks/app-registry";
+import {
+  getAppRegistryEntry,
+  INTERACTIVE_CUSTOM_CURSOR_APP_KEY,
+  isSupportedPlatform,
+  PRINTOPS_APP_KEY,
+} from "@/lib/webhooks/app-registry";
+import { syncPrintOpsStoreProfileForInstall } from "@/lib/printops/store-profile-sync";
 import {
   createWebhookIngressLog,
   getWebhookIngressRoute,
@@ -252,6 +258,35 @@ export async function POST(request: NextRequest, context: RouteContext) {
             error: error instanceof Error ? error.message : error,
           });
         }),
+      );
+    }
+
+    if (canonicalAppKey === PRINTOPS_APP_KEY && wix.eventType === "app_instance_installed" && wix.instanceId) {
+      const instanceId = wix.instanceId;
+
+      waitUntil(
+        persistence
+          .then(() =>
+            syncPrintOpsStoreProfileForInstall({
+              appKey: canonicalAppKey,
+              instanceId,
+            }),
+          )
+          .then((result) => {
+            if (result.status !== "persisted") {
+              console.warn("PrintOps store profile install sync skipped or failed", {
+                instanceId,
+                reason: result.reason,
+                status: result.status,
+              });
+            }
+          })
+          .catch((error) => {
+            console.warn("PrintOps store profile install sync failed", {
+              instanceId,
+              error: error instanceof Error ? error.message : error,
+            });
+          }),
       );
     }
 

@@ -53,6 +53,7 @@ import { coreFieldRegistry, type FieldScope } from "./_lib/template-render-conte
 import styles from "./printops.module.css";
 
 type Order = {
+  channel: string;
   id: string;
   number: string;
   customer: string;
@@ -258,7 +259,22 @@ type WorkspaceAccent = "forest" | "blue" | "violet" | "red" | "amber";
 type OrderTemplateDensity = "balanced" | "compact" | "spacious";
 type OrderTemplateLogoSource = "generated-svg" | "uploaded-image";
 type OrderTemplateLogoFont = "sans" | "serif" | "mono";
-type SocialPlatform = "instagram" | "facebook" | "x" | "website";
+type SocialPlatform =
+  | "instagram"
+  | "facebook"
+  | "x"
+  | "tiktok"
+  | "youtube"
+  | "linkedin"
+  | "pinterest"
+  | "threads"
+  | "snapchat"
+  | "whatsapp"
+  | "line"
+  | "telegram"
+  | "messenger"
+  | "discord"
+  | "website";
 type SocialLinkMode = "username" | "url";
 type SocialProfile = {
   mode: SocialLinkMode;
@@ -296,6 +312,10 @@ type TemplateVisibilityKey =
   | "showItemOptions"
   | "showNotes"
   | "showTotals"
+  | "showItemsTotal"
+  | "showShippingTotal"
+  | "showTaxTotal"
+  | "showGrandTotal"
   | "showThankYou"
   | "showContactFooter"
   | "showSocialFooter";
@@ -357,6 +377,10 @@ type TemplateRecord = {
   showItemOptions: boolean;
   showNotes: boolean;
   showTotals: boolean;
+  showItemsTotal?: boolean;
+  showShippingTotal?: boolean;
+  showTaxTotal?: boolean;
+  showGrandTotal?: boolean;
   showPaymentMethod: boolean;
   showShippingMethod: boolean;
   showThankYou: boolean;
@@ -421,6 +445,10 @@ type TemplateDraft = {
   showItemOptions: boolean;
   showNotes: boolean;
   showTotals: boolean;
+  showItemsTotal: boolean;
+  showShippingTotal: boolean;
+  showTaxTotal: boolean;
+  showGrandTotal: boolean;
   showPaymentMethod: boolean;
   showShippingMethod: boolean;
   showThankYou: boolean;
@@ -528,6 +556,17 @@ const socialPlatformOptions = [
   { label: "Instagram", platform: "instagram", baseUrl: "https://instagram.com/", placeholder: "zider" },
   { label: "Facebook", platform: "facebook", baseUrl: "https://facebook.com/", placeholder: "zider" },
   { label: "X", platform: "x", baseUrl: "https://x.com/", placeholder: "zider" },
+  { label: "TikTok", platform: "tiktok", baseUrl: "https://tiktok.com/@", placeholder: "zider" },
+  { label: "YouTube", platform: "youtube", baseUrl: "https://youtube.com/@", placeholder: "zider" },
+  { label: "LinkedIn", platform: "linkedin", baseUrl: "https://linkedin.com/company/", placeholder: "zider" },
+  { label: "Pinterest", platform: "pinterest", baseUrl: "https://pinterest.com/", placeholder: "zider" },
+  { label: "Threads", platform: "threads", baseUrl: "https://threads.net/@", placeholder: "zider" },
+  { label: "Snapchat", platform: "snapchat", baseUrl: "https://snapchat.com/add/", placeholder: "zider" },
+  { label: "WhatsApp", platform: "whatsapp", baseUrl: "https://wa.me/", placeholder: "+15551234567" },
+  { label: "LINE", platform: "line", baseUrl: "https://line.me/R/ti/p/", placeholder: "@zider" },
+  { label: "Telegram", platform: "telegram", baseUrl: "https://t.me/", placeholder: "zider" },
+  { label: "Messenger", platform: "messenger", baseUrl: "https://m.me/", placeholder: "zider" },
+  { label: "Discord", platform: "discord", baseUrl: "https://discord.gg/", placeholder: "zider" },
   { label: "Website", platform: "website", baseUrl: "", placeholder: printOpsSystemSiteUrl },
 ] satisfies Array<{ label: string; platform: SocialPlatform; baseUrl: string; placeholder: string }>;
 
@@ -553,6 +592,26 @@ function normalizeSocialUsername(value: string) {
   return value.trim().replace(/^@+/, "").replace(/^\/+|\/+$/g, "");
 }
 
+function normalizeSocialHandle(platform: SocialPlatform, value: string) {
+  const cleanValue = value.trim();
+
+  if (platform === "whatsapp") {
+    return cleanValue.replace(/[^\d]/g, "");
+  }
+
+  if (platform === "line") {
+    return cleanValue.replace(/^\/+|\/+$/g, "");
+  }
+
+  if (platform === "discord") {
+    return normalizeSocialUsername(cleanValue)
+      .replace(/^discord(?:app)?\.com\/invite\//i, "")
+      .replace(/^discord\.gg\//i, "");
+  }
+
+  return normalizeSocialUsername(cleanValue);
+}
+
 function buildSocialUrl(platform: SocialPlatform, mode: SocialLinkMode, value: string) {
   const cleanValue = value.trim();
 
@@ -560,12 +619,16 @@ function buildSocialUrl(platform: SocialPlatform, mode: SocialLinkMode, value: s
     return "";
   }
 
-  if (mode === "url" || platform === "website") {
+  if (mode === "url" || platform === "website" || /^https?:\/\//i.test(cleanValue)) {
     return ensureUrlProtocol(cleanValue);
   }
 
   const platformOption = socialPlatformOptions.find((option) => option.platform === platform);
-  const username = normalizeSocialUsername(cleanValue);
+  const username = normalizeSocialHandle(platform, cleanValue);
+
+  if (!username) {
+    return "";
+  }
 
   return platformOption?.baseUrl ? `${platformOption.baseUrl}${username}` : ensureUrlProtocol(username);
 }
@@ -602,6 +665,50 @@ function detectSocialPlatform(value: string): SocialPlatform | null {
 
   if (lowerValue.includes("twitter") || lowerValue.includes("x.com") || lowerValue === "x") {
     return "x";
+  }
+
+  if (lowerValue.includes("tiktok")) {
+    return "tiktok";
+  }
+
+  if (lowerValue.includes("youtube") || lowerValue.includes("youtu.be")) {
+    return "youtube";
+  }
+
+  if (lowerValue.includes("linkedin")) {
+    return "linkedin";
+  }
+
+  if (lowerValue.includes("pinterest")) {
+    return "pinterest";
+  }
+
+  if (lowerValue.includes("threads")) {
+    return "threads";
+  }
+
+  if (lowerValue.includes("snapchat")) {
+    return "snapchat";
+  }
+
+  if (lowerValue.includes("whatsapp") || lowerValue.includes("wa.me")) {
+    return "whatsapp";
+  }
+
+  if (lowerValue.includes("line.me") || lowerValue.includes("lin.ee")) {
+    return "line";
+  }
+
+  if (lowerValue.includes("telegram") || lowerValue.includes("t.me")) {
+    return "telegram";
+  }
+
+  if (lowerValue.includes("messenger") || lowerValue.includes("m.me")) {
+    return "messenger";
+  }
+
+  if (lowerValue.includes("discord")) {
+    return "discord";
   }
 
   if (lowerValue.includes(".") || lowerValue.includes("http")) {
@@ -697,6 +804,10 @@ const defaultTemplateBrandSettings = {
   showItemOptions: true,
   showNotes: true,
   showTotals: true,
+  showItemsTotal: true,
+  showShippingTotal: true,
+  showTaxTotal: true,
+  showGrandTotal: true,
   showPaymentMethod: true,
   showShippingMethod: true,
   showThankYou: true,
@@ -740,6 +851,10 @@ const defaultTemplateBrandSettings = {
   | "showStoreName"
   | "showThankYou"
   | "showTotals"
+  | "showItemsTotal"
+  | "showShippingTotal"
+  | "showTaxTotal"
+  | "showGrandTotal"
   | "socialLinks"
   | "socialProfiles"
   | "thankYouFontSize"
@@ -750,6 +865,10 @@ function normalizeStoredTemplateRecord(templateRecord: TemplateRecord): Template
   const normalizedTemplateRecord = {
     ...templateRecord,
     contactPromptText: templateRecord.contactPromptText ?? defaultTemplateBrandSettings.contactPromptText,
+    showItemsTotal: templateRecord.showItemsTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showItemsTotal,
+    showShippingTotal: templateRecord.showShippingTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showShippingTotal,
+    showTaxTotal: templateRecord.showTaxTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showTaxTotal,
+    showGrandTotal: templateRecord.showGrandTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showGrandTotal,
   };
 
   if (
@@ -1255,6 +1374,478 @@ const fixedTemplateLabels = {
   },
 } satisfies Record<string, LocalizedText>;
 
+const fixedTemplateThankYouText = {
+  default: "Thanks for your business!",
+  es: "Gracias por tu compra.",
+  de: "Vielen Dank fuer deinen Einkauf.",
+  ja: "ご利用ありがとうございます。",
+  fr: "Merci pour votre achat.",
+  pt: "Obrigado pela preferencia.",
+  "zh-Hans": "感谢您的惠顾！",
+  "zh-Hant": "感謝您的惠顧！",
+  ar: "شكرًا لتعاملك معنا!",
+  nl: "Bedankt voor je bestelling.",
+  it: "Grazie per il tuo acquisto.",
+  ko: "이용해 주셔서 감사합니다.",
+} satisfies LocalizedText;
+
+const fixedTemplateSampleText = {
+  deliveryMethod: {
+    default: "Delivery method 3232",
+    es: "Metodo de entrega 3232",
+    de: "Liefermethode 3232",
+    ja: "配送方法 3232",
+    fr: "Mode de livraison 3232",
+    pt: "Metodo de entrega 3232",
+    "zh-Hans": "配送方式 3232",
+    "zh-Hant": "配送方式 3232",
+    ar: "طريقة التوصيل 3232",
+    nl: "Bezorgmethode 3232",
+    it: "Metodo di consegna 3232",
+    ko: "배송 방법 3232",
+  },
+  giftCard: {
+    default: "Gift card",
+    es: "Tarjeta de regalo",
+    de: "Geschenkkarte",
+    ja: "ギフトカード",
+    fr: "Carte cadeau",
+    pt: "Cartao-presente",
+    "zh-Hans": "礼品卡",
+    "zh-Hant": "禮品卡",
+    ar: "بطاقة هدايا",
+    nl: "Cadeaubon",
+    it: "Carta regalo",
+    ko: "기프트 카드",
+  },
+  lineItem: {
+    default: "Line item",
+    es: "Linea",
+    de: "Position",
+    ja: "明細",
+    fr: "Ligne",
+    pt: "Item",
+    "zh-Hans": "明细",
+    "zh-Hant": "明細",
+    ar: "عنصر",
+    nl: "Regelitem",
+    it: "Riga",
+    ko: "품목",
+  },
+  sampleProduct: {
+    default: "Sample product A",
+    es: "Producto de ejemplo A",
+    de: "Beispielprodukt A",
+    ja: "サンプル商品A",
+    fr: "Produit exemple A",
+    pt: "Produto de exemplo A",
+    "zh-Hans": "示例商品A",
+    "zh-Hant": "範例商品A",
+    ar: "منتج تجريبي A",
+    nl: "Voorbeeldproduct A",
+    it: "Prodotto di esempio A",
+    ko: "샘플 상품 A",
+  },
+  batch: {
+    default: "Batch",
+    es: "Lote",
+    de: "Stapel",
+    ja: "バッチ",
+    fr: "Lot",
+    pt: "Lote",
+    "zh-Hans": "批次",
+    "zh-Hant": "批次",
+    ar: "دفعة",
+    nl: "Batch",
+    it: "Lotto",
+    ko: "배치",
+  },
+  buyerNote: {
+    default: "Buyer note",
+    es: "Nota del comprador",
+    de: "Kaeufernotiz",
+    ja: "購入者メモ",
+    fr: "Note acheteur",
+    pt: "Nota do comprador",
+    "zh-Hans": "买家备注",
+    "zh-Hant": "買家備註",
+    ar: "ملاحظة المشتري",
+    nl: "Kopersnotitie",
+    it: "Nota acquirente",
+    ko: "구매자 메모",
+  },
+  buyerNoteMessage: {
+    default: "Please pack the kits together and include the return card.",
+    es: "Empaca los kits juntos e incluye la tarjeta de devolucion.",
+    de: "Bitte die Kits zusammen verpacken und die Ruecksendekarte beilegen.",
+    ja: "キットをまとめて梱包し、返品カードを同梱してください。",
+    fr: "Veuillez emballer les kits ensemble et ajouter la carte de retour.",
+    pt: "Embale os kits juntos e inclua o cartao de devolucao.",
+    "zh-Hans": "请将套装一起打包，并放入退货卡。",
+    "zh-Hant": "請將套組一起打包，並放入退貨卡。",
+    ar: "يرجى تغليف المجموعات معا وإرفاق بطاقة الإرجاع.",
+    nl: "Verpak de kits samen en voeg de retourkaart toe.",
+    it: "Imballa i kit insieme e includi la scheda di reso.",
+    ko: "키트를 함께 포장하고 반품 카드를 넣어 주세요.",
+  },
+  customHoodie: {
+    default: "Custom hoodie",
+    es: "Sudadera personalizada",
+    de: "Individueller Hoodie",
+    ja: "カスタムパーカー",
+    fr: "Sweat a capuche personnalise",
+    pt: "Moletom personalizado",
+    "zh-Hans": "定制连帽衫",
+    "zh-Hant": "客製連帽衫",
+    ar: "هودي مخصص",
+    nl: "Hoodie op maat",
+    it: "Felpa personalizzata",
+    ko: "맞춤 후디",
+  },
+  customMessageIncluded: {
+    default: "Custom message included",
+    es: "Mensaje personalizado incluido",
+    de: "Eigene Nachricht enthalten",
+    ja: "カスタムメッセージ入り",
+    fr: "Message personnalise inclus",
+    pt: "Mensagem personalizada incluida",
+    "zh-Hans": "含定制留言",
+    "zh-Hant": "含客製訊息",
+    ar: "تتضمن رسالة مخصصة",
+    nl: "Aangepast bericht inbegrepen",
+    it: "Messaggio personalizzato incluso",
+    ko: "맞춤 메시지 포함",
+  },
+  customer: {
+    default: "Customer",
+    es: "Cliente",
+    de: "Kunde",
+    ja: "顧客",
+    fr: "Client",
+    pt: "Cliente",
+    "zh-Hans": "客户",
+    "zh-Hant": "客戶",
+    ar: "العميل",
+    nl: "Klant",
+    it: "Cliente",
+    ko: "고객",
+  },
+  eventKit: {
+    default: "Event kit",
+    es: "Kit para evento",
+    de: "Event-Kit",
+    ja: "イベントキット",
+    fr: "Kit evenement",
+    pt: "Kit de evento",
+    "zh-Hans": "活动套装",
+    "zh-Hant": "活動套組",
+    ar: "مجموعة فعالية",
+    nl: "Eventkit",
+    it: "Kit evento",
+    ko: "이벤트 키트",
+  },
+  footerPolicy: {
+    default: "Thank you for your order. Returns accepted within 30 days.",
+    es: "Gracias por tu pedido. Se aceptan devoluciones dentro de 30 dias.",
+    de: "Vielen Dank fuer deine Bestellung. Rueckgaben sind innerhalb von 30 Tagen moeglich.",
+    ja: "ご注文ありがとうございます。返品は30日以内に承ります。",
+    fr: "Merci pour votre commande. Les retours sont acceptes sous 30 jours.",
+    pt: "Obrigado pelo pedido. Devolucoes aceitas em ate 30 dias.",
+    "zh-Hans": "感谢您的订单。支持 30 天内退货。",
+    "zh-Hant": "感謝您的訂單。支援 30 天內退貨。",
+    ar: "شكرا لطلبك. نقبل الإرجاع خلال 30 يوما.",
+    nl: "Bedankt voor je bestelling. Retouren worden binnen 30 dagen geaccepteerd.",
+    it: "Grazie per il tuo ordine. Resi accettati entro 30 giorni.",
+    ko: "주문해 주셔서 감사합니다. 30일 이내 반품 가능합니다.",
+  },
+  from: {
+    default: "From",
+    es: "Desde",
+    de: "Von",
+    ja: "差出人",
+    fr: "De",
+    pt: "De",
+    "zh-Hans": "发件方",
+    "zh-Hant": "寄件方",
+    ar: "من",
+    nl: "Van",
+    it: "Da",
+    ko: "보낸 곳",
+  },
+  fulfillment: {
+    default: "Fulfillment",
+    es: "Cumplimiento",
+    de: "Erfuellung",
+    ja: "フルフィルメント",
+    fr: "Traitement",
+    pt: "Atendimento",
+    "zh-Hans": "履约",
+    "zh-Hant": "履約",
+    ar: "التنفيذ",
+    nl: "Verwerking",
+    it: "Evasione",
+    ko: "처리",
+  },
+  giftBox: {
+    default: "Gift box",
+    es: "Caja de regalo",
+    de: "Geschenkbox",
+    ja: "ギフトボックス",
+    fr: "Coffret cadeau",
+    pt: "Caixa de presente",
+    "zh-Hans": "礼品盒",
+    "zh-Hant": "禮品盒",
+    ar: "صندوق هدايا",
+    nl: "Geschenkdoos",
+    it: "Scatola regalo",
+    ko: "선물 상자",
+  },
+  giftCardInsert: {
+    default: "Gift card insert",
+    es: "Tarjeta de regalo incluida",
+    de: "Geschenkkarten-Beileger",
+    ja: "ギフトカード同梱",
+    fr: "Encart carte cadeau",
+    pt: "Cartao-presente incluso",
+    "zh-Hans": "礼品卡插页",
+    "zh-Hant": "禮品卡插頁",
+    ar: "إدراج بطاقة هدايا",
+    nl: "Cadeaubonbijlage",
+    it: "Inserto carta regalo",
+    ko: "기프트 카드 동봉",
+  },
+  item: {
+    default: "Item",
+    es: "Articulo",
+    de: "Artikel",
+    ja: "商品",
+    fr: "Article",
+    pt: "Item",
+    "zh-Hans": "商品",
+    "zh-Hant": "商品",
+    ar: "العنصر",
+    nl: "Artikel",
+    it: "Articolo",
+    ko: "상품",
+  },
+  missing: {
+    default: "Missing",
+    es: "Faltante",
+    de: "Fehlt",
+    ja: "不足",
+    fr: "Manquant",
+    pt: "Faltando",
+    "zh-Hans": "缺失",
+    "zh-Hant": "缺少",
+    ar: "مفقود",
+    nl: "Ontbreekt",
+    it: "Mancante",
+    ko: "누락",
+  },
+  order: {
+    default: "Order",
+    es: "Pedido",
+    de: "Bestellung",
+    ja: "注文",
+    fr: "Commande",
+    pt: "Pedido",
+    "zh-Hans": "订单",
+    "zh-Hant": "訂單",
+    ar: "الطلب",
+    nl: "Bestelling",
+    it: "Ordine",
+    ko: "주문",
+  },
+  orders: {
+    default: "Orders",
+    es: "Pedidos",
+    de: "Bestellungen",
+    ja: "注文",
+    fr: "Commandes",
+    pt: "Pedidos",
+    "zh-Hans": "订单",
+    "zh-Hant": "訂單",
+    ar: "الطلبات",
+    nl: "Bestellingen",
+    it: "Ordini",
+    ko: "주문",
+  },
+  paidReadyForPickup: {
+    default: "Paid - ready for pickup",
+    es: "Pagado - listo para recoger",
+    de: "Bezahlt - bereit zur Abholung",
+    ja: "支払い済み - 受け取り準備完了",
+    fr: "Paye - pret pour retrait",
+    pt: "Pago - pronto para retirada",
+    "zh-Hans": "已付款 - 可自提",
+    "zh-Hant": "已付款 - 可自取",
+    ar: "مدفوع - جاهز للاستلام",
+    nl: "Betaald - klaar om af te halen",
+    it: "Pagato - pronto per il ritiro",
+    ko: "결제 완료 - 픽업 준비 완료",
+  },
+  pickupBouquet: {
+    default: "Pickup bouquet",
+    es: "Ramo para recoger",
+    de: "Abholstrauss",
+    ja: "受け取り用ブーケ",
+    fr: "Bouquet a retirer",
+    pt: "Buque para retirada",
+    "zh-Hans": "自提花束",
+    "zh-Hant": "自取花束",
+    ar: "باقة للاستلام",
+    nl: "Afhaalboeket",
+    it: "Bouquet da ritirare",
+    ko: "픽업 부케",
+  },
+  pickupReceipt: {
+    default: "Pickup receipt",
+    es: "Recibo de recogida",
+    de: "Abholbeleg",
+    ja: "受け取りレシート",
+    fr: "Recu de retrait",
+    pt: "Recibo de retirada",
+    "zh-Hans": "自提收据",
+    "zh-Hant": "自取收據",
+    ar: "إيصال الاستلام",
+    nl: "Afhaalbon",
+    it: "Ricevuta di ritiro",
+    ko: "픽업 영수증",
+  },
+  sageMediumBundle: {
+    default: "Sage / medium bundle",
+    es: "Salvia / paquete mediano",
+    de: "Salbei / mittleres Bundle",
+    ja: "セージ / ミディアムセット",
+    fr: "Sauge / lot moyen",
+    pt: "Verde sage / pacote medio",
+    "zh-Hans": "鼠尾草色 / 中号组合",
+    "zh-Hant": "鼠尾草色 / 中號組合",
+    ar: "سيج / حزمة متوسطة",
+    nl: "Sage / medium bundel",
+    it: "Salvia / bundle medio",
+    ko: "세이지 / 중형 번들",
+  },
+  status: {
+    default: "Status",
+    es: "Estado",
+    de: "Status",
+    ja: "ステータス",
+    fr: "Statut",
+    pt: "Status",
+    "zh-Hans": "状态",
+    "zh-Hant": "狀態",
+    ar: "الحالة",
+    nl: "Status",
+    it: "Stato",
+    ko: "상태",
+  },
+} satisfies Record<string, LocalizedText>;
+
+const fixedOrderPaymentStatusLabels = {
+  Paid: {
+    default: "Paid",
+    es: "Pagado",
+    de: "Bezahlt",
+    ja: "支払い済み",
+    fr: "Paye",
+    pt: "Pago",
+    "zh-Hans": "已付款",
+    "zh-Hant": "已付款",
+    ar: "مدفوع",
+    nl: "Betaald",
+    it: "Pagato",
+    ko: "결제 완료",
+  },
+  "Partially paid": {
+    default: "Partially paid",
+    es: "Parcialmente pagado",
+    de: "Teilweise bezahlt",
+    ja: "一部支払い済み",
+    fr: "Partiellement paye",
+    pt: "Parcialmente pago",
+    "zh-Hans": "部分付款",
+    "zh-Hant": "部分付款",
+    ar: "مدفوع جزئيا",
+    nl: "Gedeeltelijk betaald",
+    it: "Parzialmente pagato",
+    ko: "부분 결제",
+  },
+  Unpaid: {
+    default: "Unpaid",
+    es: "Sin pagar",
+    de: "Unbezahlt",
+    ja: "未払い",
+    fr: "Impaye",
+    pt: "Nao pago",
+    "zh-Hans": "未付款",
+    "zh-Hant": "未付款",
+    ar: "غير مدفوع",
+    nl: "Onbetaald",
+    it: "Non pagato",
+    ko: "미결제",
+  },
+} satisfies Record<Order["payment"], LocalizedText>;
+
+const fixedOrderFulfillmentStatusLabels = {
+  Partial: {
+    default: "Partial",
+    es: "Parcial",
+    de: "Teilweise",
+    ja: "一部",
+    fr: "Partiel",
+    pt: "Parcial",
+    "zh-Hans": "部分",
+    "zh-Hant": "部分",
+    ar: "جزئي",
+    nl: "Gedeeltelijk",
+    it: "Parziale",
+    ko: "부분",
+  },
+  Pickup: {
+    default: "Pickup",
+    es: "Recogida",
+    de: "Abholung",
+    ja: "受け取り",
+    fr: "Retrait",
+    pt: "Retirada",
+    "zh-Hans": "自提",
+    "zh-Hant": "自取",
+    ar: "استلام",
+    nl: "Afhalen",
+    it: "Ritiro",
+    ko: "픽업",
+  },
+  Ready: {
+    default: "Ready",
+    es: "Listo",
+    de: "Bereit",
+    ja: "準備完了",
+    fr: "Pret",
+    pt: "Pronto",
+    "zh-Hans": "就绪",
+    "zh-Hant": "準備完成",
+    ar: "جاهز",
+    nl: "Gereed",
+    it: "Pronto",
+    ko: "준비 완료",
+  },
+  Unfulfilled: {
+    default: "Unfulfilled",
+    es: "No gestionado",
+    de: "Nicht erfuellt",
+    ja: "未処理",
+    fr: "Non traite",
+    pt: "Nao atendido",
+    "zh-Hans": "未履行",
+    "zh-Hant": "未完成",
+    ar: "غير منفذ",
+    nl: "Niet verwerkt",
+    it: "Non evaso",
+    ko: "미처리",
+  },
+} satisfies Record<Order["fulfillment"], LocalizedText>;
+
 const templateFixedLabelDefinitions: TemplateLabelDefinition[] = [
   { key: "template.invoice_title", group: "Template", label: fixedTemplateLabels.invoiceTitle, helper: "Document title in the header." },
   { key: "template.invoice_no", group: "Template", label: fixedTemplateLabels.invoiceNo, helper: "Invoice number prefix." },
@@ -1347,7 +1938,10 @@ function getVisibleFieldGroups(editorCopy: PrintOpsMessages["templateEditor"]): 
       description: editorCopy.visibleSummaryDescription,
       items: [
         { key: "showNotes", label: editorCopy.visibleNotes, description: editorCopy.visibleNotesDescription },
-        { key: "showTotals", label: editorCopy.visibleTotals, description: editorCopy.visibleTotalsDescription },
+        { key: "showItemsTotal", label: editorCopy.visibleItemsTotal, description: editorCopy.visibleItemsTotalDescription },
+        { key: "showShippingTotal", label: editorCopy.visibleShippingTotal, description: editorCopy.visibleShippingTotalDescription },
+        { key: "showTaxTotal", label: editorCopy.visibleTaxTotal, description: editorCopy.visibleTaxTotalDescription },
+        { key: "showGrandTotal", label: editorCopy.visibleGrandTotal, description: editorCopy.visibleGrandTotalDescription },
       ],
     },
     {
@@ -1680,6 +2274,10 @@ function createBlankTemplateDraft(): TemplateDraft {
     showItemOptions: true,
     showNotes: true,
     showTotals: true,
+    showItemsTotal: true,
+    showShippingTotal: true,
+    showTaxTotal: true,
+    showGrandTotal: true,
     showPaymentMethod: true,
     showShippingMethod: true,
     showThankYou: true,
@@ -1740,6 +2338,10 @@ function createDraftFromTemplate(templateRecord: TemplateRecord, mode: TemplateE
     showItemOptions: templateRecord.showItemOptions ?? true,
     showNotes: templateRecord.showNotes ?? true,
     showTotals: templateRecord.showTotals ?? true,
+    showItemsTotal: templateRecord.showItemsTotal ?? templateRecord.showTotals ?? true,
+    showShippingTotal: templateRecord.showShippingTotal ?? templateRecord.showTotals ?? true,
+    showTaxTotal: templateRecord.showTaxTotal ?? templateRecord.showTotals ?? true,
+    showGrandTotal: templateRecord.showGrandTotal ?? templateRecord.showTotals ?? true,
     showPaymentMethod: templateRecord.showPaymentMethod ?? true,
     showShippingMethod: templateRecord.showShippingMethod ?? true,
     showThankYou: templateRecord.showThankYou ?? true,
@@ -1855,6 +2457,28 @@ function resolveTemplateLabel(key: string, locale: PrintLocale, overrides: Templ
   return resolveLocalizedText(fallback, locale);
 }
 
+function resolveDefaultTemplateText(value: string, defaultValue: string, localizedFallback: string) {
+  const cleanValue = value.trim();
+
+  if (!cleanValue || cleanValue === defaultValue) {
+    return localizedFallback;
+  }
+
+  return cleanValue;
+}
+
+function resolveTemplateSampleText(key: keyof typeof fixedTemplateSampleText, locale: PrintLocale) {
+  return resolveLocalizedText(fixedTemplateSampleText[key], locale);
+}
+
+function resolveOrderPaymentStatusLabel(status: Order["payment"], locale: PrintLocale) {
+  return resolveLocalizedText(fixedOrderPaymentStatusLabels[status], locale);
+}
+
+function resolveOrderFulfillmentStatusLabel(status: Order["fulfillment"], locale: PrintLocale) {
+  return resolveLocalizedText(fixedOrderFulfillmentStatusLabels[status], locale);
+}
+
 function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: TemplateRecord): TemplateRecord {
   const dataRequirements = parseDataRequirements(draft.dataRequirements);
   const normalizedSocialProfiles = normalizeSocialProfiles(draft.socialProfiles, draft.socialLinks);
@@ -1908,7 +2532,11 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
     showSku: draft.showSku,
     showItemOptions: draft.showItemOptions,
     showNotes: draft.showNotes,
-    showTotals: draft.showTotals,
+    showTotals: draft.showItemsTotal || draft.showShippingTotal || draft.showTaxTotal || draft.showGrandTotal,
+    showItemsTotal: draft.showItemsTotal,
+    showShippingTotal: draft.showShippingTotal,
+    showTaxTotal: draft.showTaxTotal,
+    showGrandTotal: draft.showGrandTotal,
     showPaymentMethod: draft.showPaymentMethod,
     showShippingMethod: draft.showShippingMethod,
     showThankYou: draft.showThankYou,
@@ -1991,15 +2619,15 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const selectedCount = selectedOrders.length;
   const orderMetrics = useMemo(
     () => ({
-      generated: cachedOrders.filter((order) => order.print === "Generated").length,
-      unprinted: cachedOrders.filter((order) => order.print === "Unprinted").length,
+      printed: cachedOrders.filter((order) => order.print === "Printed").length,
+      unprinted: cachedOrders.filter((order) => order.print !== "Printed").length,
     }),
     [cachedOrders],
   );
   const viewLinks = useMemo(
     () =>
       pluginContext?.viewLinks ?? {
-        orders: "/apps/printops",
+        orders: "/apps/printops/wix",
         settings: "/apps/printops/settings",
         templates: "/apps/printops/templates",
       },
@@ -2080,8 +2708,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       : activeView === "settings"
         ? []
       : [
+          { label: messages.metrics.printed, value: String(orderMetrics.printed) },
           { label: messages.metrics.unprinted, value: String(orderMetrics.unprinted) },
-          { label: messages.metrics.generated, value: String(orderMetrics.generated) },
         ];
 
   useEffect(() => {
@@ -2642,12 +3270,11 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     >
       <aside className={styles.sidebar} aria-label="PrintOps">
         <div className={styles.brandRow}>
-          <a className={styles.logo} href="/" aria-label="Zider workspace">
-            Z
+          <a className={styles.logo} href="/" aria-label="PrintOps workspace">
+            <Printer size={19} strokeWidth={2.15} aria-hidden />
           </a>
           <div className={styles.brandCopy}>
             <strong>{messages.app.name}</strong>
-            <span>{messages.app.scope}</span>
           </div>
           <button
             className={styles.iconButton}
@@ -2852,6 +3479,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                   <tr>
                     <th aria-label="Select order" />
                     <th>Order</th>
+                    <th>Channel</th>
                     <th>Customer</th>
                     <th>Items</th>
                     <th>Payment</th>
@@ -2890,6 +3518,9 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                           <td>
                             <strong>{order.number}</strong>
                             <span>{order.date}</span>
+                          </td>
+                          <td>
+                            <span className={styles.channelBadge}>{order.channel}</span>
                           </td>
                           <td>
                             <strong>{order.customer}</strong>
@@ -2946,7 +3577,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                     })
                   ) : (
                     <tr>
-                      <td colSpan={9}>
+                      <td colSpan={10}>
                         <div className={styles.emptyOrdersState}>
                           <strong>{cachedOrders.length > 0 ? messages.orders.emptyFilterTitle : messages.orders.emptyTitle}</strong>
                           <span>
@@ -3395,6 +4026,7 @@ function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order
   }
 
   return {
+    channel: "WIX",
     createdAt: order.createdAt,
     customer: order.customerName ?? "Wix customer",
     date: formatOrderDate(order.updatedAt ?? order.createdAt ?? order.syncedAt),
@@ -3428,6 +4060,7 @@ function mapWixSyncOrderToOrder(order: WixSyncOrderSummary, source: Order["sourc
 
   return {
     barcode: firstLineItem?.barcode ?? undefined,
+    channel: "WIX",
     createdAt: order.createdAt,
     customFields,
     customer: customerName,
@@ -3454,7 +4087,7 @@ function countWixOrderCustomFields(order: WixSyncOrderSummary) {
   return collectWixOrderCustomFields(order).length;
 }
 
-function collectWixOrderCustomFields(order: WixSyncOrderSummary) {
+function collectWixOrderCustomFields(order: WixSyncOrderSummary, locale: PrintLocale = defaultPrintLocale) {
   const fields: Array<{ label: string; value: string }> = [];
 
   order.customFields.forEach((field) => {
@@ -3466,7 +4099,7 @@ function collectWixOrderCustomFields(order: WixSyncOrderSummary) {
   });
 
   order.lineItems.forEach((lineItem, index) => {
-    const itemLabel = lineItem.title ?? `Line item ${index + 1}`;
+    const itemLabel = lineItem.title ?? `${resolveTemplateSampleText("lineItem", locale)} ${index + 1}`;
 
     lineItem.customFields.forEach((field) => {
       const formatted = formatWixCustomField(field);
@@ -4082,6 +4715,10 @@ function TemplateCenter({
                         showStoreName={templateRecord.showStoreName}
                         showThankYou={templateRecord.showThankYou}
                         showTotals={templateRecord.showTotals}
+                        showItemsTotal={templateRecord.showItemsTotal ?? templateRecord.showTotals}
+                        showShippingTotal={templateRecord.showShippingTotal ?? templateRecord.showTotals}
+                        showTaxTotal={templateRecord.showTaxTotal ?? templateRecord.showTotals}
+                        showGrandTotal={templateRecord.showGrandTotal ?? templateRecord.showTotals}
                         customAccentColor={templateRecord.customAccentColor}
                         socialLinks={templateRecord.socialLinks}
                         socialProfiles={templateRecord.socialProfiles}
@@ -4811,6 +5448,10 @@ function TemplatePreviewModal({
                 showStoreName={templateRecord.showStoreName}
                 showThankYou={templateRecord.showThankYou}
                 showTotals={templateRecord.showTotals}
+                showItemsTotal={templateRecord.showItemsTotal ?? templateRecord.showTotals}
+                showShippingTotal={templateRecord.showShippingTotal ?? templateRecord.showTotals}
+                showTaxTotal={templateRecord.showTaxTotal ?? templateRecord.showTotals}
+                showGrandTotal={templateRecord.showGrandTotal ?? templateRecord.showTotals}
                 customAccentColor={templateRecord.customAccentColor}
                 socialLinks={templateRecord.socialLinks}
                 socialProfiles={templateRecord.socialProfiles}
@@ -5709,6 +6350,10 @@ function TemplateEditorDrawer({
                     showStoreName={draft.showStoreName}
                     showThankYou={draft.showThankYou}
                     showTotals={draft.showTotals}
+                    showItemsTotal={draft.showItemsTotal}
+                    showShippingTotal={draft.showShippingTotal}
+                    showTaxTotal={draft.showTaxTotal}
+                    showGrandTotal={draft.showGrandTotal}
                     customAccentColor={draft.customAccentColor}
                     socialLinks={draft.socialLinks}
                     socialProfiles={draft.socialProfiles}
@@ -5767,6 +6412,10 @@ function TemplatePaperPreview({
   showStoreName = true,
   showThankYou = true,
   showTotals = true,
+  showItemsTotal = true,
+  showShippingTotal = true,
+  showTaxTotal = true,
+  showGrandTotal = true,
   customAccentColor = defaultTemplateBrandSettings.customAccentColor,
   socialLinks = defaultTemplateBrandSettings.socialLinks,
   socialProfiles,
@@ -5814,6 +6463,10 @@ function TemplatePaperPreview({
   showStoreName?: boolean;
   showThankYou?: boolean;
   showTotals?: boolean;
+  showItemsTotal?: boolean;
+  showShippingTotal?: boolean;
+  showTaxTotal?: boolean;
+  showGrandTotal?: boolean;
   customAccentColor?: string;
   socialLinks?: string;
   socialProfiles?: TemplateSocialProfiles;
@@ -5825,31 +6478,35 @@ function TemplatePaperPreview({
   const isThermal = layoutPreset === "Thermal" || paperSize === "80mm";
   const isInvoice = documentType === "Invoice";
   const isTableFirst = layoutPreset === "Table-first";
+  const displayBrandName = brandName.trim() || defaultTemplateBrandSettings.brandName;
+  const sample = (key: keyof typeof fixedTemplateSampleText) => resolveTemplateSampleText(key, defaultLanguage);
+  const previewLabel = (key: string) => resolveTemplateLabel(key, defaultLanguage, labelOverrides);
+  const previewDate = formatTemplateDateFromValue("2026-05-25T00:00:00.000Z", dateFormat, defaultLanguage);
 
   if (isThermal) {
     return (
-      <span className={styles.templatePaper} data-layout={layoutPreset} data-size={paperSize} data-variant={variant}>
-        <span className={styles.thermalBrand}>GREEN STUDIO</span>
-        <span className={styles.thermalTitle}>Pickup receipt</span>
+      <span className={styles.templatePaper} data-layout={layoutPreset} data-size={paperSize} data-variant={variant} dir={getLocaleDirection(defaultLanguage)} lang={defaultLanguage}>
+        <span className={styles.thermalBrand}>{displayBrandName.toUpperCase()}</span>
+        <span className={styles.thermalTitle}>{sample("pickupReceipt")}</span>
         <span className={styles.thermalDivider} />
         <span className={styles.thermalLine}>
-          <span>Order</span>
+          <span>{sample("order")}</span>
           <strong>#1005</strong>
         </span>
         <span className={styles.thermalLine}>
-          <span>Customer</span>
+          <span>{sample("customer")}</span>
           <strong>Avery Wu</strong>
         </span>
         <span className={styles.thermalDivider} />
         <span className={styles.thermalItem}>
-          <strong>Pickup bouquet</strong>
+          <strong>{sample("pickupBouquet")}</strong>
           <span>1 x $42.90</span>
         </span>
         <span className={styles.thermalTotal}>
-          <span>Total</span>
+          <span>{previewLabel("template.total")}</span>
           <strong>$42.90</strong>
         </span>
-        <span className={styles.thermalFooter}>Paid - ready for pickup</span>
+        <span className={styles.thermalFooter}>{sample("paidReadyForPickup")}</span>
       </span>
     );
   }
@@ -5895,6 +6552,10 @@ function TemplatePaperPreview({
         showStoreName={showStoreName}
         showThankYou={showThankYou}
         showTotals={showTotals}
+        showItemsTotal={showItemsTotal}
+        showShippingTotal={showShippingTotal}
+        showTaxTotal={showTaxTotal}
+        showGrandTotal={showGrandTotal}
         customAccentColor={customAccentColor}
         socialLinks={socialLinks}
         socialProfiles={socialProfiles}
@@ -5908,44 +6569,44 @@ function TemplatePaperPreview({
 
   if (isTableFirst) {
     return (
-      <span className={styles.templatePaper} data-layout={layoutPreset} data-size={paperSize} data-variant={variant}>
+      <span className={styles.templatePaper} data-layout={layoutPreset} data-size={paperSize} data-variant={variant} dir={getLocaleDirection(defaultLanguage)} lang={defaultLanguage}>
         <span className={styles.paperTitleBar}>
           <strong>{documentType}</strong>
-          <small>Batch #240526</small>
+          <small>{sample("batch")} #240526</small>
         </span>
         <span className={styles.paperDenseStats}>
           <span>
-            <small>Orders</small>
+            <small>{sample("orders")}</small>
             <strong>3</strong>
           </span>
           <span>
-            <small>Items</small>
+            <small>{previewLabel("template.items")}</small>
             <strong>12</strong>
           </span>
           <span>
-            <small>Missing</small>
+            <small>{sample("missing")}</small>
             <strong>1</strong>
           </span>
         </span>
         <span className={styles.paperPickTable}>
           <span>
-            <strong>SKU</strong>
-            <strong>Item</strong>
-            <strong>Qty</strong>
+            <strong>{previewLabel("template.sku")}</strong>
+            <strong>{sample("item")}</strong>
+            <strong>{previewLabel("template.qty")}</strong>
           </span>
           <span>
             <small>HD-240</small>
-            <small>Custom hoodie</small>
+            <small>{sample("customHoodie")}</small>
             <strong>2</strong>
           </span>
           <span>
             <small>BOX-12</small>
-            <small>Gift box</small>
+            <small>{sample("giftBox")}</small>
             <strong>1</strong>
           </span>
           <span>
             <small>KIT-04</small>
-            <small>Event kit</small>
+            <small>{sample("eventKit")}</small>
             <strong>4</strong>
           </span>
         </span>
@@ -5954,32 +6615,32 @@ function TemplatePaperPreview({
   }
 
   return (
-    <span className={styles.templatePaper} data-layout={layoutPreset} data-size={paperSize} data-variant={variant}>
+    <span className={styles.templatePaper} data-layout={layoutPreset} data-size={paperSize} data-variant={variant} dir={getLocaleDirection(defaultLanguage)} lang={defaultLanguage}>
       <span className={styles.paperHeaderLine}>
         <span className={styles.paperBrandBlock}>
           <span className={styles.paperLogoMark}>ZI</span>
           <span>
-            <strong>{printOpsSystemBrandName}</strong>
+            <strong>{displayBrandName}</strong>
             <small>{printOpsSystemSiteUrl}</small>
           </span>
         </span>
         <span className={styles.paperDocBlock}>
           <strong>{documentType}</strong>
-          <small>Invoice #1004</small>
-          <small>May 25, 2026</small>
+          <small>{previewLabel("template.invoice_no")} #1004</small>
+          <small>{previewDate}</small>
         </span>
       </span>
 
       <span className={styles.paperAddressGrid}>
         <span>
-          <small>Ship to</small>
+          <small>{previewLabel("template.ship_to")}</small>
           <strong>Chris Young</strong>
           <span>812 Market Street</span>
           <span>San Francisco, CA</span>
         </span>
         <span>
-          <small>From</small>
-          <strong>{printOpsSystemBrandName}</strong>
+          <small>{sample("from")}</small>
+          <strong>{displayBrandName}</strong>
           <span>zider.ink</span>
           <span>Workspace</span>
         </span>
@@ -5987,30 +6648,30 @@ function TemplatePaperPreview({
 
       <span className={styles.paperOrderStrip}>
         <span>
-          <small>Status</small>
-          <strong>Paid</strong>
+          <small>{sample("status")}</small>
+          <strong>{resolveOrderPaymentStatusLabel("Paid", defaultLanguage)}</strong>
         </span>
         <span>
-          <small>Fulfillment</small>
-          <strong>Partial</strong>
+          <small>{sample("fulfillment")}</small>
+          <strong>{resolveOrderFulfillmentStatusLabel("Partial", defaultLanguage)}</strong>
         </span>
         <span>
-          <small>Items</small>
+          <small>{previewLabel("template.items")}</small>
           <strong>4</strong>
         </span>
       </span>
 
       <span className={styles.paperItemsTable}>
         <span className={styles.paperItemsHead}>
-          <strong>Item</strong>
-          <strong>SKU</strong>
-          <strong>Qty</strong>
+          <strong>{sample("item")}</strong>
+          <strong>{previewLabel("template.sku")}</strong>
+          <strong>{previewLabel("template.qty")}</strong>
         </span>
         <span className={styles.paperItemRow}>
           <span className={styles.paperItemThumb} />
           <span>
-            <strong>Event kit</strong>
-            <small>Sage / medium bundle</small>
+            <strong>{sample("eventKit")}</strong>
+            <small>{sample("sageMediumBundle")}</small>
           </span>
           <small>KIT-04</small>
           <strong>4</strong>
@@ -6018,8 +6679,8 @@ function TemplatePaperPreview({
         <span className={styles.paperItemRow}>
           <span className={styles.paperItemThumb} />
           <span>
-            <strong>Gift card insert</strong>
-            <small>Custom message included</small>
+            <strong>{sample("giftCardInsert")}</strong>
+            <small>{sample("customMessageIncluded")}</small>
           </span>
           <small>INS-20</small>
           <strong>1</strong>
@@ -6027,10 +6688,10 @@ function TemplatePaperPreview({
       </span>
 
       <span className={styles.paperNoteBlock}>
-        <small>Buyer note</small>
-        <span>Please pack the kits together and include the return card.</span>
+        <small>{sample("buyerNote")}</small>
+        <span>{sample("buyerNoteMessage")}</span>
       </span>
-      <span className={styles.paperFooterLine}>Thank you for your order. Returns accepted within 30 days.</span>
+      <span className={styles.paperFooterLine}>{sample("footerPolicy")}</span>
     </span>
   );
 }
@@ -6180,18 +6841,20 @@ function getOrderPrintDetails(
     fallbackLines: getSampleAddressLines(options.addressFormat, "shipping"),
     fallbackName: customerName,
   });
-  const lineItems = getOrderPrintLineItems(order);
+  const lineItems = getOrderPrintLineItems(order, options.locale);
   const totals = getOrderPrintTotals(rawOrder, order?.total);
+  const fallbackDeliveryMethod = order?.fulfillment ? resolveOrderFulfillmentStatusLabel(order.fulfillment, options.locale) : resolveTemplateSampleText("deliveryMethod", options.locale);
+  const fallbackPaymentMethod = order?.payment ? resolveOrderPaymentStatusLabel(order.payment, options.locale) : resolveTemplateSampleText("giftCard", options.locale);
 
   return {
     billAddressLines,
-    customFields: order?.customFields ?? [],
+    customFields: rawOrder ? collectWixOrderCustomFields(rawOrder, options.locale) : order?.customFields ?? [],
     date: formatTemplateDateFromValue(rawOrder?.createdAt ?? rawOrder?.updatedAt ?? null, options.dateFormat, options.locale),
-    deliveryMethod: rawOrder?.deliveryMethod ?? order?.fulfillment ?? "Delivery method 3232",
+    deliveryMethod: rawOrder?.deliveryMethod ?? fallbackDeliveryMethod,
     lineItems,
     note: rawOrder?.note?.trim() ?? "",
     number: order?.number ?? formatOrderNumber(rawOrder?.orderNumber ?? rawOrder?.sourceOrderId ?? "#10059"),
-    paymentMethod: rawOrder?.paymentMethod ?? order?.payment ?? "Gift card",
+    paymentMethod: rawOrder?.paymentMethod ?? fallbackPaymentMethod,
     shipAddressLines,
     totals,
   };
@@ -6242,13 +6905,13 @@ function getOrderAddressLines(
   return resolvedLines;
 }
 
-function getOrderPrintLineItems(order: Order | null | undefined): OrderPrintLineItem[] {
+function getOrderPrintLineItems(order: Order | null | undefined, locale: PrintLocale): OrderPrintLineItem[] {
   const rawOrder = order?.rawOrder;
   const currency = rawOrder?.currency ?? null;
   const lineItems =
     rawOrder?.lineItems
       .map((lineItem, index) => {
-        const title = lineItem.title ?? order?.items ?? `Line item ${index + 1}`;
+        const title = lineItem.title ?? order?.items ?? `${resolveTemplateSampleText("lineItem", locale)} ${index + 1}`;
         const quantity = lineItem.quantity ?? 1;
         const price = formatMoneyValue(lineItem.price, currency, "");
         const total = formatMoneyValue(lineItem.totalPrice, currency, price || order?.total || "$1.00");
@@ -6278,7 +6941,7 @@ function getOrderPrintLineItems(order: Order | null | undefined): OrderPrintLine
       price: order?.total ?? "$1.00",
       quantity: 1,
       sku: order?.sku,
-      title: order?.items ?? "示例商品A",
+      title: order?.items ?? resolveTemplateSampleText("sampleProduct", locale),
       total: order?.total ?? "$1.00",
     },
   ];
@@ -6398,6 +7061,85 @@ function SocialIcon({ platform }: { platform: SocialPlatform }) {
         <svg {...iconProps} fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2.1">
           <path d="M4 4l16 16" />
           <path d="M20 4 4 20" />
+        </svg>
+      );
+    case "tiktok":
+      return (
+        <svg {...iconProps} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+          <path d="M14 4v10.2a4.3 4.3 0 1 1-3.2-4.1" />
+          <path d="M14 4c.8 2.8 2.7 4.5 5 4.8" />
+        </svg>
+      );
+    case "youtube":
+      return (
+        <svg {...iconProps} fill="currentColor">
+          <path d="M21.5 7.1a3 3 0 0 0-2.1-2.1C17.6 4.5 12 4.5 12 4.5s-5.6 0-7.4.5a3 3 0 0 0-2.1 2.1A31.2 31.2 0 0 0 2 12a31.2 31.2 0 0 0 .5 4.9 3 3 0 0 0 2.1 2.1c1.8.5 7.4.5 7.4.5s5.6 0 7.4-.5a3 3 0 0 0 2.1-2.1A31.2 31.2 0 0 0 22 12a31.2 31.2 0 0 0-.5-4.9ZM10 15.3V8.7l5.6 3.3Z" />
+        </svg>
+      );
+    case "linkedin":
+      return (
+        <svg {...iconProps} fill="currentColor">
+          <path d="M5.3 8.4H2.1V22h3.2ZM3.7 2A1.85 1.85 0 1 0 3.7 5.7 1.85 1.85 0 0 0 3.7 2ZM22 14.4c0-4.1-2.2-6-5.1-6a4.4 4.4 0 0 0-4 2.2h-.1V8.4H9.7V22H13v-6.7c0-1.8.3-3.5 2.5-3.5s2.2 2 2.2 3.6V22H22Z" />
+        </svg>
+      );
+    case "pinterest":
+      return (
+        <svg {...iconProps} fill="currentColor">
+          <path d="M12.2 2C6.6 2 3.7 5.7 3.7 9.7c0 1.9 1.1 4.2 2.8 4.9.3.1.5 0 .6-.3l.3-1.2c.1-.4.1-.5-.2-.8a4.1 4.1 0 0 1-.9-2.5c0-3 2.3-5.9 6.1-5.9 3.3 0 5.6 2.3 5.6 5.5 0 3.6-1.8 6.1-4.2 6.1-1.3 0-2.3-1.1-2-2.4.4-1.6 1.1-3.3 1.1-4.4 0-1-.5-1.9-1.7-1.9-1.3 0-2.4 1.4-2.4 3.2 0 1.2.4 2 .4 2l-1.6 6.8c-.3 1.4-.2 3.3 0 4.6h.1c.7-1.1 1.5-2.8 1.8-4.1l.8-3.1a3.8 3.8 0 0 0 3.2 1.6c4.2 0 7.2-3.9 7.2-8.7C20.7 5.1 17.4 2 12.2 2Z" />
+        </svg>
+      );
+    case "threads":
+      return (
+        <svg {...iconProps} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+          <path d="M17.6 10.3c-.4-3.1-2.2-5.2-5.5-5.2-4.1 0-6.4 3-6.4 6.9s2.4 7 6.6 7c3.1 0 5.4-1.6 5.9-4.1.5-2.4-1.5-4.1-4.3-4.3-2.2-.1-3.7.9-3.7 2.4 0 1.4 1.1 2.3 2.6 2.3 1.9 0 3.2-1.2 3.2-3.3" />
+        </svg>
+      );
+    case "snapchat":
+      return (
+        <svg {...iconProps} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+          <path d="M7.1 18.4c2-.3 2.7-1.2 3.2-2.1" />
+          <path d="M16.9 18.4c-2-.3-2.7-1.2-3.2-2.1" />
+          <path d="M8 12.2c-1.1.3-1.8.1-2.2-.4" />
+          <path d="M16 12.2c1.1.3 1.8.1 2.2-.4" />
+          <path d="M12 3.7c-3 0-4.3 2.2-4.3 5.1v3.6c0 1.8-1 3.2-2.8 3.9 1.3.7 2.6.9 4 .8.7 1 1.8 1.6 3.1 1.6s2.4-.6 3.1-1.6c1.4.1 2.7-.1 4-.8-1.8-.7-2.8-2.1-2.8-3.9V8.8c0-2.9-1.3-5.1-4.3-5.1Z" />
+        </svg>
+      );
+    case "whatsapp":
+      return (
+        <svg {...iconProps} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+          <path d="M4.5 19.6 5.7 16A7.8 7.8 0 1 1 8 18.3Z" />
+          <path d="M9.2 8.5c.3 2.6 2 4.9 4.6 6.1l1.5-1.3 2 1" />
+        </svg>
+      );
+    case "line":
+      return (
+        <svg {...iconProps} fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="2">
+          <path d="M4 11.6c0-4.2 3.6-7.2 8-7.2s8 3 8 7.2-3.6 7.2-8 7.2h-.7L7.6 21v-3.1A7.1 7.1 0 0 1 4 11.6Z" />
+          <path d="M8.2 9.2v4.6h2.2" />
+          <path d="M12 9.2v4.6" />
+          <path d="M14 13.8V9.2l2.2 4.6V9.2" />
+        </svg>
+      );
+    case "telegram":
+      return (
+        <svg {...iconProps} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+          <path d="M21 4 3 11.2l6.9 2.1L12 20l3.3-5.1 4.7 3.5Z" />
+          <path d="m9.9 13.3 5.3-4.2" />
+        </svg>
+      );
+    case "messenger":
+      return (
+        <svg {...iconProps} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+          <path d="M4 11.6A7.8 7.8 0 1 1 8.6 19L4 20.7Z" />
+          <path d="m8.5 13 2.4-2.5 2.4 2.4 2.7-2.8" />
+        </svg>
+      );
+    case "discord":
+      return (
+        <svg {...iconProps} fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2">
+          <path d="M7.2 18.2c-1.2-.4-2.2-.9-3.2-1.6.5-4.1 1.6-7.1 3.4-9.7 1.1-.5 2.1-.8 3.1-.9l.5 1.1a12.5 12.5 0 0 1 2 0l.5-1.1c1 .1 2 .4 3.1.9 1.8 2.6 2.9 5.6 3.4 9.7-1 .7-2 1.2-3.2 1.6l-1.1-1.6a11.5 11.5 0 0 1-7 0Z" />
+          <path d="M9.2 12.2h.1" />
+          <path d="M14.7 12.2h.1" />
         </svg>
       );
     case "website":
@@ -6530,6 +7272,10 @@ function OrderPaperPreview({
   showStoreName,
   showThankYou,
   showTotals,
+  showItemsTotal,
+  showShippingTotal,
+  showTaxTotal,
+  showGrandTotal,
   customAccentColor,
   socialLinks,
   socialProfiles,
@@ -6576,6 +7322,10 @@ function OrderPaperPreview({
   showStoreName: boolean;
   showThankYou: boolean;
   showTotals: boolean;
+  showItemsTotal: boolean;
+  showShippingTotal: boolean;
+  showTaxTotal: boolean;
+  showGrandTotal: boolean;
   customAccentColor: string;
   socialLinks: string;
   socialProfiles?: TemplateSocialProfiles;
@@ -6599,14 +7349,12 @@ function OrderPaperPreview({
         url: profile.url,
       };
     })
-    .filter((item): item is { label: string; platform: SocialPlatform; url: string } => Boolean(item))
-    .slice(0, 4);
+    .filter((item): item is { label: string; platform: SocialPlatform; url: string } => Boolean(item));
   const rawLogo = logoText.trim();
   const displayWordmark = rawLogo || printOpsSystemBrandName;
   const displayBrandName = brandName.trim() || defaultTemplateBrandSettings.brandName;
   const displayFooterWebsite = footerWebsite.trim();
   const displayFooterContact = footerContact.trim();
-  const displayThankYou = thankYouText.trim() || defaultTemplateBrandSettings.thankYouText;
   const orderDetails = getOrderPrintDetails(order, {
     addressFormat,
     dateFormat,
@@ -6638,7 +7386,8 @@ function OrderPaperPreview({
     total: label("template.total"),
     totalItems: label("template.total_items"),
   };
-  const displayContactPrompt = contactPromptText.trim() || labels.questions;
+  const displayContactPrompt = resolveDefaultTemplateText(contactPromptText, defaultTemplateBrandSettings.contactPromptText, labels.questions);
+  const displayThankYou = resolveDefaultTemplateText(thankYouText, defaultTemplateBrandSettings.thankYouText, resolveLocalizedText(fixedTemplateThankYouText, defaultLanguage));
 
   const paperProps = {
     className: styles.templatePaper,
@@ -6679,9 +7428,11 @@ function OrderPaperPreview({
     ) : null;
   const renderSkuLine = (lineItem: OrderPrintLineItem) =>
     showSku && lineItem.sku ? (
-      <small>
-        <b>{labels.sku}</b> {lineItem.sku}
-      </small>
+      <span className={styles.orderSkuBarcodeBlock}>
+        <small>{labels.sku}</small>
+        <i aria-hidden="true" />
+        <em>{lineItem.sku}</em>
+      </span>
     ) : null;
   const renderOptionsLine = (lineItem: OrderPrintLineItem) => (showItemOptions && lineItem.optionsText ? <small>{lineItem.optionsText}</small> : null);
   const orderBarcode = showOrderBarcode ? (
@@ -6719,12 +7470,19 @@ function OrderPaperPreview({
   ) : null;
   const hasContactFooter = showContactFooter && Boolean(displayFooterWebsite || displayFooterContact);
   const hasSocialFooter = showSocialFooter && socialItems.length > 0;
+  const totalRows = [
+    showItemsTotal ? { key: "items", label: labels.items, value: orderDetails.totals.items, emphasis: false } : null,
+    showShippingTotal ? { key: "shipping", label: labels.shipping, value: orderDetails.totals.shipping, emphasis: false } : null,
+    showTaxTotal ? { key: "tax", label: labels.tax, value: orderDetails.totals.tax, emphasis: false } : null,
+    showGrandTotal ? { key: "total", label: labels.total, value: orderDetails.totals.total, emphasis: true } : null,
+  ].filter((row): row is { key: string; label: string; value: string; emphasis: boolean } => Boolean(row));
+  const hasTotals = totalRows.length > 0;
   const socialFooter = hasContactFooter || hasSocialFooter ? (
     <span className={styles.orderSocialFooter}>
       {hasContactFooter ? (
         <span>
-          <strong>{displayFooterWebsite}</strong>
-          <small>{displayFooterContact}</small>
+          <strong dir="auto">{displayFooterWebsite}</strong>
+          <small dir="auto">{displayFooterContact}</small>
         </span>
       ) : null}
       {hasSocialFooter ? (
@@ -6742,8 +7500,8 @@ function OrderPaperPreview({
     <span className={styles.orderHeroSocialFooter}>
       {hasContactFooter ? (
         <span>
-          <strong>{displayFooterWebsite}</strong>
-          <small>{displayFooterContact}</small>
+          <strong dir="auto">{displayFooterWebsite}</strong>
+          <small dir="auto">{displayFooterContact}</small>
         </span>
       ) : null}
       {hasSocialFooter ? (
@@ -6847,27 +7605,17 @@ function OrderPaperPreview({
           ))}
         </span>
 
-        {hasOrderDetails || showTotals ? (
-          <span className={styles.orderHeroSummary} data-columns={hasOrderDetails && showTotals ? "two" : "one"}>
+        {hasOrderDetails || hasTotals ? (
+          <span className={styles.orderHeroSummary} data-columns={hasOrderDetails && hasTotals ? "two" : "one"}>
             {orderNotesBlock}
-            {showTotals ? (
+            {hasTotals ? (
               <span className={styles.orderHeroTotals}>
-                <span>
-                  <small>{labels.items}</small>
-                  <strong>{orderDetails.totals.items}</strong>
-                </span>
-                <span>
-                  <small>{labels.shipping}</small>
-                  <strong>{orderDetails.totals.shipping}</strong>
-                </span>
-                <span>
-                  <small>{labels.tax}</small>
-                  <strong>{orderDetails.totals.tax}</strong>
-                </span>
-                <span data-emphasis="true">
-                  <small>{labels.total}</small>
-                  <strong>{orderDetails.totals.total}</strong>
-                </span>
+                {totalRows.map((row) => (
+                  <span data-emphasis={row.emphasis ? "true" : undefined} key={row.key}>
+                    <small>{row.label}</small>
+                    <strong>{row.value}</strong>
+                  </span>
+                ))}
               </span>
             ) : null}
           </span>
@@ -6940,27 +7688,17 @@ function OrderPaperPreview({
           ))}
         </span>
 
-        {hasOrderDetails || showTotals ? (
-          <span className={styles.orderClassicLower} data-columns={hasOrderDetails && showTotals ? "two" : "one"}>
+        {hasOrderDetails || hasTotals ? (
+          <span className={styles.orderClassicLower} data-columns={hasOrderDetails && hasTotals ? "two" : "one"}>
             {orderNotesBlock}
-            {showTotals ? (
+            {hasTotals ? (
               <span className={styles.orderClassicTotals}>
-                <span>
-                  <strong>{labels.items}</strong>
-                  <small>{orderDetails.totals.items}</small>
-                </span>
-                <span>
-                  <strong>{labels.shipping}</strong>
-                  <small>{orderDetails.totals.shipping}</small>
-                </span>
-                <span>
-                  <strong>{labels.tax}</strong>
-                  <small>{orderDetails.totals.tax}</small>
-                </span>
-                <span data-emphasis="true">
-                  <strong>{labels.total}</strong>
-                  <small>{orderDetails.totals.total}</small>
-                </span>
+                {totalRows.map((row) => (
+                  <span data-emphasis={row.emphasis ? "true" : undefined} key={row.key}>
+                    <strong>{row.label}</strong>
+                    <small>{row.value}</small>
+                  </span>
+                ))}
               </span>
             ) : null}
             </span>
@@ -6969,7 +7707,6 @@ function OrderPaperPreview({
         <span className={styles.orderCenteredFooter}>
           <span>{displayContactPrompt}</span>
           <strong>{displayThankYou}</strong>
-          <span>{displayFooterContact || printOpsSystemSiteUrl}</span>
         </span>
         {socialFooter}
       </span>
@@ -7100,6 +7837,10 @@ function OrderTemplatePrintDocument({
       showStoreName={templateRecord.showStoreName}
       showThankYou={templateRecord.showThankYou}
       showTotals={templateRecord.showTotals}
+      showItemsTotal={templateRecord.showItemsTotal ?? templateRecord.showTotals}
+      showShippingTotal={templateRecord.showShippingTotal ?? templateRecord.showTotals}
+      showTaxTotal={templateRecord.showTaxTotal ?? templateRecord.showTotals}
+      showGrandTotal={templateRecord.showGrandTotal ?? templateRecord.showTotals}
       customAccentColor={templateRecord.customAccentColor}
       socialLinks={templateRecord.socialLinks}
       socialProfiles={templateRecord.socialProfiles}

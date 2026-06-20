@@ -1,7 +1,7 @@
 # Zider 用户中心、账号与 Workspace 规划
 
 版本：v0.1  
-更新日期：2026-06-17
+更新日期：2026-06-20
 适用范围：Zider 官网、Zider Workspace、PrintOps、Wix / Shopify / WooCommerce 等平台插件
 
 ## 1. 目标
@@ -478,6 +478,48 @@ www.zider.ink/account
 - 查看账号资料。
 - 跳转 Workspace。
 
+### Account Center P0 交互骨架
+
+第一版 Account Center 只服务账号资料和登录身份管理，不承载 Workspace 账单、成员、邀请链接或多组织管理。
+
+页面结构：
+
+```text
+Topbar
+  ZIDER logo
+  Home icon link
+  Account avatar menu
+
+Sidebar
+  Account Center
+  Help center -> /forum
+  current account summary
+
+Main
+  page title
+  signed-in summary
+  sign-in method summary
+  profile form
+  login info
+  social logins
+```
+
+版心规则：
+
+- 操作型账号页面在桌面端使用比官网内容页更宽的版心。
+- 常规桌面主内容最大宽度约 `1280px`。
+- `1680px` 以上大屏可扩展到约 `1480px`，避免卡片挤在页面中央。
+- `1120px` 以下切换为单列布局，移动端最大宽度约 `680px`。
+- 顶部栏不重复展示已登录账号卡片，用户身份在右侧头像菜单和页面摘要卡片中展示即可。
+
+交互规则：
+
+- `Save changes` 是 Profile 区唯一主操作。
+- 保存中需要禁用重复提交。
+- 保存成功展示明确成功提示。
+- 保存失败保留用户已输入内容，并指出可修正原因。
+- 刷新页面后必须读取已保存账号资料，不能回退到旧值。
+
 ### Workspace
 
 入口：
@@ -486,13 +528,26 @@ www.zider.ink/account
 workspace.zider.ink
 ```
 
-功能：
+P0 功能：
 
+- 静态展示 Workspace 壳层。
+- 提供 `Sign in` 登录入口。
+- 提供 `Account Center` / 用户中心入口。
+- 保留 Help center 入口。
+- 左侧菜单只保留 `Account Center`。
+- 使用 ZIDER micro Z 标识作为后台左侧品牌符号。
+
+P0 暂不在 Workspace 根页面承载：
+
+- 账单管理。
+- 成员和权限。
+- 邀请链接。
 - 当前 Workspace 切换。
 - 当前 Store 切换。
-- 团队管理。
-- 应用列表。
+- 应用市场或多应用管理。
 - 订阅权益。
+
+说明：PrintOps / Wix 的实际业务工作流继续放在 `/apps/printops/*`，Workspace 根页面只作为账号入口和后续工作台骨架。
 
 ### Wix iframe
 
@@ -522,6 +577,7 @@ P0 暂不做：
 - 跨 Workspace 迁移 Store。
 - 企业多店铺权限。
 - Shopify / WooCommerce 账号合并。
+- Workspace 根页面账单、成员、邀请链接、多 Workspace 管理。
 - 复杂 SSO。
 
 ## 14. P1 / P2 规划
