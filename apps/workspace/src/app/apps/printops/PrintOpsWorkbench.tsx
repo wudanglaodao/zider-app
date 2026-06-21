@@ -64,8 +64,8 @@ type Order = {
   updatedAt?: string | null;
   printedAt?: string | null;
   printUpdatedAt?: string | null;
-  fulfillment: "Unfulfilled" | "Pickup" | "Partial" | "Ready";
-  payment: "Paid" | "Unpaid" | "Partially paid";
+  fulfillment: "Unfulfilled" | "Pickup" | "Partial" | "Ready" | "Unknown";
+  payment: "Paid" | "Unpaid" | "Partially paid" | "Unknown";
   print: "Unprinted" | "Generated" | "Printed" | "Failed";
   template: string;
   language: string;
@@ -464,6 +464,7 @@ const siteLocaleStorageKey = "printops-site-locale-v1";
 const printLocaleStorageKey = "printops-print-locale-v1";
 const timezoneStorageKey = "printops-timezone-v1";
 const workspaceAccentStorageKey = "printops-accent-v1";
+const initialOrderSyncStorageKey = "printops-initial-order-sync-v1";
 const deprecatedTemplateIds = new Set(["library-order-field-map"]);
 const legacyDefaultLogoFontSize = 68;
 const systemTemplateIds = new Set([
@@ -473,6 +474,10 @@ const systemTemplateIds = new Set([
   "library-order-modern",
   "library-order-minimal",
 ]);
+
+function getInitialOrderSyncStorageKey(instanceId: string | null | undefined) {
+  return `${initialOrderSyncStorageKey}:${instanceId || "local"}`;
+}
 
 const workspaceAccentOptions = [
   { value: "forest", color: "#087a46" },
@@ -1744,6 +1749,20 @@ const fixedTemplateSampleText = {
 } satisfies Record<string, LocalizedText>;
 
 const fixedOrderPaymentStatusLabels = {
+  Unknown: {
+    default: "Unknown",
+    es: "Desconocido",
+    de: "Unbekannt",
+    ja: "不明",
+    fr: "Inconnu",
+    pt: "Desconhecido",
+    "zh-Hans": "未知",
+    "zh-Hant": "未知",
+    ar: "غير معروف",
+    nl: "Onbekend",
+    it: "Sconosciuto",
+    ko: "알 수 없음",
+  },
   Paid: {
     default: "Paid",
     es: "Pagado",
@@ -1789,6 +1808,20 @@ const fixedOrderPaymentStatusLabels = {
 } satisfies Record<Order["payment"], LocalizedText>;
 
 const fixedOrderFulfillmentStatusLabels = {
+  Unknown: {
+    default: "Unknown",
+    es: "Desconocido",
+    de: "Unbekannt",
+    ja: "不明",
+    fr: "Inconnu",
+    pt: "Desconhecido",
+    "zh-Hans": "未知",
+    "zh-Hant": "未知",
+    ar: "غير معروف",
+    nl: "Onbekend",
+    it: "Sconosciuto",
+    ko: "알 수 없음",
+  },
   Partial: {
     default: "Partial",
     es: "Parcial",
@@ -2593,6 +2626,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     status: "idle",
     window: null,
   });
+  const [initialOrderSyncComplete, setInitialOrderSyncComplete] = useState(false);
   const [storeProfile, setStoreProfile] = useState<PrintOpsStoreProfileSummary | null>(null);
   const [storeProfileStatus, setStoreProfileStatus] = useState<StoreProfileStatus>({
     error: null,
@@ -2844,6 +2878,24 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
     void loadStoreProfile("refresh");
   }, [pluginContext?.instanceId, pluginContext?.storeProfileEndpoint]);
+
+  useEffect(() => {
+    if (!pluginContext) {
+      setInitialOrderSyncComplete(false);
+      return;
+    }
+
+    setInitialOrderSyncComplete(window.localStorage.getItem(getInitialOrderSyncStorageKey(pluginContext.instanceId)) === "complete");
+  }, [pluginContext?.instanceId]);
+
+  useEffect(() => {
+    if (!pluginContext?.instanceId || orderCacheStatus.status !== "loaded" || orderCacheStatus.orderCount <= 0 || initialOrderSyncComplete) {
+      return;
+    }
+
+    window.localStorage.setItem(getInitialOrderSyncStorageKey(pluginContext.instanceId), "complete");
+    setInitialOrderSyncComplete(true);
+  }, [initialOrderSyncComplete, orderCacheStatus.orderCount, orderCacheStatus.status, pluginContext?.instanceId]);
 
   useEffect(() => {
     if (!templatesHydrated || !storeProfile || storeProfileDefaultsApplied) {
@@ -3157,6 +3209,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       }
 
       if (!persistence || persistence.status === "persisted") {
+        window.localStorage.setItem(getInitialOrderSyncStorageKey(pluginContext.instanceId), "complete");
+        setInitialOrderSyncComplete(true);
         void loadCachedOrders();
       }
 
@@ -3426,7 +3480,13 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
           <>
             {pluginContext ? (
               <>
-                <WixSyncPanel context={pluginContext} messages={messages} onSync={syncWixOrders} status={wixSyncStatus} />
+                <WixSyncPanel
+                  context={pluginContext}
+                  initialSyncComplete={initialOrderSyncComplete}
+                  messages={messages}
+                  onSync={syncWixOrders}
+                  status={wixSyncStatus}
+                />
                 <WixOrderCacheNotice messages={messages} status={orderCacheStatus} />
               </>
             ) : null}
@@ -3847,11 +3907,13 @@ function SettingsCenter({
 
 function WixSyncPanel({
   context,
+  initialSyncComplete,
   messages,
   onSync,
   status,
 }: {
   context: PrintOpsPluginContext;
+  initialSyncComplete: boolean;
   messages: PrintOpsMessages;
   onSync: (mode: "latest" | "history") => Promise<void>;
   status: WixSyncStatus;
@@ -3859,6 +3921,7 @@ function WixSyncPanel({
   const hasInstance = Boolean(context.instanceId);
   const statusLabel = hasInstance ? (context.verified ? messages.wixSync.connected : messages.wixSync.devMode) : messages.wixSync.missingInstance;
   const statusTone = hasInstance ? (context.verified ? "good" : "warn") : "warn";
+  const showCompact = initialSyncComplete;
   const syncMessage =
     status.status === "syncing"
       ? messages.wixSync.syncing
@@ -3867,6 +3930,40 @@ function WixSyncPanel({
         : status.status === "error"
           ? messages.wixSync.failed
           : messages.wixSync.ready;
+  const compactMessage =
+    status.error ??
+    (status.status === "syncing" ? messages.wixSync.syncing : status.status === "success" ? messages.wixSync.syncedJustNow : messages.wixSync.defaultSyncWindow);
+
+  if (showCompact) {
+    return (
+      <section className={styles.syncPanel} data-tone={status.status === "error" ? "warn" : statusTone} data-variant="compact">
+        <div className={styles.syncCompactMain}>
+          <span className={styles.syncStatusDot} aria-hidden />
+          <strong>{status.status === "error" ? messages.wixSync.failed : statusLabel}</strong>
+          <small data-state={status.status}>{compactMessage}</small>
+        </div>
+        <div className={styles.syncActions}>
+          <button className={styles.secondaryButton} type="button" disabled={!hasInstance || status.status === "syncing"} onClick={() => onSync("latest")}>
+            {messages.wixSync.syncLatest}
+          </button>
+          <Menu.Root>
+            <Menu.Trigger className={`${styles.iconButton} ${styles.syncMoreButton}`} aria-label={messages.wixSync.moreActions}>
+              <MoreHorizontal size={18} aria-hidden />
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Positioner align="end" className={styles.menuPositioner} collisionPadding={12} side="bottom" sideOffset={8}>
+                <Menu.Popup className={styles.menuPopup}>
+                  <Menu.Item className={styles.menuItem} disabled={!hasInstance || status.status === "syncing"} onClick={() => void onSync("history")}>
+                    {messages.wixSync.syncHistory}
+                  </Menu.Item>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className={styles.syncPanel} data-tone={statusTone}>
@@ -3879,7 +3976,7 @@ function WixSyncPanel({
             <strong>{messages.wixSync.title}</strong>
             <span>{statusLabel}</span>
           </div>
-          <p>{messages.wixSync.description}</p>
+          <p>{messages.wixSync.firstRunDescription}</p>
           <small data-state={status.status}>{status.error ?? syncMessage}</small>
         </div>
       </div>
@@ -4028,12 +4125,12 @@ function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order
   return {
     channel: "WIX",
     createdAt: order.createdAt,
-    customer: order.customerName ?? "Wix customer",
+    customer: order.customerName ?? getDisplayNameFromContact(order.customerEmail) ?? "—",
     date: formatOrderDate(order.updatedAt ?? order.createdAt ?? order.syncedAt),
-    email: order.customerEmail ?? order.customerPhone ?? "No contact",
+    email: order.customerEmail ?? order.customerPhone ?? "—",
     fulfillment: mapFulfillmentStatus(order.fulfillmentStatus),
     id: order.sourceOrderId,
-    items: `${order.totalItemQuantity || order.lineItemCount || 0} items`,
+    items: formatItemCount(order.totalItemQuantity || order.lineItemCount),
     language: "English",
     number: formatOrderNumber(order.orderNumber ?? order.sourceOrderId),
     payment: mapPaymentStatus(order.paymentStatus),
@@ -4042,7 +4139,7 @@ function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order
     printUpdatedAt: order.printUpdatedAt,
     source: "cache",
     template: "Invoice",
-    total: order.totalFormatted ?? formatMoney(order.totalAmount, order.currency),
+    total: order.totalFormatted ?? formatOptionalMoney(order.totalAmount, order.currency),
     updatedAt: order.updatedAt,
     warning: undefined,
   };
@@ -4051,10 +4148,18 @@ function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order
 function mapWixSyncOrderToOrder(order: WixSyncOrderSummary, source: Order["source"] = "sync"): Order {
   const firstLineItem = order.lineItems[0];
   const customerRecord = getRecord(order.customer);
-  const customerName = getString(customerRecord?.name) ?? getString(customerRecord?.fullName) ?? "Wix customer";
-  const customerEmail = getString(customerRecord?.email) ?? getString(customerRecord?.phone) ?? "No contact";
+  const billingAddressRecord = getRecord(order.billingAddress);
+  const shippingAddressRecord = getRecord(order.shippingAddress);
+  const customerEmail = getString(customerRecord?.email) ?? getString(customerRecord?.phone) ?? "—";
+  const customerName =
+    getString(customerRecord?.name) ??
+    getString(customerRecord?.fullName) ??
+    getString(billingAddressRecord?.name) ??
+    getString(shippingAddressRecord?.name) ??
+    getDisplayNameFromContact(customerEmail) ??
+    "—";
   const itemCount = order.totalItemQuantity || order.lineItems.reduce((total, lineItem) => total + (lineItem.quantity ?? 0), 0) || order.lineItems.length;
-  const firstItemTitle = firstLineItem?.title ?? "Wix order item";
+  const firstItemTitle = getLineItemDisplayTitle(firstLineItem);
   const firstItemQuantity = firstLineItem?.quantity ?? 1;
   const customFields = collectWixOrderCustomFields(order);
 
@@ -4068,7 +4173,7 @@ function mapWixSyncOrderToOrder(order: WixSyncOrderSummary, source: Order["sourc
     email: customerEmail,
     fulfillment: mapFulfillmentStatus(order.fulfillmentStatus ?? order.deliveryMethod),
     id: order.sourceOrderId,
-    items: itemCount > firstItemQuantity ? `${firstItemTitle} + ${Math.max(itemCount - firstItemQuantity, 0)} more` : `${firstItemTitle} x ${firstItemQuantity}`,
+    items: formatOrderItemsSummary(firstItemTitle, itemCount, firstItemQuantity),
     language: "English",
     number: formatOrderNumber(order.orderNumber ?? order.sourceOrderId),
     payment: mapPaymentStatus(order.paymentStatus ?? order.paymentMethod),
@@ -4302,7 +4407,7 @@ function getOrderTotal(order: WixSyncOrderSummary) {
 
 function formatOrderNumber(value: string | null) {
   if (!value) {
-    return "Wix order";
+    return "—";
   }
 
   return value.startsWith("#") ? value : `#${value}`;
@@ -4310,7 +4415,7 @@ function formatOrderNumber(value: string | null) {
 
 function formatOrderDate(value: string | null) {
   if (!value) {
-    return "No date";
+    return "—";
   }
 
   const date = new Date(value);
@@ -4330,6 +4435,10 @@ function formatOrderDate(value: string | null) {
 function mapPaymentStatus(value: string | null): Order["payment"] {
   const normalized = value?.toLowerCase() ?? "";
 
+  if (!normalized) {
+    return "Unknown";
+  }
+
   if (normalized.includes("partial")) {
     return "Partially paid";
   }
@@ -4343,6 +4452,10 @@ function mapPaymentStatus(value: string | null): Order["payment"] {
 
 function mapFulfillmentStatus(value: string | null): Order["fulfillment"] {
   const normalized = value?.toLowerCase() ?? "";
+
+  if (!normalized) {
+    return "Unknown";
+  }
 
   if (normalized.includes("pickup")) {
     return "Pickup";
@@ -4378,6 +4491,14 @@ function formatMoney(amount: number | null, currency: string | null) {
   }
 }
 
+function formatOptionalMoney(amount: number | null, currency: string | null) {
+  if (amount === null) {
+    return "—";
+  }
+
+  return formatMoney(amount, currency);
+}
+
 function getRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
@@ -4392,6 +4513,62 @@ function getString(value: unknown) {
   }
 
   return null;
+}
+
+function getDisplayNameFromContact(value: string | null | undefined) {
+  const contact = getString(value);
+
+  if (!contact?.includes("@")) {
+    return null;
+  }
+
+  return contact
+    .split("@")[0]
+    ?.replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .trim() || null;
+}
+
+function getLineItemDisplayTitle(lineItem: WixSyncOrderSummary["lineItems"][number] | undefined) {
+  const lineItemRecord = getRecord(lineItem);
+  const rawLineItemRecord = getRecord(lineItemRecord?.raw);
+  const productNameRecord = getRecord(rawLineItemRecord?.productName);
+  const productRecord = getRecord(rawLineItemRecord?.product);
+  const catalogReferenceRecord = getRecord(rawLineItemRecord?.catalogReference);
+
+  return (
+    getString(lineItem?.title) ??
+    getString(rawLineItemRecord?.name) ??
+    getString(rawLineItemRecord?.productName) ??
+    getString(rawLineItemRecord?.title) ??
+    getString(productNameRecord?.original) ??
+    getString(productNameRecord?.translated) ??
+    getString(productNameRecord?.value) ??
+    getString(productRecord?.name) ??
+    getString(productRecord?.title) ??
+    getString(catalogReferenceRecord?.name) ??
+    getString(catalogReferenceRecord?.catalogItemName)
+  );
+}
+
+function formatItemCount(count: number) {
+  if (count <= 0) {
+    return "—";
+  }
+
+  return count === 1 ? "1 item" : `${count} items`;
+}
+
+function formatOrderItemsSummary(title: string | null, itemCount: number, firstItemQuantity: number) {
+  if (!title) {
+    return formatItemCount(itemCount);
+  }
+
+  if (itemCount > firstItemQuantity) {
+    return `${title} + ${Math.max(itemCount - firstItemQuantity, 0)} more`;
+  }
+
+  return `${title} x ${firstItemQuantity}`;
 }
 
 function getNumber(value: unknown) {

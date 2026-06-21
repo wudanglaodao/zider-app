@@ -1,21 +1,23 @@
 # Zider PrintOps Pricing Plan
 
 版本：v0.1
-更新日期：2026-06-12
+更新日期：2026-06-20
 适用阶段：Wix Stores 首发 / v0.1-v1.0
 
 ## 1. 定价结论
 
 首发建议使用 **Free + Starter + Pro** 三档，先不要做复杂的按次扣费或模板市场。
 
-推荐公开价格：
+推荐公开价格和单价：
 
-| Plan | 月付 | 年付建议 | 核心定位 |
-|---|---:|---:|---|
-| Free | $0 | - | 小店试用、安装转化、模板预览 |
-| Starter | $7 / month | $70 / year | 低订单量店铺的日常发票和装箱单打印 |
-| Pro | $15 / month | $150 / year | 成长型店铺的批量打印、多模板、多店铺和字段映射 |
-| Business | $29 / month | $290 / year | 后续开放给高订单量、多店铺、产品字段和团队流程 |
+| Plan | 月付单价 | 年付总价 | 年付折算月单价 | 年付折扣 | 每月打印订单额度 | 月付订单单价 | 年付订单单价 | 核心定位 |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Free | $0 | - | - | - | 50 | $0 | $0 | 小店试用、安装转化、模板预览 |
+| Starter | $7 / month | $70 / year | $5.83 / month | 约 16.7% | 500 | $0.0140 / order | $0.0117 / order | 低订单量店铺的日常发票和装箱单打印 |
+| Pro | $15 / month | $150 / year | $12.50 / month | 约 16.7% | 3,000 | $0.0050 / order | $0.0042 / order | 成长型店铺的批量打印、多模板、多店铺和字段映射 |
+| Business | $29 / month | $290 / year | $24.17 / month | 约 16.7% | 10,000 | $0.0029 / order | $0.0024 / order | 后续开放给高订单量、多店铺、产品字段和团队流程 |
+
+订单单价按“当月额度打满”估算，实际销售文案不建议强调单订单价格。年付统一采用“买 10 个月送 2 个月”的结构，折扣清晰，也方便后续统一调价。
 
 首发时只在 Wix App Market 展示 Free、Starter、Pro。Business 先作为内部预留档，不必第一天公开，避免承诺 P1/P2 功能。
 
@@ -188,7 +190,117 @@ Pro -> Business：
 - 仓库或生产团队依赖产品/变体级打印字段。
 - 需要组织共享模板、模板版本、模板规则和高优先级支持。
 
-## 6. 后续加购项
+## 6. 超额后的业务限制策略
+
+### 6.1 计费口径
+
+推荐使用 `printed orders / month` 作为主额度，不使用同步订单数、预览次数或 PDF 生成次数计费。
+
+定义：
+
+- 一个订单在当前账期内首次进入成功的 PDF 下载、批量 PDF、浏览器打印或标记打印任务后，计为 1 个 printed order。
+- 同一个订单在同一账期内重复下载、重印或切换模板重印，不重复消耗 printed order 额度。
+- 订单同步、订单列表查看、模板预览、字段映射预览、测试样例订单预览不消耗额度。
+- 如果同一订单需要同时输出 Invoice、Packing Slip、Pick List，仍按 1 个 printed order 计。这样更符合商家的理解，也减少客服争议。
+
+这个口径比“每生成一份 PDF 就计费”更友好。成本控制主要通过每次批量上限、历史文件保留时间和异常频率监控来做。
+
+### 6.2 额度提醒
+
+| 使用进度 | 系统动作 | 用户体验 |
+|---|---|---|
+| 70% | Dashboard 顶部轻提示 | 告知本月已使用额度和剩余额度 |
+| 90% | 明显提示 + 邮件提醒 | 建议升级或切换年付/更高套餐 |
+| 100% | 进入宽限区 | 继续允许少量新订单输出，提示即将限制 |
+| 110% | 硬限制 | 阻止新订单输出，只允许重印已计入额度的订单 |
+
+Free 可以不提供 10% 宽限，达到 50 单后直接进入输出限制。Starter 和 Pro 建议提供 10% 宽限，避免商家在发货高峰被突然中断。
+
+### 6.3 超出打印订单额度后的限制
+
+达到硬限制后，继续开放：
+
+- 打开 Dashboard。
+- 查看订单列表和订单详情。
+- 同步最新订单。
+- 查看和编辑模板。
+- 预览模板和订单。
+- 查看历史 print jobs。
+- 重印本账期内已经计入额度的订单。
+- 删除模板、修改字段、调整店铺设置。
+
+达到硬限制后，限制：
+
+- 不能生成包含“本账期未计入额度的新订单”的 PDF。
+- 不能对“本账期未计入额度的新订单”执行浏览器打印。
+- 不能把“本账期未计入额度的新订单”标记为已打印。
+- 批量任务中如果混有已计入订单和未计入订单，只允许继续输出已计入订单；未计入订单需要升级或等下个账期。
+
+推荐提示文案：
+
+```text
+You have reached this month's printed order limit. You can still sync orders, edit templates, preview documents, and reprint orders already counted this month. Upgrade to continue printing new orders.
+```
+
+### 6.4 超出店铺数量后的限制
+
+店铺数量不建议做突然断开。应该使用 `active stores` 口径：
+
+| 场景 | 处理方式 |
+|---|---|
+| 当前套餐店铺数已满，用户连接新店铺 | 阻止新增 active store，提示升级 |
+| 用户从 Pro 降级到 Starter，但已有 3 个店铺 | 要求选择 1 个 active store，其余变成 inactive |
+| inactive store | 可查看历史设置，不同步新订单，不生成新打印任务 |
+| 升级后 | 允许重新激活 inactive store |
+
+不要删除店铺数据。降级或超额时只改变 active / inactive 状态，保留订单、模板和配置，减少用户恐慌。
+
+### 6.5 超出模板数量后的限制
+
+模板也建议使用 `active templates` 口径：
+
+- 超出套餐数量后，允许继续查看和复制历史模板，但不能把新模板设为 active。
+- inactive template 可以编辑草稿，但不能设为默认模板，不能用于正式打印。
+- 如果用户从高阶套餐降级，保留所有模板数据，但要求选择当前套餐允许数量的 active templates。
+- 内置模板不计入 active template 数量；只有用户复制到店铺里的模板计数。
+
+### 6.6 超出批量任务上限后的限制
+
+批量任务上限是体验限制，不是账期额度。
+
+| Plan | 每次批量上限 | 超出处理 |
+|---|---:|---|
+| Free | 10 orders / job | 要求拆分任务或升级 Starter |
+| Starter | 50 orders / job | 要求拆分任务或升级 Pro |
+| Pro | 250 orders / job | 要求拆分任务或升级 Business |
+| Business | 500 orders / job | 超出后自动拆分为多个 print jobs |
+
+批量任务超出时不需要阻止用户继续使用，只要提供“拆分任务”按钮即可。这个限制主要用于控制 PDF 生成稳定性。
+
+### 6.7 Business 的超额策略
+
+Business 不建议做硬封顶。更适合使用 fair use：
+
+- 超过 10,000 printed orders / month 后继续允许打印。
+- Dashboard 显示高用量提示。
+- 邮件提醒用户联系支持或升级 custom plan。
+- 如果连续 2 个账期超过 15,000 printed orders / month，再要求升级高量套餐。
+- 如果出现异常频率、自动化滥用或影响系统稳定，再做临时限速。
+
+Business 用户通常是高价值客户，突然阻断打印会造成真实履约风险，不适合用免费层那种硬限制。
+
+### 6.8 支付失败和账期重置
+
+支付失败不等同于用量超额，但限制逻辑可以共用。
+
+- 支付失败后给 3 天宽限期。
+- 宽限期内保留当前套餐能力，并提示更新付款方式。
+- 3 天后降为 Free-like 输出限制：可查看、同步、编辑、预览、重印已计入订单，但不能打印新订单。
+- 账期重置时 printed order 额度归零。
+- 升级套餐后立即生效，不要求等到下个账期。
+- 降级套餐在当前已付账期结束后生效，避免用户刚付款就失去能力。
+
+## 7. 后续加购项
 
 这些能力不建议首发就做，但可以作为后续收入层。
 
@@ -200,7 +312,7 @@ Pro -> Business：
 | AI Template Designer credits | $10 / 50 credits | P3 AI 模板生成上线后 |
 | Agency workspace | Custom | 多客户白标工作区上线后 |
 
-## 7. 首发上架文案建议
+## 8. 首发上架文案建议
 
 推荐主文案：
 
@@ -236,7 +348,7 @@ For growing stores that need more templates, bulk PDF workflows, production docu
 
 这些都不在当前 P0/P1 范围内，容易引发用户误解和支持风险。
 
-## 8. 竞品价格锚点
+## 9. 竞品价格锚点
 
 调研时间：2026-06-12。
 
@@ -258,7 +370,7 @@ For growing stores that need more templates, bulk PDF workflows, production docu
 - Shopify App Store: AG Order Printer PDF Invoice, https://apps.shopify.com/avada-pdf-invoice
 - Sufio Pricing, https://sufio.com/pricing
 
-## 9. 推荐执行节奏
+## 10. 推荐执行节奏
 
 ### Phase 1：首发验证
 
@@ -281,14 +393,15 @@ For growing stores that need more templates, bulk PDF workflows, production docu
 - Business 上架 $29/month 或 $39/month。
 - 人工模板设置、模板包和 AI Template Designer 作为独立收入层。
 
-## 10. 当前建议
+## 11. 当前建议
 
 如果只做一个最简决策，建议：
 
 ```text
 Free: $0, 50 printed orders/month
-Starter: $7/month, 500 printed orders/month
-Pro: $15/month, 3,000 printed orders/month
+Starter: $7/month or $70/year, 500 printed orders/month
+Pro: $15/month or $150/year, 3,000 printed orders/month
+Business: $29/month or $290/year, 10,000 printed orders/month
 ```
 
 这套价格的好处是：
@@ -296,4 +409,4 @@ Pro: $15/month, 3,000 printed orders/month
 - 对 Wix 小商家足够低门槛。
 - 不和 $4/month 的低价竞品硬拼无限功能。
 - 又不会低到无法承担 PDF、模板维护、客服和未来 AI/字段能力成本。
-- 后续可以自然扩展到 $29 Business，而不是一开始就把复杂功能塞进低价档。
+- Business 用 10,000 单作为高量入口，足够大方，但不会把 100,000 单高价值客户卖得太便宜。

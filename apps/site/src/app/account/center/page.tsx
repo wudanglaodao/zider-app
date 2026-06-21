@@ -5,7 +5,6 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
-  ChevronDown,
   CircleHelp,
   KeyRound,
   LayoutGrid,
@@ -13,9 +12,10 @@ import {
   LockKeyhole,
   LogOut,
   Mail,
-  Settings,
+  Menu,
   ShieldCheck,
   UserRound,
+  X,
 } from "lucide-react";
 
 import { isAccountAuthConfigured } from "@/lib/account/auth";
@@ -62,6 +62,7 @@ export default async function AccountCenterPage({ searchParams }: { searchParams
   return (
     <main className="accountCenterPage">
       <style>{getAccountCenterCss()}</style>
+      <input className="accountMobileMenuToggle" id="account-center-sidebar" type="checkbox" />
 
       <header className="accountTopbar" aria-label="ZIDER account">
         <div className="accountBrandZone">
@@ -69,6 +70,10 @@ export default async function AccountCenterPage({ searchParams }: { searchParams
             <ZiderLogo />
           </a>
         </div>
+
+        <label className="accountMobileMenuButton" htmlFor="account-center-sidebar" aria-label="Open account menu">
+          <Menu size={18} />
+        </label>
 
         <div className="accountTopbarMain">
           <div className="accountTopActions">
@@ -112,34 +117,24 @@ export default async function AccountCenterPage({ searchParams }: { searchParams
 
       <div className="accountShell">
         <aside className="accountSidebar" aria-label="Account navigation">
+          <div className="accountSidebarMobileHeader">
+            <a className="accountSidebarMobileMark" href="/" aria-label="ZIDER home">
+              <ZiderLogo />
+            </a>
+            <label className="accountSidebarClose" htmlFor="account-center-sidebar" aria-label="Close account menu">
+              <X size={18} />
+            </label>
+          </div>
+
           <div className="navGroup">
             <p className="navLabel">Account</p>
-            <nav className="settingsNav settingsNav--desktop">
+            <nav className="settingsNav">
               <a className="settingsNavItem settingsNavItem--active" href="#account-info">
                 <UserRound size={18} />
                 Account Center
               </a>
             </nav>
           </div>
-
-          <details className="mobileSettingsMenu">
-            <summary>
-              <span className="mobileMenuCurrent">
-                <UserRound size={18} />
-                <span>
-                  <small>Account</small>
-                  <strong>Account Center</strong>
-                </span>
-              </span>
-              <ChevronDown className="mobileMenuChevron" size={17} />
-            </summary>
-            <nav className="mobileSettingsMenuPanel" aria-label="Mobile account navigation">
-              <a className="settingsNavItem settingsNavItem--active" href="#account-info">
-                <UserRound size={18} />
-                Account Center
-              </a>
-            </nav>
-          </details>
 
           <div className="sidebarFooter">
             <a className="sidebarHelpLink" href="/forum">
@@ -272,6 +267,8 @@ export default async function AccountCenterPage({ searchParams }: { searchParams
           </div>
         </section>
       </div>
+
+      <label className="accountSidebarBackdrop" htmlFor="account-center-sidebar" aria-label="Close account menu" />
     </main>
   );
 }
@@ -509,6 +506,13 @@ function getAccountCenterCss() {
       backdrop-filter: blur(14px);
     }
 
+    .accountMobileMenuToggle,
+    .accountMobileMenuButton,
+    .accountSidebarBackdrop,
+    .accountSidebarMobileHeader {
+      display: none;
+    }
+
     .accountBrandZone {
       width: var(--sidebar);
       display: flex;
@@ -597,7 +601,9 @@ function getAccountCenterCss() {
       color: var(--brand);
     }
 
-    .accountTopHelp:focus-visible {
+    .accountTopHelp:focus-visible,
+    .accountMobileMenuButton:focus-visible,
+    .accountSidebarClose:focus-visible {
       outline: 2px solid rgba(0, 116, 72, 0.2);
       outline-offset: 2px;
     }
@@ -828,6 +834,16 @@ function getAccountCenterCss() {
       overflow: hidden;
     }
 
+    .accountSidebarMobileMark {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .accountSidebarMobileMark .ziderLogo {
+      width: 32px;
+      height: 32px;
+    }
+
     .navGroup {
       margin-bottom: 23px;
     }
@@ -948,10 +964,6 @@ function getAccountCenterCss() {
       margin-top: 2px;
       color: #7f9087;
       font-size: 11px;
-    }
-
-    .mobileSettingsMenu {
-      display: none;
     }
 
     .accountMain {
@@ -1401,7 +1413,7 @@ function getAccountCenterCss() {
 
       .accountBrandZone {
         width: auto;
-        flex: 1;
+        flex: 0 0 auto;
         border-right: 0;
         padding: 0 15px;
       }
@@ -1417,11 +1429,30 @@ function getAccountCenterCss() {
 
       .accountBrandCopy span,
       .accountBrandProduct,
-      .accountTopHelp,
-      .settingsNav--desktop,
-      .sidebarFooter,
-      .navLabel {
+      .accountTopHelp {
         display: none;
+      }
+
+      .accountMobileMenuButton,
+      .accountSidebarClose {
+        width: 36px;
+        height: 36px;
+        display: inline-grid;
+        place-items: center;
+        flex: 0 0 auto;
+        border: 1px solid #edf3f0;
+        border-radius: 10px;
+        background: #ffffff;
+        color: #7f8f87;
+        cursor: pointer;
+        transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+      }
+
+      .accountMobileMenuButton:hover,
+      .accountSidebarClose:hover {
+        border-color: #bdd8cb;
+        background: var(--brand-soft);
+        color: var(--brand);
       }
 
       .accountMenuPopover {
@@ -1465,136 +1496,63 @@ function getAccountCenterCss() {
       }
 
       .accountTopbarMain {
-        flex: 0 0 auto;
+        flex: 1;
         padding: 0 15px 0 0;
       }
 
       .accountShell {
         display: block;
-        min-height: 100vh;
+        min-height: calc(100vh - var(--topbar));
       }
 
       .accountSidebar {
-        position: sticky;
-        top: var(--topbar);
-        z-index: 20;
-        height: auto;
-        border-right: 0;
-        border-bottom: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.96);
-        padding: 10px 15px;
-        backdrop-filter: blur(12px);
+        width: min(82vw, 260px);
+        height: 100dvh;
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 80;
+        gap: 24px;
+        border-right: 1px solid var(--line);
+        border-bottom: 0;
+        background: #ffffff;
+        padding: 22px 14px 16px;
+        box-shadow: 18px 0 42px rgba(18, 38, 29, 0.12);
+        transform: translateX(-105%);
+        transition: transform 180ms ease;
+        overflow-y: auto;
+      }
+
+      .accountMobileMenuToggle:checked ~ .accountShell .accountSidebar {
+        transform: translateX(0);
+      }
+
+      .accountMobileMenuToggle:checked ~ .accountSidebarBackdrop {
+        display: block;
+      }
+
+      .accountSidebarBackdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        background: rgba(18, 28, 24, 0.54);
+        cursor: pointer;
+      }
+
+      .accountSidebarMobileHeader {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 0 2px 2px;
       }
 
       .navGroup {
         margin: 0;
       }
 
-      .mobileSettingsMenu {
-        display: block;
-      }
-
-      .mobileSettingsMenu summary {
-        min-height: 56px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background: #fbfdfc;
-        color: var(--text);
-        padding: 0 13px;
-        font-size: 14px;
-        font-weight: 780;
-        list-style: none;
-        box-shadow: 0 8px 20px rgba(0, 73, 46, 0.045);
-      }
-
-      .mobileSettingsMenu summary::-webkit-details-marker {
-        display: none;
-      }
-
-      .mobileSettingsMenu summary:focus {
-        outline: none;
-      }
-
-      .mobileSettingsMenu summary:focus-visible {
-        border-color: #8bb6a2;
-        box-shadow: 0 0 0 3px rgba(0, 116, 72, 0.1);
-      }
-
-      .mobileSettingsMenu[open] summary {
-        border-color: #c9ddd3;
-        background: #ffffff;
-      }
-
-      .mobileMenuCurrent {
-        display: inline-flex;
-        align-items: center;
-        gap: 11px;
-        min-width: 0;
-      }
-
-      .mobileMenuCurrent > svg {
-        flex: 0 0 auto;
-        color: var(--brand);
-      }
-
-      .mobileMenuCurrent > span {
-        min-width: 0;
+      .sidebarFooter {
         display: grid;
-        gap: 2px;
-      }
-
-      .mobileMenuCurrent small,
-      .mobileMenuCurrent strong {
-        display: block;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .mobileMenuCurrent small {
-        color: #8a9b92;
-        font-size: 10px;
-        font-weight: 820;
-        letter-spacing: 0.12em;
-        line-height: 1;
-        text-transform: uppercase;
-      }
-
-      .mobileMenuCurrent strong {
-        color: var(--brand-900);
-        font-size: 15px;
-        font-weight: 800;
-        line-height: 1.2;
-      }
-
-      .mobileMenuChevron {
-        color: var(--brand);
-        transition: transform 160ms ease;
-      }
-
-      .mobileSettingsMenu[open] .mobileMenuChevron {
-        transform: rotate(180deg);
-      }
-
-      .mobileSettingsMenuPanel {
-        display: grid;
-        gap: 7px;
-        margin-top: 8px;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background: #ffffff;
-        padding: 8px;
-        box-shadow: 0 12px 26px rgba(0, 73, 46, 0.055);
-      }
-
-      .mobileSettingsMenu .settingsNavItem {
-        min-height: 44px;
-        border: 0;
-        background: transparent;
+        margin-top: auto;
       }
 
       .accountMain {

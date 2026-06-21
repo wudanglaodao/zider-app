@@ -5,9 +5,11 @@ import {
   LayoutDashboard,
   LayoutGrid,
   LogOut,
+  Menu,
   Plus,
   Printer,
   UserRound,
+  X,
 } from "lucide-react";
 
 import { UserAvatar } from "./_components/UserAvatar";
@@ -30,10 +32,16 @@ const workspaceUser = {
 export default function WorkspaceHomePage() {
   return (
     <main className="workspaceDashboardShell">
+      <input className="workspaceDashboardMenuToggle" id="workspace-dashboard-menu" type="checkbox" />
+
       <header className="workspaceDashboardTopbar" aria-label="ZIDER Workspace">
         <a className="workspaceDashboardBrand" href="/" aria-label="ZIDER Workspace home">
           <ZiderMicroMark />
         </a>
+
+        <label className="workspaceDashboardMenuButton" htmlFor="workspace-dashboard-menu" aria-label="Open workspace menu">
+          <Menu size={18} />
+        </label>
 
         <nav className="workspaceDashboardTopActions" aria-label="Workspace actions">
           <a className="workspaceDashboardHelp" href={helpHref}>
@@ -71,6 +79,15 @@ export default function WorkspaceHomePage() {
 
       <div className="workspaceDashboardLayout">
         <aside className="workspaceDashboardSidebar" aria-label="Workspace navigation">
+          <div className="workspaceDashboardSidebarHeader">
+            <a className="workspaceDashboardSidebarBrand" href="/" aria-label="ZIDER Workspace home">
+              <ZiderMicroMark />
+            </a>
+            <label className="workspaceDashboardSidebarClose" htmlFor="workspace-dashboard-menu" aria-label="Close workspace menu">
+              <X size={18} />
+            </label>
+          </div>
+
           <div>
             <p className="workspaceDashboardNavLabel">Workspace</p>
             <nav className="workspaceDashboardNav">
@@ -202,6 +219,8 @@ export default function WorkspaceHomePage() {
           </section>
         </section>
       </div>
+
+      <label className="workspaceDashboardSidebarBackdrop" htmlFor="workspace-dashboard-menu" aria-label="Close workspace menu" />
     </main>
   );
 }

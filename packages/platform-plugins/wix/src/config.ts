@@ -5,7 +5,7 @@ export const WIX_PRINTOPS_APP_NAME = "PrintOps";
 export const WIX_ORDERS_ENDPOINT = "https://www.wixapis.com/ecom/v1/orders";
 export const WIX_ORDERS_SEARCH_ENDPOINT = "https://www.wixapis.com/ecom/v1/orders/search";
 export const WIX_ORDER_HISTORY_MAX_DAYS = 7;
-export const WIX_ORDER_LATEST_DEFAULT_LOOKBACK_HOURS = 24;
+export const WIX_ORDER_LATEST_DEFAULT_LOOKBACK_HOURS = 72;
 export const WIX_ORDER_SYNC_DEFAULT_LIMIT = 50;
 export const WIX_ORDER_SYNC_DEFAULT_MAX_PAGES = 10;
 
