@@ -18,6 +18,7 @@ import {
   Globe,
   Languages,
   LayoutTemplate,
+  Mail,
   Menu as MenuIcon,
   MoreHorizontal,
   Minus,
@@ -30,6 +31,7 @@ import {
   Settings,
   Star,
   Trash2,
+  UserRound,
   X,
 } from "lucide-react";
 import { type ChangeEvent, type CSSProperties, type MouseEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
@@ -147,6 +149,7 @@ type PageMetric = {
 };
 
 type PrintOpsPluginContext = {
+  accountBindingEndpoint?: string;
   appKey: string;
   appName: string;
   instanceId: string | null;
@@ -190,6 +193,16 @@ type PrintOpsSettingsSnapshot = {
   siteLocale: SiteLocale;
   timezone: string;
   workspaceAccent: WorkspaceAccent;
+};
+
+type AccountBindingSnapshot = {
+  bindingEmail: string | null;
+  bindingStatus: "pending" | "verified" | "revoked";
+  developmentCode?: string | null;
+  memberEmail: string | null;
+  ownerEmail: string | null;
+  suggestedEmail: string | null;
+  workspaceName: string | null;
 };
 type WixSyncOrderSummary = {
   billingAddress?: unknown;
@@ -976,6 +989,34 @@ function readSettingsSnapshotFromPayload(value: unknown): Partial<PrintOpsSettin
   }
 
   return snapshot;
+}
+
+function readAccountBindingSnapshotFromPayload(value: unknown): AccountBindingSnapshot | null {
+  const record = getRecord(value);
+
+  if (!record) {
+    return null;
+  }
+
+  const binding = getRecord(record.binding);
+
+  if (!binding) {
+    return null;
+  }
+
+  const member = getRecord(binding.member);
+  const workspace = getRecord(binding.workspace);
+  const bindingStatus = getString(binding.bindingStatus);
+
+  return {
+    bindingEmail: getString(binding.bindingEmail),
+    bindingStatus: bindingStatus === "verified" || bindingStatus === "revoked" ? bindingStatus : "pending",
+    developmentCode: getString(record.developmentCode),
+    memberEmail: getString(member?.email),
+    ownerEmail: getString(binding.ownerEmail),
+    suggestedEmail: getString(binding.suggestedEmail),
+    workspaceName: getString(workspace?.name),
+  };
 }
 
 function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profile: PrintOpsStoreProfileSummary | null) {
@@ -2723,6 +2764,14 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     source: null,
     status: "idle",
   });
+  const [accountBinding, setAccountBinding] = useState<AccountBindingSnapshot | null>(null);
+  const [accountBindingStatus, setAccountBindingStatus] = useState<{
+    error: string | null;
+    status: "idle" | "loading" | "sending" | "code_sent" | "verifying" | "loaded" | "bound" | "error";
+  }>({
+    error: null,
+    status: "idle",
+  });
   const [storeProfileDefaultsApplied, setStoreProfileDefaultsApplied] = useState(false);
   const templateStoreInitializedRef = useRef(false);
   const settingsStoreInitializedRef = useRef(false);
@@ -2791,6 +2840,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         items: [
           { icon: Settings, label: messages.nav.settings, href: viewLinks.settings, view: "settings", count: "" },
           { icon: BookOpen, label: messages.nav.help, href: "https://zider.ink/forum/apps/printops", view: "help", count: "" },
+          { icon: Mail, label: "Support", href: "mailto:support@zider.ink", view: "support", count: "" },
         ],
       },
     ],
@@ -3008,6 +3058,22 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     settingsStoreInitializedRef.current = true;
     void loadSettingsFromDatabase();
   }, [pluginContext?.settingsEndpoint]);
+
+  useEffect(() => {
+    if (!pluginContext?.accountBindingEndpoint) {
+      return;
+    }
+
+    void loadAccountBinding();
+  }, [pluginContext?.accountBindingEndpoint]);
+
+  useEffect(() => {
+    if (!pluginContext?.accountBindingEndpoint || !storeProfile) {
+      return;
+    }
+
+    void loadAccountBinding();
+  }, [pluginContext?.accountBindingEndpoint, storeProfile?.ownerEmail]);
 
   useEffect(() => {
     if (!pluginContext?.instanceId || !pluginContext.storeProfileEndpoint) {
@@ -3370,6 +3436,128 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       });
     } catch {
       // Settings still persist locally; database persistence can retry on the next change.
+    }
+  }
+
+  async function loadAccountBinding() {
+    if (!pluginContext?.accountBindingEndpoint) {
+      return;
+    }
+
+    setAccountBindingStatus({ error: null, status: "loading" });
+
+    try {
+      const response = await fetch(pluginContext.accountBindingEndpoint, {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        accountBinding?: unknown;
+        error?: string;
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? `Account binding request failed with ${response.status}`);
+      }
+
+      const snapshot = readAccountBindingSnapshotFromPayload(payload.accountBinding);
+
+      setAccountBinding(snapshot);
+      setAccountBindingStatus({
+        error: null,
+        status: snapshot?.bindingStatus === "verified" ? "bound" : "loaded",
+      });
+    } catch (error) {
+      setAccountBindingStatus({
+        error: error instanceof Error ? error.message : "Account binding unavailable",
+        status: "error",
+      });
+    }
+  }
+
+  async function requestAccountBindingCode(email: string) {
+    if (!pluginContext?.accountBindingEndpoint) {
+      return;
+    }
+
+    setAccountBindingStatus({ error: null, status: "sending" });
+
+    try {
+      const response = await fetch(pluginContext.accountBindingEndpoint, {
+        body: JSON.stringify({
+          action: "request_code",
+          displayName: storeProfile?.businessName ?? printOpsSystemBrandName,
+          email,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        accountBinding?: unknown;
+        error?: string;
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? `Verification request failed with ${response.status}`);
+      }
+
+      const snapshot = readAccountBindingSnapshotFromPayload(payload.accountBinding);
+
+      setAccountBinding(snapshot);
+      setAccountBindingStatus({
+        error: null,
+        status: "code_sent",
+      });
+    } catch (error) {
+      setAccountBindingStatus({
+        error: error instanceof Error ? error.message : "Verification request failed",
+        status: "error",
+      });
+    }
+  }
+
+  async function verifyAccountBindingCode(email: string, code: string) {
+    if (!pluginContext?.accountBindingEndpoint) {
+      return;
+    }
+
+    setAccountBindingStatus({ error: null, status: "verifying" });
+
+    try {
+      const response = await fetch(pluginContext.accountBindingEndpoint, {
+        body: JSON.stringify({
+          action: "verify_code",
+          code,
+          displayName: storeProfile?.businessName ?? printOpsSystemBrandName,
+          email,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        accountBinding?: unknown;
+        error?: string;
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.error ?? `Account binding failed with ${response.status}`);
+      }
+
+      const snapshot = readAccountBindingSnapshotFromPayload(payload.accountBinding);
+
+      setAccountBinding(snapshot);
+      setAccountBindingStatus({
+        error: null,
+        status: snapshot?.bindingStatus === "verified" ? "bound" : "loaded",
+      });
+    } catch (error) {
+      setAccountBindingStatus({
+        error: error instanceof Error ? error.message : "Account binding failed",
+        status: "error",
+      });
     }
   }
 
@@ -3801,14 +3989,20 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
         {activeView === "settings" ? (
           <SettingsCenter
+            accountBinding={accountBinding}
+            accountBindingAvailable={Boolean(pluginContext?.accountBindingEndpoint)}
+            accountBindingError={accountBindingStatus.error}
+            accountBindingStatus={accountBindingStatus.status}
             accentColor={workspaceAccent}
             darkTheme={darkTheme}
             messages={messages}
             onAccentColorChange={(value) => updateSettingsSnapshot({ workspaceAccent: value })}
             onPrintLanguageChange={(value) => updateSettingsSnapshot({ language: value })}
+            onRequestAccountBindingCode={requestAccountBindingCode}
             onSiteLocaleChange={(value) => updateSettingsSnapshot({ siteLocale: value })}
             onThemeChange={(value) => updateSettingsSnapshot({ darkTheme: value })}
             onTimezoneChange={(value) => updateSettingsSnapshot({ timezone: value })}
+            onVerifyAccountBindingCode={verifyAccountBindingCode}
             printLanguage={language}
             printLanguageOptions={printLanguageOptions}
             siteLocale={siteLocale}
@@ -4100,34 +4294,48 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 }
 
 function SettingsCenter({
+  accountBinding,
+  accountBindingAvailable,
+  accountBindingError,
+  accountBindingStatus,
   accentColor,
   darkTheme,
   messages,
   onAccentColorChange,
   onPrintLanguageChange,
+  onRequestAccountBindingCode,
   onSiteLocaleChange,
   onThemeChange,
   onTimezoneChange,
+  onVerifyAccountBindingCode,
   printLanguage,
   printLanguageOptions,
   siteLocale,
   timezone,
 }: {
+  accountBinding: AccountBindingSnapshot | null;
+  accountBindingAvailable: boolean;
+  accountBindingError: string | null;
+  accountBindingStatus: "idle" | "loading" | "sending" | "code_sent" | "verifying" | "loaded" | "bound" | "error";
   accentColor: WorkspaceAccent;
   darkTheme: boolean;
   messages: PrintOpsMessages;
   onAccentColorChange: (value: WorkspaceAccent) => void;
   onPrintLanguageChange: (value: PrintLocale) => void;
+  onRequestAccountBindingCode: (email: string) => void | Promise<void>;
   onSiteLocaleChange: (value: SiteLocale) => void;
   onThemeChange: (value: boolean) => void;
   onTimezoneChange: (value: string) => void;
+  onVerifyAccountBindingCode: (email: string, code: string) => void | Promise<void>;
   printLanguage: PrintLocale;
   printLanguageOptions: { label: string; value: string }[];
   siteLocale: SiteLocale;
   timezone: string;
 }) {
-  const [activeSettingsTab, setActiveSettingsTab] = useState<"appearance" | "preferences">("appearance");
+  const [activeSettingsTab, setActiveSettingsTab] = useState<"appearance" | "preferences" | "account">("appearance");
   const isAppearanceSettings = activeSettingsTab === "appearance";
+  const isPreferencesSettings = activeSettingsTab === "preferences";
+  const isAccountSettings = activeSettingsTab === "account";
   const accentLabels: Record<WorkspaceAccent, string> = {
     forest: messages.settings.accentForest,
     blue: messages.settings.accentBlue,
@@ -4149,6 +4357,23 @@ function SettingsCenter({
       }).format(date),
     };
   }, [siteLocale, timezone]);
+  const settingsHeader = isAppearanceSettings
+    ? {
+        description: messages.settings.appearanceLanguageDescription,
+        icon: <Settings size={20} aria-hidden />,
+        title: messages.settings.appearanceLanguage,
+      }
+    : isAccountSettings
+      ? {
+          description: "Bind this Wix installation to a verified ZIDER member and workspace.",
+          icon: <UserRound size={20} aria-hidden />,
+          title: "Account binding",
+        }
+      : {
+          description: messages.settings.preferencesDescription,
+          icon: <Globe size={20} aria-hidden />,
+          title: messages.settings.preferences,
+        };
 
   return (
     <div className={styles.settingsLayout}>
@@ -4164,28 +4389,44 @@ function SettingsCenter({
         </button>
         <button
           className={styles.settingsMenuItem}
-          data-active={!isAppearanceSettings}
+          data-active={isPreferencesSettings}
           onClick={() => setActiveSettingsTab("preferences")}
           type="button"
         >
           <Globe size={18} aria-hidden />
           <strong>{messages.settings.preferences}</strong>
         </button>
+        <button
+          className={styles.settingsMenuItem}
+          data-active={isAccountSettings}
+          onClick={() => setActiveSettingsTab("account")}
+          type="button"
+        >
+          <UserRound size={18} aria-hidden />
+          <strong>Account binding</strong>
+        </button>
       </aside>
 
       <section className={styles.settingsContent}>
         <div className={styles.settingsCard}>
           <div className={styles.settingsCardHeader}>
-            <span className={styles.settingsIconBubble}>
-              {isAppearanceSettings ? <Settings size={20} aria-hidden /> : <Globe size={20} aria-hidden />}
-            </span>
+            <span className={styles.settingsIconBubble}>{settingsHeader.icon}</span>
             <div>
-              <h2>{isAppearanceSettings ? messages.settings.appearanceLanguage : messages.settings.preferences}</h2>
-              <p>{isAppearanceSettings ? messages.settings.appearanceLanguageDescription : messages.settings.preferencesDescription}</p>
+              <h2>{settingsHeader.title}</h2>
+              <p>{settingsHeader.description}</p>
             </div>
           </div>
 
-          {isAppearanceSettings ? (
+          {isAccountSettings ? (
+            <AccountBindingSettings
+              binding={accountBinding}
+              bindingAvailable={accountBindingAvailable}
+              error={accountBindingError}
+              onRequestCode={onRequestAccountBindingCode}
+              onVerifyCode={onVerifyAccountBindingCode}
+              status={accountBindingStatus}
+            />
+          ) : isAppearanceSettings ? (
             <div className={styles.settingsSection}>
               <div className={styles.settingsSectionHeader}>
                 <strong>{messages.settings.theme}</strong>
@@ -4257,6 +4498,111 @@ function SettingsCenter({
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function AccountBindingSettings({
+  binding,
+  bindingAvailable,
+  error,
+  onRequestCode,
+  onVerifyCode,
+  status,
+}: {
+  binding: AccountBindingSnapshot | null;
+  bindingAvailable: boolean;
+  error: string | null;
+  onRequestCode: (email: string) => void | Promise<void>;
+  onVerifyCode: (email: string, code: string) => void | Promise<void>;
+  status: "idle" | "loading" | "sending" | "code_sent" | "verifying" | "loaded" | "bound" | "error";
+}) {
+  const [email, setEmail] = useState(binding?.suggestedEmail ?? binding?.ownerEmail ?? "");
+  const [code, setCode] = useState("");
+  const isVerified = binding?.bindingStatus === "verified";
+  const isCodeSent = status === "code_sent" || Boolean(binding?.developmentCode);
+  const displayEmail = binding?.memberEmail ?? binding?.bindingEmail ?? binding?.suggestedEmail ?? binding?.ownerEmail ?? "";
+
+  useEffect(() => {
+    if (!email.trim()) {
+      setEmail(binding?.suggestedEmail ?? binding?.ownerEmail ?? "");
+    }
+  }, [binding?.ownerEmail, binding?.suggestedEmail, email]);
+
+  return (
+    <div className={styles.settingsSection}>
+      <div className={styles.settingsSectionHeader}>
+        <strong>ZIDER member</strong>
+        <span>Verify the Wix owner email before this installation becomes a ZIDER member.</span>
+      </div>
+
+      <div className={styles.accountBindingCard}>
+        <div>
+          <span className={styles.accountBindingStatus} data-status={isVerified ? "verified" : "pending"}>
+            {isVerified ? "Verified" : status === "loading" ? "Checking" : "Pending"}
+          </span>
+          <strong>{displayEmail || "No owner email detected"}</strong>
+          <small>
+            {isVerified
+              ? `${binding?.workspaceName ?? "Workspace"} is linked to this Wix installation.`
+              : isCodeSent
+                ? "Enter the 6-digit code sent to this email to finish member and workspace binding."
+                : "Use the Wix owner email as the default account identity, then verify it before binding this installation."}
+          </small>
+        </div>
+      </div>
+
+      {!bindingAvailable ? (
+        <p className={styles.helperText}>Open PrintOps from Wix to bind this installation.</p>
+      ) : isVerified ? null : (
+        <div className={styles.accountBindingForm}>
+          <label>
+            <span>Owner email</span>
+            <input
+              className={styles.textInput}
+              disabled={status === "sending" || status === "verifying"}
+              onChange={(event) => setEmail(event.currentTarget.value)}
+              placeholder="site-owner@example.com"
+              type="email"
+              value={email}
+            />
+          </label>
+          <button
+            className={styles.primaryButton}
+            disabled={status === "sending" || status === "verifying" || !email.trim()}
+            onClick={() => onRequestCode(email)}
+            type="button"
+          >
+            {status === "sending" ? "Sending..." : isCodeSent ? "Resend code" : "Send code"}
+          </button>
+          {isCodeSent ? (
+            <>
+              <label>
+                <span>Verification code</span>
+                <input
+                  className={styles.textInput}
+                  inputMode="numeric"
+                  maxLength={6}
+                  onChange={(event) => setCode(event.currentTarget.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  value={code}
+                />
+              </label>
+              <button
+                className={styles.primaryButton}
+                disabled={status === "verifying" || code.length !== 6 || !email.trim()}
+                onClick={() => onVerifyCode(email, code)}
+                type="button"
+              >
+                {status === "verifying" ? "Verifying..." : "Verify and bind"}
+              </button>
+            </>
+          ) : null}
+        </div>
+      )}
+
+      {error ? <p className={styles.accountBindingError}>{error}</p> : null}
+      {binding?.developmentCode ? <p className={styles.helperText}>Development code: {binding.developmentCode}</p> : null}
     </div>
   );
 }
@@ -5209,57 +5555,59 @@ function TemplateCenter({
                 >
                   {isLibrary ? (
                     <span className={styles.templateCardPreview} aria-hidden="true">
-                      <TemplatePaperPreview
-                        accentColor={templateRecord.accentColor}
-                        addressFormat={templateRecord.addressFormat}
-                        brandName={templateRecord.brandName}
-                        dateFormat={templateRecord.dateFormat}
-                        defaultLanguage={templateRecord.defaultLanguage}
-                        density={templateRecord.density}
-                        documentTitleFont={templateRecord.documentTitleFont}
-                        documentTitleFontSize={templateRecord.documentTitleFontSize}
-                        bodyFont={templateRecord.bodyFont}
-                        bodyFontSize={templateRecord.bodyFontSize}
-                        documentType={templateRecord.documentType}
-                        contactPromptText={templateRecord.contactPromptText}
-                        footerContact={templateRecord.footerContact}
-                        footerWebsite={templateRecord.footerWebsite}
-                        labelOverrides={templateRecord.labelOverrides}
-                        layoutPreset={templateRecord.layoutPreset}
-                        logoImageUrl={templateRecord.logoImageUrl}
-                        logoFont={templateRecord.logoFont}
-                        logoFontSize={templateRecord.logoFontSize}
-                        logoSource={templateRecord.logoSource}
-                        logoText={templateRecord.logoText}
-                        paperSize={templateRecord.paperSize}
-                        showBillTo={templateRecord.showBillTo}
-                        showContactFooter={templateRecord.showContactFooter}
-                        showInvoiceMeta={templateRecord.showInvoiceMeta}
-                        showItemOptions={templateRecord.showItemOptions}
-                        showLogoText={templateRecord.showLogoText}
-                        showNotes={templateRecord.showNotes}
-                        showOrderBarcode={templateRecord.showOrderBarcode}
-                        showPaymentMethod={templateRecord.showPaymentMethod}
-                        showProductImages={templateRecord.showProductImages}
-                        showShipTo={templateRecord.showShipTo}
-                        showShippingMethod={templateRecord.showShippingMethod}
-                        showSocialFooter={templateRecord.showSocialFooter}
-                        showSku={templateRecord.showSku}
-                        showStoreName={templateRecord.showStoreName}
-                        showThankYou={templateRecord.showThankYou}
-                        showTotals={templateRecord.showTotals}
-                        showItemsTotal={templateRecord.showItemsTotal ?? templateRecord.showTotals}
-                        showShippingTotal={templateRecord.showShippingTotal ?? templateRecord.showTotals}
-                        showTaxTotal={templateRecord.showTaxTotal ?? templateRecord.showTotals}
-                        showGrandTotal={templateRecord.showGrandTotal ?? templateRecord.showTotals}
-                        customAccentColor={templateRecord.customAccentColor}
-                        socialLinks={templateRecord.socialLinks}
-                        socialProfiles={templateRecord.socialProfiles}
-                        thankYouFontSize={templateRecord.thankYouFontSize}
-                        thankYouText={templateRecord.thankYouText}
-                        variant="card"
-                        visualStyle={templateRecord.visualStyle}
-                      />
+                      <span className={styles.templateCardPreviewFrame}>
+                        <TemplatePaperPreview
+                          accentColor={templateRecord.accentColor}
+                          addressFormat={templateRecord.addressFormat}
+                          brandName={templateRecord.brandName}
+                          dateFormat={templateRecord.dateFormat}
+                          defaultLanguage={templateRecord.defaultLanguage}
+                          density={templateRecord.density}
+                          documentTitleFont={templateRecord.documentTitleFont}
+                          documentTitleFontSize={templateRecord.documentTitleFontSize}
+                          bodyFont={templateRecord.bodyFont}
+                          bodyFontSize={templateRecord.bodyFontSize}
+                          documentType={templateRecord.documentType}
+                          contactPromptText={templateRecord.contactPromptText}
+                          footerContact={templateRecord.footerContact}
+                          footerWebsite={templateRecord.footerWebsite}
+                          labelOverrides={templateRecord.labelOverrides}
+                          layoutPreset={templateRecord.layoutPreset}
+                          logoImageUrl={templateRecord.logoImageUrl}
+                          logoFont={templateRecord.logoFont}
+                          logoFontSize={templateRecord.logoFontSize}
+                          logoSource={templateRecord.logoSource}
+                          logoText={templateRecord.logoText}
+                          paperSize={templateRecord.paperSize}
+                          showBillTo={templateRecord.showBillTo}
+                          showContactFooter={templateRecord.showContactFooter}
+                          showInvoiceMeta={templateRecord.showInvoiceMeta}
+                          showItemOptions={templateRecord.showItemOptions}
+                          showLogoText={templateRecord.showLogoText}
+                          showNotes={templateRecord.showNotes}
+                          showOrderBarcode={templateRecord.showOrderBarcode}
+                          showPaymentMethod={templateRecord.showPaymentMethod}
+                          showProductImages={templateRecord.showProductImages}
+                          showShipTo={templateRecord.showShipTo}
+                          showShippingMethod={templateRecord.showShippingMethod}
+                          showSocialFooter={templateRecord.showSocialFooter}
+                          showSku={templateRecord.showSku}
+                          showStoreName={templateRecord.showStoreName}
+                          showThankYou={templateRecord.showThankYou}
+                          showTotals={templateRecord.showTotals}
+                          showItemsTotal={templateRecord.showItemsTotal ?? templateRecord.showTotals}
+                          showShippingTotal={templateRecord.showShippingTotal ?? templateRecord.showTotals}
+                          showTaxTotal={templateRecord.showTaxTotal ?? templateRecord.showTotals}
+                          showGrandTotal={templateRecord.showGrandTotal ?? templateRecord.showTotals}
+                          customAccentColor={templateRecord.customAccentColor}
+                          socialLinks={templateRecord.socialLinks}
+                          socialProfiles={templateRecord.socialProfiles}
+                          thankYouFontSize={templateRecord.thankYouFontSize}
+                          thankYouText={templateRecord.thankYouText}
+                          variant="editor"
+                          visualStyle={templateRecord.visualStyle}
+                        />
+                      </span>
                     </span>
                   ) : null}
                   <span className={styles.templateCardContent}>

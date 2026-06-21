@@ -18,6 +18,7 @@ export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageP
   const instanceContext = await resolveWixInstanceIdForApp(PRINTOPS_APP_KEY, params);
   const initialView = getPrintOpsView(params.view);
   const apiQueryString = createQueryString(params, { excludeKeys: ["view"] });
+  const accountBindingEndpoint = `/api/apps/printops/wix/account-binding${apiQueryString ? `?${apiQueryString}` : ""}`;
   const ordersEndpoint = `/api/apps/printops/wix/orders${apiQueryString ? `?${apiQueryString}` : ""}`;
   const settingsEndpoint = `/api/apps/printops/wix/settings${apiQueryString ? `?${apiQueryString}` : ""}`;
   const syncEndpoint = `/api/apps/printops/wix/orders/sync${apiQueryString ? `?${apiQueryString}` : ""}`;
@@ -30,6 +31,7 @@ export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageP
       pluginContext={{
         appKey: PRINTOPS_APP_KEY,
         appName: "PrintOps",
+        accountBindingEndpoint,
         instanceId: instanceContext.instanceId,
         ordersEndpoint,
         platform: "wix",

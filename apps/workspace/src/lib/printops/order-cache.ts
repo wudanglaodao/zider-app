@@ -1,4 +1,5 @@
 import { toPrintOpsOrderCacheRows, type PrintOpsNormalizedOrder, type WixOrderSyncMode } from "@zider/platform-plugins/wix";
+import { readAppInstallationContext } from "@/lib/platform/app-installation";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export type PrintOpsOrderCachePersistenceResult =
@@ -151,13 +152,24 @@ export async function persistPrintOpsWixOrders(input: PersistPrintOpsWixOrdersIn
     };
   }
 
+  const installationContext = await readAppInstallationContext({
+    appKey: input.appKey,
+    instanceId: input.instanceId,
+    platform: "wix",
+  });
   const rows = toPrintOpsOrderCacheRows(input.orders, {
     appKey: input.appKey,
     eventType: input.eventType,
     instanceId: input.instanceId,
     platform: "wix",
     syncMode: input.syncMode,
-  });
+  }).map((row) => ({
+    ...row,
+    installation_id: installationContext?.id ?? null,
+    member_id: installationContext?.memberId ?? null,
+    platform_store_profile_id: installationContext?.platformStoreProfileId ?? null,
+    workspace_id: installationContext?.workspaceId ?? null,
+  }));
 
   if (rows.length === 0) {
     return {

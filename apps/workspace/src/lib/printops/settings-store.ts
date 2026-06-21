@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { readAppInstallationContext } from "@/lib/platform/app-installation";
 
 export type PrintOpsSettingsRecord = {
   printLocale: string | null;
@@ -94,10 +95,14 @@ export async function persistPrintOpsSettings(input: {
     };
   }
 
+  const installationContext = await readAppInstallationContext(input);
   const row = {
     app_key: input.appKey,
     instance_id: input.instanceId,
+    installation_id: installationContext?.id ?? null,
+    member_id: installationContext?.memberId ?? null,
     platform: input.platform,
+    platform_store_profile_id: installationContext?.platformStoreProfileId ?? null,
     print_locale: input.settings.printLocale,
     settings: input.settings,
     site_locale: input.settings.siteLocale,
@@ -105,6 +110,7 @@ export async function persistPrintOpsSettings(input: {
     timezone: input.settings.timezone,
     updated_at: new Date().toISOString(),
     workspace_accent: input.settings.workspaceAccent,
+    workspace_id: installationContext?.workspaceId ?? null,
   };
   const supabase = getSupabaseAdmin();
   const { error } = await supabase.from("printops_settings").upsert(row, {

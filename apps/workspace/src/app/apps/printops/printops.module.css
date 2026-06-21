@@ -936,6 +936,71 @@
   font-size: 16px;
 }
 
+.accountBindingCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  padding: 14px;
+}
+
+.accountBindingCard > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.accountBindingCard strong {
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.accountBindingCard small,
+.accountBindingForm label span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.accountBindingStatus {
+  width: fit-content;
+  border-radius: 999px;
+  background: var(--neutral-pill);
+  color: var(--neutral-pill-text);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  padding: 6px 8px;
+}
+
+.accountBindingStatus[data-status="verified"] {
+  background: var(--green-soft);
+  color: var(--green-strong);
+}
+
+.accountBindingForm {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.accountBindingForm label {
+  display: grid;
+  gap: 7px;
+}
+
+.accountBindingError {
+  margin: 0;
+  color: var(--red);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .themeCardGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(180px, 1fr));
@@ -2265,7 +2330,7 @@
 }
 
 .templateCard[data-mode="library"] .templateCardPreview {
-  min-height: 380px;
+  min-height: 590px;
   border: 0;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
@@ -2273,18 +2338,39 @@
   padding: 30px;
 }
 
-.templateCard[data-mode="library"] .templatePaper[data-variant="card"] {
-  width: min(260px, 74%);
-  min-height: 372px;
-  gap: 9px;
-  font-size: 8px;
-  padding: 15px;
+.templateCardPreviewFrame {
+  --template-card-preview-scale: 0.62;
+  width: calc(595px * var(--template-card-preview-scale));
+  height: calc(842px * var(--template-card-preview-scale));
+  position: relative;
+  display: block;
+  flex: 0 0 auto;
 }
 
-.templateCard[data-mode="library"] .templatePaper[data-variant="card"][data-layout="Thermal"],
-.templateCard[data-mode="library"] .templatePaper[data-variant="card"][data-size="80mm"] {
-  width: 140px;
-  min-height: 300px;
+.templateCardPreviewFrame .templatePaper[data-variant="editor"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 595px;
+  min-height: 842px;
+  transform: scale(var(--template-card-preview-scale));
+  transform-origin: top left;
+}
+
+.templateCardPreviewFrame .templatePaper[data-variant="editor"][dir="rtl"] {
+  right: 0;
+  left: auto;
+  transform-origin: top right;
+}
+
+.templateCardPreviewFrame .templatePaper[data-variant="editor"][data-layout="Table-first"] {
+  width: 595px;
+  min-height: 842px;
+}
+
+.templateCardPreviewFrame .templatePaper[data-variant="editor"][data-layout="Thermal"],
+.templateCardPreviewFrame .templatePaper[data-variant="editor"][data-size="80mm"] {
+  width: 240px;
 }
 
 .templateCard[data-mode="library"] .templatePaper[data-variant="card"] .paperHeaderLine {
@@ -4569,6 +4655,10 @@
 }
 
 .templateEditorPreview {
+  position: sticky;
+  top: 18px;
+  max-height: calc(100vh - 36px);
+  overflow: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -5715,6 +5805,15 @@
     min-height: 220px;
   }
 
+  .templateCard[data-mode="library"] .templateCardPreview {
+    min-height: 430px;
+    padding: 20px;
+  }
+
+  .templateCardPreviewFrame {
+    --template-card-preview-scale: 0.46;
+  }
+
   .previewModalViewport {
     align-items: start;
     padding: 12px;
@@ -5785,6 +5884,12 @@
   .formOneColumn,
   .labelOverrideGrid {
     grid-template-columns: 1fr;
+  }
+
+  .templateEditorPreview {
+    position: static;
+    max-height: none;
+    overflow: visible;
   }
 
   .templateEditorPreview .templatePreviewShell {

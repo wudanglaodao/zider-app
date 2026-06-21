@@ -7,6 +7,14 @@ const GOOGLE_ANALYTICS_ID = "G-ZTBTQ9Z9LH";
 export const metadata: Metadata = {
   title: "ZIDER Workspace",
   description: "Components and Solutions backends for ZIDER products.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/zider-app-icon.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

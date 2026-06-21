@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { readAppInstallationContext } from "@/lib/platform/app-installation";
 
 export type PrintOpsTemplateRecord = Record<string, unknown> & {
   defaultLanguage?: unknown;
@@ -123,6 +124,7 @@ export async function persistPrintOpsTemplates(input: PersistPrintOpsTemplatesIn
   }
 
   const selectedTemplateId = input.selectedTemplateId ?? readString(templates.find((template) => template.isDefault)?.id);
+  const installationContext = await readAppInstallationContext(input);
   const rows = templates.map((template) => {
     const templateId = readString(template.id)!;
     const isDefault = templateId === selectedTemplateId || Boolean(template.isDefault);
@@ -132,8 +134,11 @@ export async function persistPrintOpsTemplates(input: PersistPrintOpsTemplatesIn
       default_language: readString(template.defaultLanguage),
       document_type: readString(template.documentType),
       instance_id: input.instanceId,
+      installation_id: installationContext?.id ?? null,
       is_default: isDefault,
+      member_id: installationContext?.memberId ?? null,
       platform: input.platform,
+      platform_store_profile_id: installationContext?.platformStoreProfileId ?? null,
       template_id: templateId,
       template_name: readString(template.name),
       template_record: {
@@ -141,6 +146,7 @@ export async function persistPrintOpsTemplates(input: PersistPrintOpsTemplatesIn
         isDefault,
       },
       updated_at: new Date().toISOString(),
+      workspace_id: installationContext?.workspaceId ?? null,
     };
   });
 

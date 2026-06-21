@@ -43,6 +43,39 @@ create table if not exists public.zider_apps (
   updated_at timestamptz not null default now()
 );
 
+create table if not exists public.zider_members (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  display_name text,
+  avatar_url text,
+  status text not null default 'active' check (status in ('active', 'disabled')),
+  email_verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (email)
+);
+
+create table if not exists public.workspaces (
+  id uuid primary key default gen_random_uuid(),
+  owner_member_id uuid references public.zider_members(id) on delete set null,
+  name text not null,
+  status text not null default 'active' check (status in ('active', 'disabled')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.workspace_members (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id uuid not null references public.workspaces(id) on delete cascade,
+  member_id uuid not null references public.zider_members(id) on delete cascade,
+  role text not null default 'owner' check (role in ('owner', 'admin', 'member')),
+  status text not null default 'active' check (status in ('active', 'disabled')),
+  joined_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (workspace_id, member_id)
+);
+
 create table if not exists public.app_platforms (
   id uuid primary key default gen_random_uuid(),
   app_id uuid not null references public.zider_apps(id) on delete cascade,
@@ -122,11 +155,30 @@ create table if not exists public.app_installations (
   installed_at timestamptz,
   uninstalled_at timestamptz,
   last_event_at timestamptz,
+  platform_store_profile_id uuid,
+  member_id uuid references public.zider_members(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
+  binding_email text,
+  binding_status text not null default 'pending' check (binding_status in ('pending', 'verified', 'revoked')),
+  binding_verified_at timestamptz,
   first_seen_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (app_key, platform, instance_id)
+);
+
+create table if not exists public.account_email_verifications (
+  id uuid primary key default gen_random_uuid(),
+  app_installation_id uuid not null references public.app_installations(id) on delete cascade,
+  email text not null,
+  code_hash text not null,
+  attempts integer not null default 0,
+  status text not null default 'pending' check (status in ('pending', 'verified', 'expired')),
+  expires_at timestamptz not null,
+  verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
 
 create table if not exists public.install_attribution_events (
@@ -288,6 +340,10 @@ create table if not exists public.printops_orders (
   app_key text not null default 'zider_printops',
   platform text not null,
   instance_id text not null,
+  installation_id uuid references public.app_installations(id) on delete set null,
+  platform_store_profile_id uuid,
+  member_id uuid references public.zider_members(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   source_order_id text not null,
   source_order_number text,
   source_created_at timestamptz,
@@ -324,6 +380,10 @@ create table if not exists public.printops_templates (
   app_key text not null default 'zider_printops',
   platform text not null,
   instance_id text not null,
+  installation_id uuid references public.app_installations(id) on delete set null,
+  platform_store_profile_id uuid,
+  member_id uuid references public.zider_members(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   template_id text not null,
   document_type text,
   template_name text,
@@ -340,6 +400,10 @@ create table if not exists public.printops_settings (
   app_key text not null default 'zider_printops',
   platform text not null,
   instance_id text not null,
+  installation_id uuid references public.app_installations(id) on delete set null,
+  platform_store_profile_id uuid,
+  member_id uuid references public.zider_members(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   site_locale text,
   print_locale text,
   timezone text,
@@ -368,6 +432,8 @@ create table if not exists public.platform_store_profiles (
   timezone text,
   currency text,
   raw_profile jsonb not null default '{}'::jsonb,
+  member_id uuid references public.zider_members(id) on delete set null,
+  workspace_id uuid references public.workspaces(id) on delete set null,
   first_seen_app_key text,
   last_synced_app_key text,
   last_seen_instance_id text not null,
@@ -378,8 +444,53 @@ create table if not exists public.platform_store_profiles (
   unique (platform, last_seen_instance_id)
 );
 
+do $$
+begin
+  alter table public.app_installations
+    add constraint app_installations_platform_store_profile_id_fkey
+    foreign key (platform_store_profile_id) references public.platform_store_profiles(id) on delete set null;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter table public.printops_orders
+    add constraint printops_orders_platform_store_profile_id_fkey
+    foreign key (platform_store_profile_id) references public.platform_store_profiles(id) on delete set null;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter table public.printops_templates
+    add constraint printops_templates_platform_store_profile_id_fkey
+    foreign key (platform_store_profile_id) references public.platform_store_profiles(id) on delete set null;
+exception
+  when duplicate_object then null;
+end $$;
+
+do $$
+begin
+  alter table public.printops_settings
+    add constraint printops_settings_platform_store_profile_id_fkey
+    foreign key (platform_store_profile_id) references public.platform_store_profiles(id) on delete set null;
+exception
+  when duplicate_object then null;
+end $$;
+
 create index if not exists idx_app_installations_app_platform_status
   on public.app_installations(app_key, platform, status);
+
+create index if not exists idx_app_installations_member_workspace
+  on public.app_installations(member_id, workspace_id);
+
+create index if not exists idx_app_installations_binding
+  on public.app_installations(app_key, platform, binding_status);
+
+create index if not exists idx_app_installations_store_profile
+  on public.app_installations(platform_store_profile_id);
 
 create index if not exists idx_app_platform_secrets_app_platform
   on public.app_platform_secrets(app_key, platform);
@@ -435,6 +546,12 @@ create index if not exists idx_printops_orders_status
 create index if not exists idx_printops_orders_print_status
   on public.printops_orders(app_key, platform, instance_id, print_status);
 
+create index if not exists idx_printops_orders_installation
+  on public.printops_orders(installation_id, synced_at desc);
+
+create index if not exists idx_printops_orders_store_profile
+  on public.printops_orders(platform_store_profile_id, synced_at desc);
+
 create index if not exists idx_printops_orders_normalized_gin
   on public.printops_orders using gin(normalized_order);
 
@@ -445,6 +562,12 @@ create index if not exists idx_printops_templates_default
   on public.printops_templates(app_key, platform, instance_id, document_type, is_default)
   where is_default = true;
 
+create index if not exists idx_printops_templates_installation
+  on public.printops_templates(installation_id, updated_at desc);
+
+create index if not exists idx_printops_templates_store_profile
+  on public.printops_templates(platform_store_profile_id, updated_at desc);
+
 create index if not exists idx_printops_templates_record_gin
   on public.printops_templates using gin(template_record);
 
@@ -453,6 +576,12 @@ create index if not exists idx_printops_settings_instance
 
 create index if not exists idx_printops_settings_json_gin
   on public.printops_settings using gin(settings);
+
+create index if not exists idx_printops_settings_installation
+  on public.printops_settings(installation_id);
+
+create index if not exists idx_printops_settings_store_profile
+  on public.printops_settings(platform_store_profile_id);
 
 create index if not exists idx_app_installations_platform_site
   on public.app_installations(platform, site_id);
@@ -465,6 +594,18 @@ create index if not exists idx_platform_store_profiles_instance
 
 create index if not exists idx_platform_store_profiles_synced
   on public.platform_store_profiles(platform, synced_at desc);
+
+create index if not exists idx_platform_store_profiles_workspace
+  on public.platform_store_profiles(workspace_id, platform);
+
+create index if not exists idx_printops_orders_workspace
+  on public.printops_orders(workspace_id, synced_at desc);
+
+create index if not exists idx_printops_templates_workspace
+  on public.printops_templates(workspace_id, updated_at desc);
+
+create index if not exists idx_printops_settings_workspace
+  on public.printops_settings(workspace_id);
 
 create index if not exists idx_cms_entries_public_lookup
   on public.cms_entries(content_type, locale, slug)
@@ -479,8 +620,27 @@ create index if not exists idx_cms_entries_tags
 create index if not exists idx_zider_users_role_status
   on public.zider_users(role, status);
 
+create index if not exists idx_zider_members_email
+  on public.zider_members(email);
+
+create index if not exists idx_workspaces_owner
+  on public.workspaces(owner_member_id);
+
+create index if not exists idx_workspace_members_member
+  on public.workspace_members(member_id, status);
+
+create index if not exists idx_account_email_verifications_installation
+  on public.account_email_verifications(app_installation_id, status, expires_at desc);
+
+create index if not exists idx_account_email_verifications_email
+  on public.account_email_verifications(email, status, expires_at desc);
+
 alter table public.cms_entries enable row level security;
 alter table public.zider_users enable row level security;
+alter table public.zider_members enable row level security;
+alter table public.workspaces enable row level security;
+alter table public.workspace_members enable row level security;
+alter table public.account_email_verifications enable row level security;
 alter table public.app_platform_secrets enable row level security;
 alter table public.printops_orders enable row level security;
 alter table public.printops_templates enable row level security;

@@ -154,6 +154,7 @@ export async function upsertPlatformStoreProfile(input: {
       appKey: input.appKey,
       instanceId: input.instanceId,
       platform: input.platform,
+      platformStoreProfileId: data.id,
       siteId: input.siteId,
       siteUrl: input.siteUrl,
       syncedAt,
@@ -387,6 +388,7 @@ async function updateAppInstallationStoreProfileLink(input: {
   appKey: string;
   instanceId: string;
   platform: "wix";
+  platformStoreProfileId: string;
   siteId: string | null;
   siteUrl: string | null;
   syncedAt: string;
@@ -394,6 +396,7 @@ async function updateAppInstallationStoreProfileLink(input: {
   const supabase = getSupabaseAdmin();
   const update: Record<string, string> = {
     last_seen_at: input.syncedAt,
+    platform_store_profile_id: input.platformStoreProfileId,
     updated_at: input.syncedAt,
   };
 

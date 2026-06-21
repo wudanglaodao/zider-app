@@ -1,7 +1,7 @@
 # Zider PrintOps Pricing Plan
 
 版本：v0.1
-更新日期：2026-06-20
+更新日期：2026-06-21
 适用阶段：Wix Stores 首发 / v0.1-v1.0
 
 ## 1. 定价结论
@@ -410,3 +410,98 @@ Business: $29/month or $290/year, 10,000 printed orders/month
 - 不和 $4/month 的低价竞品硬拼无限功能。
 - 又不会低到无法承担 PDF、模板维护、客服和未来 AI/字段能力成本。
 - Business 用 10,000 单作为高量入口，足够大方，但不会把 100,000 单高价值客户卖得太便宜。
+
+## 12. Wix Pricing Copy
+
+Use this section when maintaining the Wix pricing page. Feature titles are kept under 40 characters. Plan comparison values are kept short enough for Wix custom text fields.
+
+### 12.1 Plan descriptions
+
+| Plan | English description |
+|---|---|
+| Free | Try branded order printing with 50 printed orders per month, basic invoice templates, PDF preview, and browser printing. |
+| Starter | For small stores that need 500 printed orders per month, branded invoices, packing slips, custom fields, and everyday batch printing. |
+| Pro | For growing stores that need 3,000 printed orders per month, more stores, all document templates, print history, and larger bulk jobs. |
+| Business | For high-volume stores that need 10,000 printed orders per month, multi-store workflows, shared templates, and priority support. |
+
+### 12.2 Feature comparisons
+
+#### Feature 1
+
+Title:
+
+```text
+Printed orders
+```
+
+Description:
+
+```text
+Unique orders you can print or export each month. Reprints of counted orders do not use extra quota.
+```
+
+Comparison values:
+
+| Free | Starter | Pro | Business |
+|---|---|---|---|
+| 50 / month | 500 / month | 3,000 / month | 10,000 / month |
+
+#### Feature 2
+
+Title:
+
+```text
+Active stores
+```
+
+Description:
+
+```text
+Wix Stores that can sync orders and create new print jobs. Extra stores stay inactive until upgraded.
+```
+
+Comparison values:
+
+| Free | Starter | Pro | Business |
+|---|---|---|---|
+| 1 store | 1 store | 3 stores | 10 stores |
+
+#### Feature 3
+
+Title:
+
+```text
+Store templates
+```
+
+Description:
+
+```text
+Editable templates saved for your store. Built-in templates remain available for preview and copying.
+```
+
+Comparison values:
+
+| Free | Starter | Pro | Business |
+|---|---|---|---|
+| 1 template | 5 templates | Unlimited | Shared templates |
+
+#### Feature 4
+
+Title:
+
+```text
+Bulk print jobs
+```
+
+Description:
+
+```text
+Maximum orders you can include in one PDF download or browser print job.
+```
+
+Comparison values:
+
+| Free | Starter | Pro | Business |
+|---|---|---|---|
+| 10 / job | 50 / job | 250 / job | 500 / job |
