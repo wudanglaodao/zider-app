@@ -1,4 +1,4 @@
-import { toPrintOpsOrderCacheRows, type PrintOpsNormalizedOrder, type WixOrderSyncMode } from "@zider/platform-plugins/wix";
+import { toPrintOpsOrderCacheRows, type PrintOpsNormalizedOrder, type WixOrderSyncMode } from "@/lib/wix-printops";
 import { readAppInstallationContext } from "@/lib/platform/app-installation";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 

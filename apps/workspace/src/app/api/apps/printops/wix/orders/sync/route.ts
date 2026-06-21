@@ -1,4 +1,4 @@
-import { countPrintOpsCustomFields, syncWixOrders, type PrintOpsNormalizedOrder, type WixOrderSyncMode } from "@zider/platform-plugins/wix";
+import { countPrintOpsCustomFields, syncWixOrders, type PrintOpsNormalizedOrder, type WixOrderSyncMode } from "@/lib/wix-printops";
 import { NextRequest, NextResponse } from "next/server";
 import { persistPrintOpsWixOrders } from "@/lib/printops/order-cache";
 import { upsertPrintOpsStoreProfile } from "@/lib/printops/store-profile";
