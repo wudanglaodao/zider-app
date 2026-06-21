@@ -152,9 +152,11 @@ type PrintOpsPluginContext = {
   instanceId: string | null;
   ordersEndpoint: string;
   platform: "wix";
+  settingsEndpoint?: string;
   source: "instance" | "dev-instance-id" | "missing";
   storeProfileEndpoint?: string;
   syncEndpoint: string;
+  templatesEndpoint?: string;
   viewLinks?: Record<PrintOpsView, string>;
   verified: boolean;
 };
@@ -177,6 +179,17 @@ type StoreProfileStatus = {
   error: string | null;
   source: "cache" | "wix" | null;
   status: "idle" | "loading" | "loaded" | "error";
+};
+type TemplateStoreStatus = {
+  error: string | null;
+  status: "idle" | "loading" | "loaded" | "saving" | "saved" | "skipped" | "error";
+};
+type PrintOpsSettingsSnapshot = {
+  darkTheme: boolean;
+  language: PrintLocale;
+  siteLocale: SiteLocale;
+  timezone: string;
+  workspaceAccent: WorkspaceAccent;
 };
 type WixSyncOrderSummary = {
   billingAddress?: unknown;
@@ -891,16 +904,89 @@ function normalizeStoredTemplateRecord(templateRecord: TemplateRecord): Template
   return normalizedTemplateRecord;
 }
 
+function readTemplateRecordsFromPayload(value: unknown): TemplateRecord[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((templateRecord): templateRecord is TemplateRecord => {
+      if (!templateRecord || typeof templateRecord !== "object" || Array.isArray(templateRecord)) {
+        return false;
+      }
+
+      const candidate = templateRecord as Partial<TemplateRecord>;
+
+      return typeof candidate.id === "string" && typeof candidate.name === "string" && typeof candidate.documentType === "string";
+    })
+    .map(normalizeStoredTemplateRecord);
+}
+
+function persistTemplateState(templates: TemplateRecord[], selectedTemplateId: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(templateStorageKey, JSON.stringify(templates));
+  window.localStorage.setItem(selectedTemplateStorageKey, selectedTemplateId);
+}
+
+function persistSettingsState(settings: PrintOpsSettingsSnapshot) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem("printops-theme", settings.darkTheme ? "dark" : "light");
+  window.localStorage.setItem(workspaceAccentStorageKey, settings.workspaceAccent);
+  window.localStorage.setItem(siteLocaleStorageKey, settings.siteLocale);
+  window.localStorage.setItem(printLocaleStorageKey, settings.language);
+  window.localStorage.setItem(timezoneStorageKey, settings.timezone);
+}
+
+function readSettingsSnapshotFromPayload(value: unknown): Partial<PrintOpsSettingsSnapshot> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  const record = value as Record<string, unknown>;
+  const snapshot: Partial<PrintOpsSettingsSnapshot> = {};
+
+  if (record.theme === "dark" || record.theme === "light") {
+    snapshot.darkTheme = record.theme === "dark";
+  }
+
+  const workspaceAccent = typeof record.workspaceAccent === "string" ? record.workspaceAccent : null;
+  const siteLocale = typeof record.siteLocale === "string" ? record.siteLocale : null;
+  const printLocale = typeof record.printLocale === "string" ? record.printLocale : null;
+
+  if (isWorkspaceAccent(workspaceAccent)) {
+    snapshot.workspaceAccent = workspaceAccent;
+  }
+
+  if (isSiteLocale(siteLocale)) {
+    snapshot.siteLocale = siteLocale;
+  }
+
+  if (isPrintLocale(printLocale)) {
+    snapshot.language = printLocale;
+  }
+
+  if (typeof record.timezone === "string" && timezoneOptions.some((option) => option.value === record.timezone)) {
+    snapshot.timezone = record.timezone;
+  }
+
+  return snapshot;
+}
+
 function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profile: PrintOpsStoreProfileSummary | null) {
   const businessName = cleanProfileString(profile?.businessName) ?? printOpsSystemBrandName;
   const siteUrl = cleanProfileString(profile?.siteUrl) ?? printOpsSystemSiteUrl;
   const siteDisplay = getWebsiteDisplay(siteUrl) ?? siteUrl;
   const footerContact = profile ? createStoreContactLine(profile) : printOpsSystemFooterContact || null;
-  const defaultLanguage = profile ? resolveProfilePrintLocale(profile.language ?? profile.locale) : null;
   const brandSamples = [defaultTemplateBrandSettings.brandName, legacyTemplateDefaults.brandName];
   const footerContactSamples = [defaultTemplateBrandSettings.footerContact, legacyTemplateDefaults.footerContact];
   const footerWebsiteSamples = [defaultTemplateBrandSettings.footerWebsite, legacyTemplateDefaults.footerWebsite];
-  const logoTextSamples = [defaultTemplateBrandSettings.logoText, legacyTemplateDefaults.logoText, "GS"];
+  const logoTextSamples = [defaultTemplateBrandSettings.logoText, legacyTemplateDefaults.logoText];
   const websiteProfileSamples = [
     defaultTemplateSocialProfiles.website?.url ?? "",
     legacyTemplateDefaults.websiteUrl,
@@ -934,7 +1020,7 @@ function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profi
       ...templateRecord,
       ...logoPatch,
       brandName: patchProfileText(templateRecord.brandName, businessName, brandSamples),
-      defaultLanguage: defaultLanguage ?? templateRecord.defaultLanguage,
+      defaultLanguage: templateRecord.defaultLanguage,
       footerContact: patchProfileText(templateRecord.footerContact, footerContact, footerContactSamples),
       footerWebsite: patchProfileText(templateRecord.footerWebsite, siteDisplay, footerWebsiteSamples),
       logoText: patchProfileText(templateRecord.logoText, createProfileWordmark(businessName), logoTextSamples),
@@ -2610,6 +2696,10 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const [selectedTemplateId, setSelectedTemplateId] = useState("store-order-clean");
   const [templateRecords, setTemplateRecords] = useState<TemplateRecord[]>(initialTemplateRecords);
   const [templatesHydrated, setTemplatesHydrated] = useState(false);
+  const [, setTemplateStoreStatus] = useState<TemplateStoreStatus>({
+    error: null,
+    status: "idle",
+  });
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [templateEditorMode, setTemplateEditorMode] = useState<TemplateEditorMode>("create");
   const [templateDraft, setTemplateDraft] = useState<TemplateDraft>(() => createBlankTemplateDraft());
@@ -2634,6 +2724,17 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     status: "idle",
   });
   const [storeProfileDefaultsApplied, setStoreProfileDefaultsApplied] = useState(false);
+  const templateStoreInitializedRef = useRef(false);
+  const settingsStoreInitializedRef = useRef(false);
+  const templateRecordsRef = useRef(templateRecords);
+  const selectedTemplateIdRef = useRef(selectedTemplateId);
+  const settingsSnapshotRef = useRef<PrintOpsSettingsSnapshot>({
+    darkTheme,
+    language,
+    siteLocale,
+    timezone,
+    workspaceAccent,
+  });
   const messages = getPrintOpsMessages(siteLocale);
   const printLanguageOptions = useMemo(() => getPrintLocaleOptions(siteLocale), [siteLocale]);
   const defaultOrderTemplate =
@@ -2642,12 +2743,13 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     templateRecords.find((templateRecord) => templateRecord.documentType === "Invoice") ??
     templateRecords[0];
   const defaultOrderTemplateDisplay = getLocalizedTemplateRecord(defaultOrderTemplate, messages);
-  const currentPrintLanguageLabel = printLanguageOptions.find((option) => option.value === language)?.label ?? language;
+  const defaultOrderTemplateLanguage = defaultOrderTemplate?.defaultLanguage ?? language;
+  const defaultOrderTemplateLanguageLabel = printLanguageOptions.find((option) => option.value === defaultOrderTemplateLanguage)?.label ?? defaultOrderTemplateLanguage;
   const displayOrders = useMemo(() => {
     const normalizedSearch = orderSearch.trim().toLowerCase();
 
     return cachedOrders.filter((order) => {
-      const matchesSearch = !normalizedSearch || orderMatchesSearch(order, normalizedSearch, [defaultOrderTemplateDisplay.name, currentPrintLanguageLabel]);
+      const matchesSearch = !normalizedSearch || orderMatchesSearch(order, normalizedSearch, [defaultOrderTemplateDisplay.name, defaultOrderTemplateLanguageLabel]);
       const hasPrintFilter = orderFilters.printed || orderFilters.unprinted;
       const matchesPrint =
         !hasPrintFilter ||
@@ -2656,7 +2758,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
       return matchesSearch && matchesPrint;
     });
-  }, [cachedOrders, currentPrintLanguageLabel, defaultOrderTemplateDisplay.name, orderFilters.printed, orderFilters.unprinted, orderSearch]);
+  }, [cachedOrders, defaultOrderTemplateDisplay.name, defaultOrderTemplateLanguageLabel, orderFilters.printed, orderFilters.unprinted, orderSearch]);
   const selectedOrders = useMemo(() => displayOrders.filter((order) => selectedIds.includes(order.id)), [displayOrders, selectedIds]);
   const selectedCount = selectedOrders.length;
   const orderMetrics = useMemo(
@@ -2860,16 +2962,52 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   }, [timezone]);
 
   useEffect(() => {
+    settingsSnapshotRef.current = {
+      darkTheme,
+      language,
+      siteLocale,
+      timezone,
+      workspaceAccent,
+    };
+  }, [darkTheme, language, siteLocale, timezone, workspaceAccent]);
+
+  useEffect(() => {
     if (templatesHydrated) {
       window.localStorage.setItem(templateStorageKey, JSON.stringify(templateRecords));
     }
   }, [templateRecords, templatesHydrated]);
 
   useEffect(() => {
+    templateRecordsRef.current = templateRecords;
+  }, [templateRecords]);
+
+  useEffect(() => {
     if (templatesHydrated) {
       window.localStorage.setItem(selectedTemplateStorageKey, selectedTemplateId);
     }
   }, [selectedTemplateId, templatesHydrated]);
+
+  useEffect(() => {
+    selectedTemplateIdRef.current = selectedTemplateId;
+  }, [selectedTemplateId]);
+
+  useEffect(() => {
+    if (!templatesHydrated || !pluginContext?.templatesEndpoint || templateStoreInitializedRef.current) {
+      return;
+    }
+
+    templateStoreInitializedRef.current = true;
+    void loadTemplatesFromDatabase();
+  }, [pluginContext?.templatesEndpoint, templatesHydrated]);
+
+  useEffect(() => {
+    if (!pluginContext?.settingsEndpoint || settingsStoreInitializedRef.current) {
+      return;
+    }
+
+    settingsStoreInitializedRef.current = true;
+    void loadSettingsFromDatabase();
+  }, [pluginContext?.settingsEndpoint]);
 
   useEffect(() => {
     if (!pluginContext?.instanceId || !pluginContext.storeProfileEndpoint) {
@@ -3060,15 +3198,212 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     setTemplateEditorOpen(true);
   }
 
+  async function loadTemplatesFromDatabase() {
+    if (!pluginContext?.templatesEndpoint) {
+      return;
+    }
+
+    setTemplateStoreStatus({ error: null, status: "loading" });
+
+    try {
+      const response = await fetch(pluginContext.templatesEndpoint, {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        selectedTemplateId?: unknown;
+        templateStore?: {
+          reason?: string | null;
+          status?: "loaded" | "skipped" | "error";
+          templateCount?: number;
+        };
+        templates?: unknown;
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.templateStore?.reason ?? `Template store request failed with ${response.status}`);
+      }
+
+      const databaseTemplates = readTemplateRecordsFromPayload(payload.templates);
+
+      if (payload.templateStore?.status === "loaded" && databaseTemplates.length > 0) {
+        const selectedId = typeof payload.selectedTemplateId === "string" ? payload.selectedTemplateId : null;
+
+        setTemplateRecords(databaseTemplates);
+        templateRecordsRef.current = databaseTemplates;
+
+        if (selectedId && databaseTemplates.some((templateRecord) => templateRecord.id === selectedId)) {
+          setSelectedTemplateId(selectedId);
+          selectedTemplateIdRef.current = selectedId;
+          persistTemplateState(databaseTemplates, selectedId);
+        } else {
+          const fallbackSelectedId = databaseTemplates.find((templateRecord) => templateRecord.isDefault)?.id ?? databaseTemplates[0]?.id ?? selectedTemplateIdRef.current;
+
+          setSelectedTemplateId(fallbackSelectedId);
+          selectedTemplateIdRef.current = fallbackSelectedId;
+          persistTemplateState(databaseTemplates, fallbackSelectedId);
+        }
+
+        setTemplateStoreStatus({ error: null, status: "loaded" });
+        return;
+      }
+
+      if (payload.templateStore?.status === "loaded" && databaseTemplates.length === 0) {
+        await persistTemplatesToDatabase(templateRecordsRef.current, selectedTemplateIdRef.current);
+        setTemplateStoreStatus({ error: null, status: "saved" });
+        return;
+      }
+
+      setTemplateStoreStatus({
+        error: payload.templateStore?.reason ?? null,
+        status: payload.templateStore?.status === "skipped" ? "skipped" : "loaded",
+      });
+    } catch (error) {
+      setTemplateStoreStatus({
+        error: error instanceof Error ? error.message : "Failed to load PrintOps templates",
+        status: "error",
+      });
+    }
+  }
+
+  async function persistTemplatesToDatabase(templates: TemplateRecord[], nextSelectedTemplateId: string) {
+    if (!pluginContext?.templatesEndpoint) {
+      return;
+    }
+
+    setTemplateStoreStatus({ error: null, status: "saving" });
+
+    try {
+      const response = await fetch(pluginContext.templatesEndpoint, {
+        body: JSON.stringify({
+          selectedTemplateId: nextSelectedTemplateId,
+          templates,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PUT",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        templateStore?: {
+          reason?: string | null;
+          status?: "persisted" | "skipped" | "error";
+        };
+      } | null;
+
+      if (!response.ok || payload?.templateStore?.status === "error") {
+        throw new Error(payload?.templateStore?.reason ?? `Template save failed with ${response.status}`);
+      }
+
+      setTemplateStoreStatus({
+        error: payload?.templateStore?.reason ?? null,
+        status: payload?.templateStore?.status === "skipped" ? "skipped" : "saved",
+      });
+    } catch (error) {
+      setTemplateStoreStatus({
+        error: error instanceof Error ? error.message : "Failed to save PrintOps templates",
+        status: "error",
+      });
+    }
+  }
+
+  async function loadSettingsFromDatabase() {
+    if (!pluginContext?.settingsEndpoint) {
+      return;
+    }
+
+    try {
+      const response = await fetch(pluginContext.settingsEndpoint, {
+        cache: "no-store",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        settings?: unknown;
+        settingsStore?: {
+          reason?: string | null;
+          status?: "loaded" | "skipped" | "error";
+        };
+      } | null;
+
+      if (!response.ok || !payload) {
+        throw new Error(payload?.settingsStore?.reason ?? `Settings request failed with ${response.status}`);
+      }
+
+      const databaseSettings = readSettingsSnapshotFromPayload(payload.settings);
+
+      if (payload.settingsStore?.status === "loaded" && Object.keys(databaseSettings).length > 0) {
+        const nextSettings = {
+          ...settingsSnapshotRef.current,
+          ...databaseSettings,
+        };
+
+        applySettingsSnapshot(nextSettings, { persist: true });
+        return;
+      }
+
+      if (payload.settingsStore?.status === "loaded") {
+        await persistSettingsToDatabase(settingsSnapshotRef.current);
+      }
+    } catch {
+      // Local storage remains the fallback when the settings store is unavailable.
+    }
+  }
+
+  async function persistSettingsToDatabase(settings: PrintOpsSettingsSnapshot) {
+    if (!pluginContext?.settingsEndpoint) {
+      return;
+    }
+
+    try {
+      await fetch(pluginContext.settingsEndpoint, {
+        body: JSON.stringify({
+          settings: {
+            printLocale: settings.language,
+            siteLocale: settings.siteLocale,
+            theme: settings.darkTheme ? "dark" : "light",
+            timezone: settings.timezone,
+            workspaceAccent: settings.workspaceAccent,
+          },
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "PUT",
+      });
+    } catch {
+      // Settings still persist locally; database persistence can retry on the next change.
+    }
+  }
+
+  function applySettingsSnapshot(settings: PrintOpsSettingsSnapshot, options: { persist?: boolean } = {}) {
+    setDarkTheme(settings.darkTheme);
+    setLanguage(settings.language);
+    setSiteLocale(settings.siteLocale);
+    setTimezone(settings.timezone);
+    setWorkspaceAccent(settings.workspaceAccent);
+    settingsSnapshotRef.current = settings;
+
+    if (options.persist) {
+      persistSettingsState(settings);
+    }
+  }
+
+  function updateSettingsSnapshot(patch: Partial<PrintOpsSettingsSnapshot>) {
+    const nextSettings = {
+      ...settingsSnapshotRef.current,
+      ...patch,
+    };
+
+    applySettingsSnapshot(nextSettings, { persist: true });
+    void persistSettingsToDatabase(nextSettings);
+  }
+
   function saveTemplateDraft() {
     const existingTemplate = templateRecords.find((templateRecord) => templateRecord.id === templateDraft.id);
     const savedTemplate = createTemplateRecordFromDraft(templateDraft, templateEditorMode === "edit" ? existingTemplate : undefined);
     const shouldUseSavedTemplateByDefault = savedTemplate.status === "Ready";
     const nextSavedTemplate = shouldUseSavedTemplateByDefault ? { ...savedTemplate, isDefault: true } : savedTemplate;
-
-    setTemplateRecords((currentTemplates) => {
+    const nextTemplateRecords = (() => {
       if (templateEditorMode === "edit" && existingTemplate) {
-        return currentTemplates.map((templateRecord) => {
+        return templateRecords.map((templateRecord) => {
           if (templateRecord.id === existingTemplate.id) {
             return nextSavedTemplate;
           }
@@ -3083,68 +3418,89 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
       return [
         nextSavedTemplate,
-        ...currentTemplates.map((templateRecord) =>
+        ...templateRecords.map((templateRecord) =>
           shouldUseSavedTemplateByDefault && templateRecord.documentType === savedTemplate.documentType ? { ...templateRecord, isDefault: false } : templateRecord,
         ),
       ];
-    });
+    })();
+
+    setTemplateRecords(nextTemplateRecords);
     setTemplateTab("mine");
     setSelectedTemplateId(nextSavedTemplate.id);
+    persistTemplateState(nextTemplateRecords, nextSavedTemplate.id);
+    void persistTemplatesToDatabase(nextTemplateRecords, nextSavedTemplate.id);
     setTemplateEditorOpen(false);
   }
 
   function setDefaultTemplate(templateId: string) {
-    setTemplateRecords((currentTemplates) =>
-      currentTemplates.map((templateRecord) => ({
-        ...templateRecord,
-        isDefault: templateRecord.id === templateId,
-      })),
-    );
+    const nextTemplateRecords = templateRecords.map((templateRecord) => ({
+      ...templateRecord,
+      isDefault: templateRecord.id === templateId,
+    }));
+
+    setTemplateRecords(nextTemplateRecords);
     setSelectedTemplateId(templateId);
+    persistTemplateState(nextTemplateRecords, templateId);
+    void persistTemplatesToDatabase(nextTemplateRecords, templateId);
+  }
+
+  function updateDefaultOrderTemplateLanguage(nextLanguage: PrintLocale) {
+    if (!defaultOrderTemplate) {
+      return;
+    }
+
+    const nextTemplateRecords = templateRecords.map((templateRecord) =>
+      templateRecord.id === defaultOrderTemplate.id ? { ...templateRecord, defaultLanguage: nextLanguage } : templateRecord,
+    );
+
+    setTemplateRecords(nextTemplateRecords);
+    persistTemplateState(nextTemplateRecords, selectedTemplateId);
+    void persistTemplatesToDatabase(nextTemplateRecords, selectedTemplateId);
   }
 
   function deleteTemplate(templateId: string) {
-    setTemplateRecords((currentTemplates) => {
-      const targetTemplate = currentTemplates.find((templateRecord) => templateRecord.id === templateId);
+    let nextSelectedTemplateId = selectedTemplateId;
+    const nextTemplateRecords = (() => {
+      const targetTemplate = templateRecords.find((templateRecord) => templateRecord.id === templateId);
 
       if (!targetTemplate || targetTemplate.source === "Built-in") {
-        return currentTemplates;
+        return templateRecords;
       }
 
-      const storeTemplates = currentTemplates.filter((templateRecord) => templateRecord.source === "Store copy");
+      const storeTemplates = templateRecords.filter((templateRecord) => templateRecord.source === "Store copy");
 
       if (storeTemplates.length <= 1) {
-        return currentTemplates;
+        return templateRecords;
       }
 
-      const remainingTemplates = currentTemplates.filter((templateRecord) => templateRecord.id !== templateId);
+      const remainingTemplates = templateRecords.filter((templateRecord) => templateRecord.id !== templateId);
 
       if (remainingTemplates.some((templateRecord) => templateRecord.isDefault)) {
+        if (nextSelectedTemplateId === templateId) {
+          nextSelectedTemplateId =
+            remainingTemplates.find((templateRecord) => templateRecord.source === "Store copy")?.id ??
+            remainingTemplates[0]?.id ??
+            nextSelectedTemplateId;
+        }
+
         return remainingTemplates;
       }
 
       const nextDefault =
         remainingTemplates.find((templateRecord) => templateRecord.source === "Store copy" && templateRecord.documentType === targetTemplate.documentType) ??
         remainingTemplates.find((templateRecord) => templateRecord.source === "Store copy");
+      nextSelectedTemplateId = nextDefault?.id ?? remainingTemplates[0]?.id ?? nextSelectedTemplateId;
 
       return remainingTemplates.map((templateRecord) => ({
         ...templateRecord,
         isDefault: templateRecord.id === nextDefault?.id,
       }));
-    });
+    })();
 
-    setSelectedTemplateId((currentTemplateId) => {
-      if (currentTemplateId !== templateId) {
-        return currentTemplateId;
-      }
-
-      const fallbackTemplate =
-        templateRecords.find((templateRecord) => templateRecord.id !== templateId && templateRecord.source === "Store copy") ??
-        templateRecords.find((templateRecord) => templateRecord.id !== templateId) ??
-        templateRecords[0];
-
-      return fallbackTemplate?.id ?? currentTemplateId;
-    });
+    setTemplateRecords(nextTemplateRecords);
+    setSelectedTemplateId(nextSelectedTemplateId);
+    persistTemplateState(nextTemplateRecords, nextSelectedTemplateId);
+    void persistTemplatesToDatabase(nextTemplateRecords, nextSelectedTemplateId);
   }
 
   async function syncWixOrders(mode: "latest" | "history") {
@@ -3448,11 +3804,11 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             accentColor={workspaceAccent}
             darkTheme={darkTheme}
             messages={messages}
-            onAccentColorChange={setWorkspaceAccent}
-            onPrintLanguageChange={setLanguage}
-            onSiteLocaleChange={setSiteLocale}
-            onThemeChange={setDarkTheme}
-            onTimezoneChange={setTimezone}
+            onAccentColorChange={(value) => updateSettingsSnapshot({ workspaceAccent: value })}
+            onPrintLanguageChange={(value) => updateSettingsSnapshot({ language: value })}
+            onSiteLocaleChange={(value) => updateSettingsSnapshot({ siteLocale: value })}
+            onThemeChange={(value) => updateSettingsSnapshot({ darkTheme: value })}
+            onTimezoneChange={(value) => updateSettingsSnapshot({ timezone: value })}
             printLanguage={language}
             printLanguageOptions={printLanguageOptions}
             siteLocale={siteLocale}
@@ -3601,7 +3957,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                           </td>
                           <td>
                             <strong>{defaultOrderTemplateDisplay.name}</strong>
-                            <span>{currentPrintLanguageLabel}</span>
+                            <span>{defaultOrderTemplateLanguageLabel}</span>
                           </td>
                           <td>
                             <div className={styles.rowActions} data-ignore-row-select="true">
@@ -3658,7 +4014,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             <OrderExportController
               actionRequest={orderActionRequest}
               onActionHandled={() => setOrderActionRequest(null)}
-              printLocale={language}
+              printLocale={defaultOrderTemplateLanguage}
               selectedOrders={selectedOrders}
               templateRecord={defaultOrderTemplate}
             />
@@ -3703,8 +4059,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                   <SelectField
                     label={messages.drawer.printLanguage}
                     options={printLanguageOptions}
-                    value={language}
-                    onValueChange={(value) => isPrintLocale(value) && setLanguage(value)}
+                    value={defaultOrderTemplateLanguage}
+                    onValueChange={(value) => isPrintLocale(value) && updateDefaultOrderTemplateLanguage(value)}
                   />
                   <label className={styles.fieldGroup}>
                     <span>{messages.drawer.paperSize}</span>
@@ -3732,7 +4088,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                 </section>
 
                 <section className={styles.drawerPreview}>
-                  <PrintPreview compact previewId="drawer" printLocale={language} selectedOrders={selectedOrders} templateRecord={defaultOrderTemplate} />
+                  <PrintPreview compact previewId="drawer" printLocale={defaultOrderTemplateLanguage} selectedOrders={selectedOrders} templateRecord={defaultOrderTemplate} />
                 </section>
               </div>
             </Drawer.Popup>

@@ -503,14 +503,15 @@
 .syncStrip > div:first-child {
   min-width: 0;
   display: grid;
-  grid-template-columns: 8px auto minmax(0, 1fr);
-  column-gap: 7px;
+  grid-template-columns: 7px auto minmax(0, 1fr);
+  column-gap: 8px;
   align-items: center;
+  line-height: 18px;
 }
 
 .syncStrip > div:first-child > span {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   background: #087a46;
 }
@@ -518,13 +519,13 @@
 .syncStrip strong {
   color: #121817;
   font-size: 12px;
-  line-height: 1;
+  line-height: 18px;
 }
 
 .syncStrip small {
   color: #65706d;
   font-size: 11px;
-  line-height: 1.2;
+  line-height: 18px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

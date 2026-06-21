@@ -1118,15 +1118,16 @@
 .syncCompactMain {
   min-width: 0;
   display: grid;
-  grid-template-columns: 8px auto minmax(0, 1fr);
+  grid-template-columns: 7px auto minmax(0, 1fr);
   align-items: center;
-  gap: 7px;
+  gap: 8px;
+  line-height: 18px;
 }
 
 .syncCompactMain strong {
   color: var(--ink);
   font-size: 12px;
-  line-height: 1;
+  line-height: 18px;
 }
 
 .syncCompactMain small {
@@ -1136,14 +1137,14 @@
   color: var(--muted);
   font-size: 11px;
   font-weight: 720;
-  line-height: 1.2;
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .syncStatusDot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
   background: var(--green);
 }

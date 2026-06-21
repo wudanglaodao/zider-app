@@ -319,6 +319,38 @@ create table if not exists public.printops_orders (
   unique (app_key, platform, instance_id, source_order_id)
 );
 
+create table if not exists public.printops_templates (
+  id uuid primary key default gen_random_uuid(),
+  app_key text not null default 'zider_printops',
+  platform text not null,
+  instance_id text not null,
+  template_id text not null,
+  document_type text,
+  template_name text,
+  default_language text,
+  is_default boolean not null default false,
+  template_record jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (app_key, platform, instance_id, template_id)
+);
+
+create table if not exists public.printops_settings (
+  id uuid primary key default gen_random_uuid(),
+  app_key text not null default 'zider_printops',
+  platform text not null,
+  instance_id text not null,
+  site_locale text,
+  print_locale text,
+  timezone text,
+  workspace_accent text,
+  theme text,
+  settings jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (app_key, platform, instance_id)
+);
+
 create table if not exists public.platform_store_profiles (
   id uuid primary key default gen_random_uuid(),
   platform text not null default 'wix',
@@ -406,6 +438,22 @@ create index if not exists idx_printops_orders_print_status
 create index if not exists idx_printops_orders_normalized_gin
   on public.printops_orders using gin(normalized_order);
 
+create index if not exists idx_printops_templates_instance
+  on public.printops_templates(app_key, platform, instance_id, updated_at desc);
+
+create index if not exists idx_printops_templates_default
+  on public.printops_templates(app_key, platform, instance_id, document_type, is_default)
+  where is_default = true;
+
+create index if not exists idx_printops_templates_record_gin
+  on public.printops_templates using gin(template_record);
+
+create index if not exists idx_printops_settings_instance
+  on public.printops_settings(app_key, platform, instance_id);
+
+create index if not exists idx_printops_settings_json_gin
+  on public.printops_settings using gin(settings);
+
 create index if not exists idx_app_installations_platform_site
   on public.app_installations(platform, site_id);
 
@@ -435,4 +483,6 @@ alter table public.cms_entries enable row level security;
 alter table public.zider_users enable row level security;
 alter table public.app_platform_secrets enable row level security;
 alter table public.printops_orders enable row level security;
+alter table public.printops_templates enable row level security;
+alter table public.printops_settings enable row level security;
 alter table public.platform_store_profiles enable row level security;
