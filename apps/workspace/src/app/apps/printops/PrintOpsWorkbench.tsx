@@ -2602,11 +2602,18 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const [storeProfileDefaultsApplied, setStoreProfileDefaultsApplied] = useState(false);
   const messages = getPrintOpsMessages(siteLocale);
   const printLanguageOptions = useMemo(() => getPrintLocaleOptions(siteLocale), [siteLocale]);
+  const defaultOrderTemplate =
+    templateRecords.find((templateRecord) => templateRecord.isDefault && templateRecord.documentType === "Invoice") ??
+    templateRecords.find((templateRecord) => templateRecord.id === "store-order-clean") ??
+    templateRecords.find((templateRecord) => templateRecord.documentType === "Invoice") ??
+    templateRecords[0];
+  const defaultOrderTemplateDisplay = getLocalizedTemplateRecord(defaultOrderTemplate, messages);
+  const currentPrintLanguageLabel = printLanguageOptions.find((option) => option.value === language)?.label ?? language;
   const displayOrders = useMemo(() => {
     const normalizedSearch = orderSearch.trim().toLowerCase();
 
     return cachedOrders.filter((order) => {
-      const matchesSearch = !normalizedSearch || orderMatchesSearch(order, normalizedSearch);
+      const matchesSearch = !normalizedSearch || orderMatchesSearch(order, normalizedSearch, [defaultOrderTemplateDisplay.name, currentPrintLanguageLabel]);
       const hasPrintFilter = orderFilters.printed || orderFilters.unprinted;
       const matchesPrint =
         !hasPrintFilter ||
@@ -2615,7 +2622,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
       return matchesSearch && matchesPrint;
     });
-  }, [cachedOrders, orderFilters.printed, orderFilters.unprinted, orderSearch]);
+  }, [cachedOrders, currentPrintLanguageLabel, defaultOrderTemplateDisplay.name, orderFilters.printed, orderFilters.unprinted, orderSearch]);
   const selectedOrders = useMemo(() => displayOrders.filter((order) => selectedIds.includes(order.id)), [displayOrders, selectedIds]);
   const selectedCount = selectedOrders.length;
   const orderMetrics = useMemo(
@@ -2671,11 +2678,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const storeTemplateCount = useMemo(() => templateRecords.filter((templateRecord) => templateRecord.source === "Store copy").length, [templateRecords]);
 
   const selectedTemplate = filteredTemplates.find((templateRecord) => templateRecord.id === selectedTemplateId) ?? filteredTemplates[0] ?? templateRecords[0];
-  const defaultOrderTemplate =
-    templateRecords.find((templateRecord) => templateRecord.isDefault && templateRecord.documentType === "Invoice") ??
-    templateRecords.find((templateRecord) => templateRecord.id === "store-order-clean") ??
-    templateRecords.find((templateRecord) => templateRecord.documentType === "Invoice") ??
-    templateRecords[0];
   const templateStats = useMemo(
     () => ({
       mine: templateRecords.filter((templateRecord) => templateRecord.source === "Store copy").length,
@@ -3480,7 +3482,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                   <tr>
                     <th aria-label="Select order" />
                     <th>Order</th>
-                    <th>Channel</th>
                     <th>Customer</th>
                     <th>Items</th>
                     <th>Payment</th>
@@ -3521,9 +3522,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                             <span>{order.date}</span>
                           </td>
                           <td>
-                            <span className={styles.channelBadge}>{order.channel}</span>
-                          </td>
-                          <td>
                             <strong>{order.customer}</strong>
                             <span>{order.email}</span>
                           </td>
@@ -3542,8 +3540,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                             {order.warning ? <small className={styles.warningText}>{order.warning}</small> : null}
                           </td>
                           <td>
-                            <strong>{order.template}</strong>
-                            <span>{order.language}</span>
+                            <strong>{defaultOrderTemplateDisplay.name}</strong>
+                            <span>{currentPrintLanguageLabel}</span>
                           </td>
                           <td>
                             <div className={styles.rowActions} data-ignore-row-select="true">
@@ -3969,7 +3967,7 @@ function formatSyncDate(value: string) {
   });
 }
 
-function orderMatchesSearch(order: Order, normalizedSearch: string) {
+function orderMatchesSearch(order: Order, normalizedSearch: string, templateValues: string[] = []) {
   const searchableValues = [
     order.number,
     order.customer,
@@ -3981,6 +3979,7 @@ function orderMatchesSearch(order: Order, normalizedSearch: string) {
     order.warning,
     order.sku,
     order.barcode,
+    ...templateValues,
     ...(order.customFields ?? []).flatMap((field) => [field.label, field.value]),
   ];
 

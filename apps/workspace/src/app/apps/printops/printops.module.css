@@ -1555,26 +1555,6 @@
   line-height: 1.35;
 }
 
-.ordersTable td .channelBadge {
-  width: fit-content;
-  min-height: 24px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-top: 0;
-  border: 1px solid var(--accent-border);
-  border-radius: 999px;
-  background: var(--green-soft);
-  color: var(--green-strong);
-  padding: 0 10px;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
 .rowActions {
   position: relative;
   z-index: 4;
@@ -2955,6 +2935,38 @@
   text-align: right;
 }
 
+.templatePaper[data-document="order"][lang="ar"] {
+  font-family:
+    "Noto Naskh Arabic",
+    "Noto Sans Arabic",
+    Tahoma,
+    Arial,
+    sans-serif;
+  line-height: 1.5;
+}
+
+.templatePaper[data-document="order"][lang="ar"] .orderHeroMeta,
+.templatePaper[data-document="order"][lang="ar"] .orderClassicHeader > span:first-child,
+.templatePaper[data-document="order"][lang="ar"] .orderSlipHeader > span:first-child {
+  line-height: 1.38;
+  text-transform: none;
+}
+
+.templatePaper[data-document="order"][lang="ar"] .orderHeroMeta strong,
+.templatePaper[data-document="order"][lang="ar"] .orderHeroAddressGrid strong,
+.templatePaper[data-document="order"][lang="ar"] .orderClassicAddresses strong,
+.templatePaper[data-document="order"][lang="ar"] .orderSlipAddresses strong,
+.templatePaper[data-document="order"][lang="ar"] .orderHeroTableHead,
+.templatePaper[data-document="order"][lang="ar"] .orderClassicTableHead,
+.templatePaper[data-document="order"][lang="ar"] .orderHeroTotals > span[data-emphasis="true"],
+.templatePaper[data-document="order"][lang="ar"] .orderClassicTotals > span[data-emphasis="true"],
+.templatePaper[data-document="order"][lang="ar"] .orderHeroThanks strong,
+.templatePaper[data-document="order"][lang="ar"] .orderCenteredFooter strong,
+.templatePaper[data-document="order"][lang="ar"] .orderSlipThanks strong {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .templatePaper[data-document="order"][dir="rtl"] .orderHeroMeta,
 .templatePaper[data-document="order"][dir="rtl"] .orderMetaBlock {
   justify-items: start;
@@ -2999,13 +3011,13 @@
 .templatePaper[data-document="order"][dir="rtl"] .orderSlipThanks,
 .templatePaper[data-document="order"][dir="rtl"] .orderSocialFooter,
 .templatePaper[data-document="order"][dir="rtl"] .orderHeroSocialFooter {
-  justify-items: end;
+  justify-items: start;
   text-align: right;
 }
 
 .templatePaper[data-document="order"][dir="rtl"] .orderSocialFooter .orderSocialLinks,
 .templatePaper[data-document="order"][dir="rtl"] .orderHeroSocialIcons {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .templatePaper[data-document="order"][data-style="atelier"] {
@@ -3781,13 +3793,13 @@
 .templatePaper[data-document="order"][dir="rtl"] .orderSlipThanks,
 .templatePaper[data-document="order"][dir="rtl"] .orderSocialFooter,
 .templatePaper[data-document="order"][dir="rtl"] .orderHeroSocialFooter {
-  justify-items: end;
+  justify-items: start;
   text-align: right;
 }
 
 .templatePaper[data-document="order"][dir="rtl"] .orderSocialFooter .orderSocialLinks,
 .templatePaper[data-document="order"][dir="rtl"] .orderHeroSocialIcons {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .templatePaper[data-document="order"][data-variant="card"] .orderHeroHeader,
