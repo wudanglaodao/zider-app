@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="595" height="842" viewBox="0 0 595 842" role="img" aria-label="Invoice Big Brand template preview">
+  <rect width="595" height="842" fill="#fff"/>
+  <g transform="translate(36 42) scale(0.88)">
+  <rect x="0" y="0" width="595" height="5" fill="#087a46"/>
+  <g fill="#151817" font-family="Inter, Arial, sans-serif">
+    <text x="44" y="72" font-size="34" font-weight="800">Invoice</text>
+    <text x="442" y="82" font-size="58" font-weight="900" text-anchor="middle">ZIDER</text>
+    <g font-size="9" font-weight="700">
+      <text x="44" y="128">Invoice No. #10059</text>
+      <text x="44" y="145">Order Date May 30, 2026</text>
+      <text x="44" y="162">Payment Gift card</text>
+      <text x="44" y="179">Shipping Delivery method 3232</text>
+      <text x="44" y="207" font-size="8" fill="#5f6b65" letter-spacing=".8">ORDER BARCODE</text>
+    </g>
+  </g>
+  <g fill="#151817">
+    <rect x="44" y="216" width="3" height="26"/>
+    <rect x="50" y="216" width="1.5" height="26"/>
+    <rect x="55" y="216" width="4" height="26"/>
+    <rect x="63" y="216" width="2" height="26"/>
+    <rect x="69" y="216" width="1.5" height="26"/>
+    <rect x="75" y="216" width="5" height="26"/>
+    <rect x="84" y="216" width="2" height="26"/>
+    <rect x="91" y="216" width="3" height="26"/>
+    <rect x="98" y="216" width="1.5" height="26"/>
+    <rect x="104" y="216" width="4" height="26"/>
+    <rect x="112" y="216" width="2" height="26"/>
+    <rect x="118" y="216" width="5" height="26"/>
+    <rect x="127" y="216" width="1.5" height="26"/>
+    <rect x="132" y="216" width="3" height="26"/>
+    <text x="44" y="254" font-family="Inter, Arial, sans-serif" font-size="8" font-weight="700">#10059</text>
+  </g>
+  <g font-family="Inter, Arial, sans-serif" fill="#151817">
+    <text x="44" y="318" font-size="14" font-weight="850">BILL TO</text>
+    <text x="334" y="318" font-size="14" font-weight="850">SHIP TO</text>
+    <text x="44" y="344" font-size="12">Yancy Tien</text>
+    <text x="44" y="362" font-size="12">18516526365</text>
+    <text x="334" y="344" font-size="12">Yancy Tien</text>
+    <text x="334" y="362" font-size="12">18516526365</text>
+    <line x1="44" x2="551" y1="435" y2="435" stroke="#151817" stroke-width="2"/>
+    <text x="44" y="459" font-size="12" font-weight="850">ITEM DESCRIPTION</text>
+    <text x="383" y="459" font-size="12" font-weight="850">QTY</text>
+    <text x="453" y="459" font-size="12" font-weight="850">PRICE</text>
+    <text x="520" y="459" font-size="12" font-weight="850">TOTAL</text>
+    <line x1="44" x2="551" y1="476" y2="476" stroke="#151817" stroke-width="1"/>
+    <rect x="48" y="502" width="50" height="50" rx="8" fill="#e8efeb" stroke="#d8e2dd"/>
+    <path d="M60 529h26l-3 13H63z" fill="#17241f"/>
+    <path d="M65 529v-7a8 8 0 0 1 16 0v7" fill="none" stroke="#087a46" stroke-width="4"/>
+    <text x="138" y="532" font-size="13" font-weight="760">Sample product A</text>
+    <text x="391" y="532" font-size="13" font-weight="850">x1</text>
+    <text x="453" y="532" font-size="13">$1.00</text>
+    <text x="520" y="532" font-size="13" font-weight="850">$1.00</text>
+    <line x1="44" x2="551" y1="570" y2="570" stroke="#edf0ee"/>
+    <g font-size="12">
+      <text x="44" y="615" font-weight="800">Items</text><text x="551" y="615" text-anchor="end" font-weight="800">$1.00</text>
+      <line x1="44" x2="551" y1="630" y2="630" stroke="#edf0ee"/>
+      <text x="44" y="651" font-weight="800">Shipping</text><text x="551" y="651" text-anchor="end" font-weight="800">$0.00</text>
+      <line x1="44" x2="551" y1="666" y2="666" stroke="#edf0ee"/>
+      <text x="44" y="687" font-weight="800">Tax</text><text x="551" y="687" text-anchor="end" font-weight="800">$0.00</text>
+      <line x1="44" x2="551" y1="702" y2="702" stroke="#edf0ee"/>
+      <text x="44" y="724" font-weight="850">TOTAL</text><text x="551" y="724" text-anchor="end" font-weight="850">$1.00</text>
+    </g>
+    <line x1="44" x2="551" y1="772" y2="772" stroke="#151817" stroke-width="2"/>
+    <text x="298" y="797" font-size="12" text-anchor="middle">Questions? Please contact us.</text>
+    <text x="298" y="825" font-size="24" font-weight="900" text-anchor="middle" fill="#383b3d">THANKS FOR YOUR BUSINESS!</text>
+  </g>
+  </g>
+</svg>

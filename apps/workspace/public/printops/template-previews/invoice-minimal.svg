@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="595" height="842" viewBox="0 0 595 842" role="img" aria-label="Invoice Minimal template preview">
+  <rect width="595" height="842" fill="#fff"/>
+  <g transform="translate(36 42) scale(0.88)">
+  <g font-family="Inter, Arial, sans-serif" fill="#151817">
+    <text x="54" y="54" font-size="13" font-weight="900">ZIDER</text>
+    <text x="54" y="76" font-size="13" font-weight="900">INVOICE NO.</text>
+    <text x="54" y="91" font-size="11">#10059</text>
+    <text x="54" y="113" font-size="13" font-weight="900">INVOICE DATE</text>
+    <text x="54" y="128" font-size="11">MAY 30, 2026</text>
+    <text x="54" y="150" font-size="13" font-weight="900">PAYMENT</text>
+    <text x="54" y="165" font-size="11">GIFT CARD</text>
+    <text x="54" y="187" font-size="13" font-weight="900">SHIPPING</text>
+    <text x="54" y="202" font-size="11">DELIVERY METHOD 3232</text>
+    <text x="54" y="230" font-size="10" fill="#5f6b65" font-weight="800">ORDER BARCODE</text>
+  </g>
+  <g fill="#151817">
+    <rect x="54" y="242" width="3" height="28"/>
+    <rect x="60" y="242" width="1.5" height="28"/>
+    <rect x="65" y="242" width="5" height="28"/>
+    <rect x="74" y="242" width="2" height="28"/>
+    <rect x="81" y="242" width="1.5" height="28"/>
+    <rect x="87" y="242" width="4" height="28"/>
+    <rect x="95" y="242" width="2" height="28"/>
+    <rect x="101" y="242" width="3" height="28"/>
+    <rect x="109" y="242" width="1.5" height="28"/>
+    <rect x="115" y="242" width="5" height="28"/>
+    <rect x="124" y="242" width="2" height="28"/>
+    <rect x="130" y="242" width="4" height="28"/>
+    <rect x="139" y="242" width="1.5" height="28"/>
+    <rect x="145" y="242" width="3" height="28"/>
+    <text x="54" y="284" font-family="Inter, Arial, sans-serif" font-size="9" font-weight="800">#10059</text>
+  </g>
+  <text x="441" y="87" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="900" text-anchor="middle" fill="#151817">ZIDER</text>
+  <g font-family="Inter, Arial, sans-serif" fill="#151817">
+    <text x="74" y="371" font-size="13" font-weight="850">BILL TO</text>
+    <text x="356" y="371" font-size="13" font-weight="850">SHIP TO</text>
+    <text x="74" y="396" font-size="12">Yancy Tien</text>
+    <text x="74" y="414" font-size="12">18516526365</text>
+    <text x="356" y="396" font-size="12">Yancy Tien</text>
+    <text x="356" y="414" font-size="12">18516526365</text>
+    <line x1="74" x2="521" y1="485" y2="485" stroke="#151817" stroke-width="1.8"/>
+    <text x="74" y="508" font-size="12" font-weight="850">ITEM DESCRIPTION</text>
+    <text x="350" y="508" font-size="12" font-weight="850">QTY</text>
+    <text x="420" y="508" font-size="12" font-weight="850">PRICE</text>
+    <text x="492" y="508" font-size="12" font-weight="850">TOTAL</text>
+    <line x1="74" x2="521" y1="525" y2="525" stroke="#151817" stroke-width="1"/>
+    <rect x="76" y="553" width="44" height="44" rx="8" fill="#e8efeb" stroke="#d8e2dd"/>
+    <path d="M86 576h24l-3 12H89z" fill="#17241f"/>
+    <path d="M91 576v-7a7 7 0 0 1 14 0v7" fill="none" stroke="#087a46" stroke-width="4"/>
+    <text x="150" y="581" font-size="12" font-weight="800">Sample product A</text>
+    <text x="358" y="581" font-size="12" font-weight="850">x1</text>
+    <text x="420" y="581" font-size="12">$1.00</text>
+    <text x="492" y="581" font-size="12" font-weight="850">$1.00</text>
+    <line x1="74" x2="521" y1="626" y2="626" stroke="#edf0ee"/>
+    <text x="74" y="665" font-size="11" font-weight="800">Items</text><text x="521" y="665" font-size="11" text-anchor="end" font-weight="800">$1.00</text>
+    <line x1="74" x2="521" y1="681" y2="681" stroke="#edf0ee"/>
+    <text x="74" y="702" font-size="11" font-weight="800">Shipping</text><text x="521" y="702" font-size="11" text-anchor="end" font-weight="800">$0.00</text>
+    <line x1="74" x2="521" y1="718" y2="718" stroke="#edf0ee"/>
+    <text x="74" y="739" font-size="11" font-weight="800">Tax</text><text x="521" y="739" font-size="11" text-anchor="end" font-weight="800">$0.00</text>
+    <line x1="74" x2="521" y1="755" y2="755" stroke="#edf0ee"/>
+    <text x="74" y="778" font-size="12" font-weight="850">TOTAL</text><text x="521" y="778" font-size="12" text-anchor="end" font-weight="850">$1.00</text>
+  </g>
+  </g>
+</svg>

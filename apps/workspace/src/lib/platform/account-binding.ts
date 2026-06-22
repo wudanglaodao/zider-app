@@ -51,6 +51,16 @@ type VerificationRow = {
   id: string;
 };
 
+type EnsurePendingInstallationResult =
+  | {
+      installation: AppInstallationBindingRow;
+      reason?: never;
+    }
+  | {
+      installation: null;
+      reason: string;
+    };
+
 export type AccountBindingResult =
   | {
       binding: AccountBindingState;
@@ -76,18 +86,18 @@ export async function readAccountBinding(input: {
     };
   }
 
-  const installation = await ensurePendingInstallation(input);
+  const installationResult = await ensurePendingInstallation(input);
 
-  if (!installation) {
+  if (!installationResult.installation) {
     return {
       binding: null,
-      reason: "Unable to create or read app installation",
+      reason: installationResult.reason,
       status: "error",
     };
   }
 
   return {
-    binding: await mapBindingState(input, installation),
+    binding: await mapBindingState(input, installationResult.installation),
     status: "loaded",
   };
 }
@@ -118,15 +128,16 @@ export async function requestAccountBindingCode(input: {
   }
 
   const supabase = getSupabaseAdmin();
-  const installation = await ensurePendingInstallation(input);
+  const installationResult = await ensurePendingInstallation(input);
 
-  if (!installation) {
+  if (!installationResult.installation) {
     return {
       binding: null,
-      reason: "Unable to create or read app installation",
+      reason: installationResult.reason,
       status: "error",
     };
   }
+  const installation = installationResult.installation;
 
   const code = generateVerificationCode();
   const now = new Date();
@@ -230,15 +241,16 @@ export async function verifyAccountBindingCode(input: {
   }
 
   const supabase = getSupabaseAdmin();
-  const installation = await ensurePendingInstallation(input);
+  const installationResult = await ensurePendingInstallation(input);
 
-  if (!installation) {
+  if (!installationResult.installation) {
     return {
       binding: null,
-      reason: "Unable to create or read app installation",
+      reason: installationResult.reason,
       status: "error",
     };
   }
+  const installation = installationResult.installation;
 
   const { data: verification, error: verificationReadError } = await supabase
     .from("account_email_verifications")
@@ -321,15 +333,16 @@ async function bindVerifiedAccountEmail(input: {
   platform: "wix";
 }): Promise<AccountBindingResult> {
   const supabase = getSupabaseAdmin();
-  const installation = await ensurePendingInstallation(input);
+  const installationResult = await ensurePendingInstallation(input);
 
-  if (!installation) {
+  if (!installationResult.installation) {
     return {
       binding: null,
-      reason: "Unable to create or read app installation",
+      reason: installationResult.reason,
       status: "error",
     };
   }
+  const installation = installationResult.installation;
 
   const email = normalizeEmail(input.email);
 
@@ -415,7 +428,7 @@ async function bindVerifiedAccountEmail(input: {
   };
 }
 
-async function ensurePendingInstallation(input: { appKey: string; instanceId: string; platform: "wix" }) {
+async function ensurePendingInstallation(input: { appKey: string; instanceId: string; platform: "wix" }): Promise<EnsurePendingInstallationResult> {
   const supabase = getSupabaseAdmin();
   const existing = await supabase
     .from("app_installations")
@@ -426,7 +439,14 @@ async function ensurePendingInstallation(input: { appKey: string; instanceId: st
     .maybeSingle<AppInstallationBindingRow>();
 
   if (existing.data) {
-    return existing.data;
+    return { installation: existing.data };
+  }
+
+  if (existing.error) {
+    return {
+      installation: null,
+      reason: existing.error.message,
+    };
   }
 
   const app = await ensureApp(input.appKey);
@@ -453,10 +473,20 @@ async function ensurePendingInstallation(input: { appKey: string; instanceId: st
     .single<AppInstallationBindingRow>();
 
   if (error) {
-    return null;
+    return {
+      installation: null,
+      reason: error.message,
+    };
   }
 
-  return data;
+  if (!data) {
+    return {
+      installation: null,
+      reason: "App installation was not returned after upsert.",
+    };
+  }
+
+  return { installation: data };
 }
 
 async function ensureApp(appKey: string) {

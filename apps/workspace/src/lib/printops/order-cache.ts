@@ -45,6 +45,9 @@ type PersistPrintOpsWixOrdersInput = {
 };
 
 type CachedPrintOpsOrderRow = {
+  installation_id: string | null;
+  platform_store_profile_id: string | null;
+  workspace_id: string | null;
   source_order_id: string;
   source_order_number: string | null;
   source_created_at: string | null;
@@ -73,7 +76,24 @@ type CachedPrintOpsOrderRow = {
 
 type CachedPrintOpsOrderRowWithoutPrintStatus = Omit<CachedPrintOpsOrderRow, "print_status" | "printed_at" | "print_updated_at">;
 
+type StoreProfileSummaryRow = {
+  business_name: string | null;
+  id: string;
+  platform_site_id: string | null;
+  primary_site_url: string | null;
+};
+
+type PrintOpsOrderStoreSummary = {
+  id: string;
+  name: string | null;
+  platformSiteId: string | null;
+  siteUrl: string | null;
+};
+
 const cachedOrderBaseSelectColumns = [
+  "installation_id",
+  "platform_store_profile_id",
+  "workspace_id",
   "source_order_id",
   "source_order_number",
   "source_created_at",
@@ -100,6 +120,10 @@ const cachedOrderBaseSelectColumns = [
 const cachedOrderPrintStatusSelectColumns = ["print_status", "printed_at", "print_updated_at"] as const;
 
 export type PrintOpsCachedOrder = {
+  installationId: string | null;
+  platformStoreProfileId: string | null;
+  workspaceId: string | null;
+  store: PrintOpsOrderStoreSummary | null;
   sourceOrderId: string;
   orderNumber: string | null;
   createdAt: string | null;
@@ -230,9 +254,13 @@ export async function readPrintOpsWixOrders(input: {
     .returns<CachedPrintOpsOrderRow[]>();
 
   if (!error) {
+    const storeProfilesById = await readStoreProfileSummaries(
+      [...new Set((data ?? []).map((row) => row.platform_store_profile_id).filter((id): id is string => Boolean(id)))],
+    );
+
     return {
       status: "loaded",
-      orders: (data ?? []).map(mapCachedOrderRow),
+      orders: (data ?? []).map((row) => mapCachedOrderRow(row, storeProfilesById.get(row.platform_store_profile_id ?? ""))),
     };
   }
 
@@ -272,15 +300,22 @@ async function readPrintOpsWixOrdersWithoutPrintStatus(input: {
     .returns<CachedPrintOpsOrderRowWithoutPrintStatus[]>();
 
   if (!error) {
+    const storeProfilesById = await readStoreProfileSummaries(
+      [...new Set((data ?? []).map((row) => row.platform_store_profile_id).filter((id): id is string => Boolean(id)))],
+    );
+
     return {
       status: "loaded",
       orders: (data ?? []).map((row) =>
-        mapCachedOrderRow({
-          ...row,
-          print_status: null,
-          print_updated_at: null,
-          printed_at: null,
-        }),
+        mapCachedOrderRow(
+          {
+            ...row,
+            print_status: null,
+            print_updated_at: null,
+            printed_at: null,
+          },
+          storeProfilesById.get(row.platform_store_profile_id ?? ""),
+        ),
       ),
     };
   }
@@ -377,8 +412,43 @@ function isMissingPrintStatusColumnError(error: { code?: string; message?: strin
   return error.code === "42703" || message.includes("print_status") || message.includes("printed_at") || message.includes("print_updated_at");
 }
 
-function mapCachedOrderRow(row: CachedPrintOpsOrderRow): PrintOpsCachedOrder {
+async function readStoreProfileSummaries(profileIds: string[]) {
+  const ids = [...new Set(profileIds.map((id) => id.trim()).filter(Boolean))];
+  const summariesById = new Map<string, PrintOpsOrderStoreSummary>();
+
+  if (ids.length === 0) {
+    return summariesById;
+  }
+
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("platform_store_profiles")
+    .select("id,business_name,platform_site_id,primary_site_url")
+    .in("id", ids)
+    .returns<StoreProfileSummaryRow[]>();
+
+  if (error) {
+    return summariesById;
+  }
+
+  for (const row of data ?? []) {
+    summariesById.set(row.id, {
+      id: row.id,
+      name: row.business_name,
+      platformSiteId: row.platform_site_id,
+      siteUrl: row.primary_site_url,
+    });
+  }
+
+  return summariesById;
+}
+
+function mapCachedOrderRow(row: CachedPrintOpsOrderRow, store?: PrintOpsOrderStoreSummary): PrintOpsCachedOrder {
   return {
+    installationId: row.installation_id,
+    platformStoreProfileId: row.platform_store_profile_id,
+    store: store ?? null,
+    workspaceId: row.workspace_id,
     sourceOrderId: row.source_order_id,
     orderNumber: row.source_order_number,
     createdAt: row.source_created_at,

@@ -4,6 +4,7 @@ import {
   updatePrintOpsWixOrderPrintStatus,
   type PrintOpsOrderPrintStatus,
 } from "@/lib/printops/order-cache";
+import { readPrintOpsSubscriptionUsage } from "@/lib/printops/subscription";
 import { PRINTOPS_APP_KEY, resolveWixInstanceIdForApp } from "@/lib/wix/app-instance";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,11 @@ export async function GET(request: NextRequest) {
     instanceId: instanceContext.instanceId,
     limit,
   });
+  const subscription = await readPrintOpsSubscriptionUsage({
+    appKey: PRINTOPS_APP_KEY,
+    instanceId: instanceContext.instanceId,
+    platform: "wix",
+  });
 
   return NextResponse.json({
     ok: result.status !== "error",
@@ -44,6 +50,7 @@ export async function GET(request: NextRequest) {
       orderCount: result.orders.length,
     },
     orders: result.orders,
+    subscription,
   });
 }
 

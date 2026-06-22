@@ -1,7 +1,7 @@
 # Zider PrintOps Pricing Plan
 
 版本：v0.1
-更新日期：2026-06-21
+更新日期：2026-06-22
 适用阶段：Wix Stores 首发 / v0.1-v1.0
 
 ## 1. 定价结论
@@ -424,7 +424,18 @@ Use this section when maintaining the Wix pricing page. Feature titles are kept 
 | Pro | For growing stores that need 3,000 printed orders per month, more stores, all document templates, print history, and larger bulk jobs. |
 | Business | For high-volume stores that need 10,000 printed orders per month, multi-store workflows, shared templates, and priority support. |
 
-### 12.2 Feature comparisons
+### 12.2 Plan short bullets
+
+Use these as short plan highlights.
+
+| Plan | Bullet 1 | Bullet 2 | Bullet 3 |
+|---|---|---|---|
+| Free | 50 printed orders/month | 1 store, 1 template | PDF preview and browser print |
+| Starter | 500 printed orders/month | Branded invoices and slips | Custom fields and batch print |
+| Pro | 3,000 printed orders/month | 3 stores, unlimited templates | Print history and larger jobs |
+| Business | 10,000 printed orders/month | 10 stores and shared templates | Priority support for teams |
+
+### 12.3 Feature comparisons
 
 #### Feature 1
 

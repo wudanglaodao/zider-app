@@ -41,6 +41,7 @@ async function handleWixOrderSync(request: NextRequest) {
     const maxPages = readPositiveInteger(getBodyValue(body, "maxPages") ?? request.nextUrl.searchParams.get("maxPages"));
     const lastSyncedAt = readDate(getBodyValue(body, "lastSyncedAt") ?? request.nextUrl.searchParams.get("lastSyncedAt"));
     const { accessToken } = await createPrintOpsWixAccessToken(instanceContext.instanceId);
+    const storeProfile = await syncStoreProfileFromWix(accessToken, instanceContext.instanceId);
     const result = await syncWixOrders({
       accessToken,
       historyDays,
@@ -56,7 +57,6 @@ async function handleWixOrderSync(request: NextRequest) {
       orders: result.normalizedOrders,
       syncMode: mode,
     });
-    const storeProfile = await syncStoreProfileFromWix(accessToken, instanceContext.instanceId);
 
     return NextResponse.json({
       ok: true,

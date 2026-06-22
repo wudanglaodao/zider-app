@@ -71,6 +71,12 @@ type Order = {
   print: "Unprinted" | "Generated" | "Printed" | "Failed";
   template: string;
   language: string;
+  store?: {
+    id: string;
+    name: string | null;
+    platformSiteId: string | null;
+    siteUrl: string | null;
+  } | null;
   warning?: string;
   items: string;
   barcode?: string;
@@ -236,6 +242,15 @@ type WixSyncOrderSummary = {
   customFields: unknown[];
 };
 type PrintOpsCachedOrderSummary = {
+  installationId: string | null;
+  platformStoreProfileId: string | null;
+  workspaceId: string | null;
+  store: {
+    id: string;
+    name: string | null;
+    platformSiteId: string | null;
+    siteUrl: string | null;
+  } | null;
   sourceOrderId: string;
   orderNumber: string | null;
   createdAt: string | null;
@@ -264,6 +279,7 @@ type PrintOpsCachedOrderSummary = {
 type WixSyncStatus = {
   customFieldCount: number;
   error: string | null;
+  lastSyncedAt: string | null;
   mode: "latest" | "history" | null;
   orderCount: number;
   orders: WixSyncOrderSummary[];
@@ -279,6 +295,49 @@ type OrderCacheStatus = {
   error: string | null;
   orderCount: number;
   status: "idle" | "loading" | "loaded" | "skipped" | "error";
+};
+type PrintOpsSubscriptionSummary = {
+  plan: {
+    id: "free" | "starter" | "pro" | "business" | string;
+    monthlyOrderLimit: number;
+    name: string;
+  };
+  reason?: string;
+  status: "loaded" | "skipped" | "error";
+  upgrade?: {
+    href: string;
+    provider: "wix" | "support";
+    targetPlanId: string | null;
+  };
+  usage: {
+    limit?: number;
+    metric?: string;
+    periodEnd: string;
+    periodStart: string;
+    remaining: number;
+    used: number;
+  };
+};
+const fallbackPrintOpsSubscription: PrintOpsSubscriptionSummary = {
+  plan: {
+    id: "free",
+    monthlyOrderLimit: 50,
+    name: "Free",
+  },
+  status: "skipped",
+  upgrade: {
+    href: "mailto:support@zider.ink?subject=Upgrade%20PrintOps%20plan",
+    provider: "support",
+    targetPlanId: "starter",
+  },
+  usage: {
+    limit: 50,
+    metric: "monthlyOrders",
+    periodEnd: "",
+    periodStart: "",
+    remaining: 50,
+    used: 0,
+  },
 };
 type OrderTemplateVisualStyle = "atelier" | "market" | "mono";
 type OrderTemplateAccent = "charcoal" | "forest" | "slate" | "custom";
@@ -491,6 +550,8 @@ const printLocaleStorageKey = "printops-print-locale-v1";
 const timezoneStorageKey = "printops-timezone-v1";
 const workspaceAccentStorageKey = "printops-accent-v1";
 const initialOrderSyncStorageKey = "printops-initial-order-sync-v1";
+const lastOrderSyncStorageKey = "printops-last-order-sync-v1";
+const orderAutoRefreshIntervalMs = 3 * 60 * 1000;
 const deprecatedTemplateIds = new Set(["library-order-field-map"]);
 const legacyDefaultLogoFontSize = 68;
 const systemTemplateIds = new Set([
@@ -500,9 +561,21 @@ const systemTemplateIds = new Set([
   "library-order-modern",
   "library-order-minimal",
 ]);
+const templateLibraryPreviewImages: Record<string, string> = {
+  "library-order-modern": "/printops/template-previews/invoice-big-brand.jpg",
+  "library-order-minimal": "/printops/template-previews/invoice-minimal.jpg",
+};
 
 function getInitialOrderSyncStorageKey(instanceId: string | null | undefined) {
   return `${initialOrderSyncStorageKey}:${instanceId || "local"}`;
+}
+
+function getLastOrderSyncStorageKey(instanceId: string | null | undefined) {
+  return `${lastOrderSyncStorageKey}:${instanceId || "local"}`;
+}
+
+function getTemplateLibraryPreviewImage(templateId: string) {
+  return templateLibraryPreviewImages[templateId] ?? templateLibraryPreviewImages["library-order-minimal"];
 }
 
 const workspaceAccentOptions = [
@@ -2758,6 +2831,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const [wixSyncStatus, setWixSyncStatus] = useState<WixSyncStatus>({
     customFieldCount: 0,
     error: null,
+    lastSyncedAt: null,
     mode: null,
     orderCount: 0,
     orders: [],
@@ -2765,6 +2839,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     status: "idle",
     window: null,
   });
+  const [subscriptionSummary, setSubscriptionSummary] = useState<PrintOpsSubscriptionSummary | null>(null);
   const [initialOrderSyncComplete, setInitialOrderSyncComplete] = useState(false);
   const [storeProfile, setStoreProfile] = useState<PrintOpsStoreProfileSummary | null>(null);
   const [storeProfileStatus, setStoreProfileStatus] = useState<StoreProfileStatus>({
@@ -3094,10 +3169,18 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   useEffect(() => {
     if (!pluginContext) {
       setInitialOrderSyncComplete(false);
+      setWixSyncStatus((current) => ({
+        ...current,
+        lastSyncedAt: null,
+      }));
       return;
     }
 
     setInitialOrderSyncComplete(window.localStorage.getItem(getInitialOrderSyncStorageKey(pluginContext.instanceId)) === "complete");
+    setWixSyncStatus((current) => ({
+      ...current,
+      lastSyncedAt: window.localStorage.getItem(getLastOrderSyncStorageKey(pluginContext.instanceId)),
+    }));
   }, [pluginContext?.instanceId]);
 
   useEffect(() => {
@@ -3139,6 +3222,34 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       void loadCachedOrders();
     }
   }, [pluginContext?.instanceId, pluginContext?.ordersEndpoint]);
+
+  useEffect(() => {
+    if (!pluginContext?.instanceId || activeView !== "orders") {
+      return;
+    }
+
+    const canRefreshOrders = () => document.visibilityState === "visible" && selectedIds.length === 0;
+    const refreshOrders = () => {
+      if (canRefreshOrders()) {
+        void loadCachedOrders();
+      }
+    };
+    const intervalId = window.setInterval(refreshOrders, orderAutoRefreshIntervalMs);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refreshOrders();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", refreshOrders);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", refreshOrders);
+    };
+  }, [activeView, pluginContext?.instanceId, pluginContext?.ordersEndpoint, selectedIds.length]);
 
   useEffect(() => {
     if (displayOrders.length === 0) {
@@ -3744,9 +3855,47 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
       const persistence = payload.persistence ?? null;
 
+      if (!persistence) {
+        setWixSyncStatus((current) => ({
+          customFieldCount: payload.sync?.customFieldCount ?? 0,
+          error: messages.wixSync.cacheUnavailable,
+          lastSyncedAt: current.lastSyncedAt,
+          mode,
+          orderCount: payload.sync?.orderCount ?? 0,
+          orders: payload.orders ?? [],
+          persistence,
+          status: "error",
+          window: payload.sync?.window ?? null,
+        }));
+        void loadCachedOrders();
+        return;
+      }
+
+      const persistenceError =
+        persistence.status !== "persisted" ? `${messages.wixSync.cacheNotPersisted}: ${persistence.reason ?? persistence.status}` : null;
+
+      if (persistenceError) {
+        setWixSyncStatus((current) => ({
+          customFieldCount: payload.sync?.customFieldCount ?? 0,
+          error: persistenceError,
+          lastSyncedAt: current.lastSyncedAt,
+          mode,
+          orderCount: payload.sync?.orderCount ?? 0,
+          orders: payload.orders ?? [],
+          persistence,
+          status: "error",
+          window: payload.sync?.window ?? null,
+        }));
+        void loadCachedOrders();
+        return;
+      }
+
+      const syncedAt = new Date().toISOString();
+
       setWixSyncStatus({
         customFieldCount: payload.sync?.customFieldCount ?? 0,
         error: null,
+        lastSyncedAt: syncedAt,
         mode,
         orderCount: payload.sync?.orderCount ?? 0,
         orders: payload.orders ?? [],
@@ -3760,8 +3909,9 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         setCachedOrders(syncedOrders);
       }
 
-      if (!persistence || persistence.status === "persisted") {
+      if (persistence.status === "persisted") {
         window.localStorage.setItem(getInitialOrderSyncStorageKey(pluginContext.instanceId), "complete");
+        window.localStorage.setItem(getLastOrderSyncStorageKey(pluginContext.instanceId), syncedAt);
         setInitialOrderSyncComplete(true);
         void loadCachedOrders();
       }
@@ -3844,6 +3994,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         };
         error?: string;
         orders?: PrintOpsCachedOrderSummary[];
+        subscription?: PrintOpsSubscriptionSummary;
       } | null;
 
       if (!response.ok || !payload) {
@@ -3851,8 +4002,17 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       }
 
       const mappedOrders = (payload.orders ?? []).map(mapCachedPrintOpsOrderToOrder);
+      const latestSyncedAt = payload.orders?.[0]?.syncedAt ?? null;
 
       setCachedOrders(mappedOrders);
+      setSubscriptionSummary(payload.subscription ?? null);
+      if (latestSyncedAt) {
+        window.localStorage.setItem(getLastOrderSyncStorageKey(pluginContext.instanceId), latestSyncedAt);
+        setWixSyncStatus((current) => ({
+          ...current,
+          lastSyncedAt: latestSyncedAt,
+        }));
+      }
       setOrderCacheStatus({
         error: payload.cache?.reason ?? null,
         orderCount: payload.cache?.orderCount ?? mappedOrders.length,
@@ -3956,6 +4116,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             </button>
           </div>
           <div className={styles.topbarActions}>
+            <SubscriptionPlanControl messages={messages} summary={subscriptionSummary} />
             <button className={styles.roundAction} type="button" aria-label={messages.topbar.notifications} title={messages.topbar.notifications}>
               <BellRing size={18} aria-hidden />
               {hasUnreadProductUpdates ? <span aria-hidden /> : null}
@@ -4530,12 +4691,11 @@ function AccountBindingSettings({
   const isVerified = binding?.bindingStatus === "verified";
   const isCodeSent = status === "code_sent" || Boolean(binding?.developmentCode);
   const displayEmail = binding?.memberEmail ?? binding?.bindingEmail ?? binding?.suggestedEmail ?? binding?.ownerEmail ?? "";
+  const suggestedEmail = binding?.suggestedEmail ?? binding?.ownerEmail ?? "";
 
   useEffect(() => {
-    if (!email.trim()) {
-      setEmail(binding?.suggestedEmail ?? binding?.ownerEmail ?? "");
-    }
-  }, [binding?.ownerEmail, binding?.suggestedEmail, email]);
+    setEmail((currentEmail) => (currentEmail.trim() ? currentEmail : suggestedEmail));
+  }, [suggestedEmail]);
 
   return (
     <div className={styles.settingsSection}>
@@ -4642,7 +4802,7 @@ function WixSyncPanel({
           : messages.wixSync.ready;
   const compactMessage =
     status.error ??
-    (status.status === "syncing" ? messages.wixSync.syncing : status.status === "success" ? messages.wixSync.syncedJustNow : messages.wixSync.defaultSyncWindow);
+    (status.status === "syncing" ? messages.wixSync.syncing : formatLastSyncedAt(status.lastSyncedAt, messages));
 
   if (showCompact) {
     return (
@@ -4826,6 +4986,7 @@ function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order
       print: printStatus,
       printedAt: order.printedAt,
       printUpdatedAt: order.printUpdatedAt,
+      store: order.store,
       total: order.totalFormatted ?? mappedOrder.total,
       updatedAt: order.updatedAt ?? mappedOrder.updatedAt,
       warning: mappedOrder.warning,
@@ -4848,6 +5009,7 @@ function mapCachedPrintOpsOrderToOrder(order: PrintOpsCachedOrderSummary): Order
     printedAt: order.printedAt,
     printUpdatedAt: order.printUpdatedAt,
     source: "cache",
+    store: order.store,
     template: "Invoice",
     total: order.totalFormatted ?? formatOptionalMoney(order.totalAmount, order.currency),
     updatedAt: order.updatedAt,
@@ -5142,6 +5304,14 @@ function formatOrderDate(value: string | null) {
   });
 }
 
+function formatLastSyncedAt(value: string | null, messages: PrintOpsMessages) {
+  if (!value) {
+    return messages.wixSync.ready;
+  }
+
+  return `${messages.wixSync.lastUpdated}: ${formatOrderDate(value)}`;
+}
+
 function mapPaymentStatus(value: string | null): Order["payment"] {
   const normalized = value?.toLowerCase() ?? "";
 
@@ -5300,6 +5470,35 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: "
     <div className={styles.metric} data-tone={tone}>
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SubscriptionPlanControl({ messages, summary }: { messages: PrintOpsMessages; summary: PrintOpsSubscriptionSummary | null }) {
+  const resolvedSummary = summary ?? fallbackPrintOpsSubscription;
+  const limit = resolvedSummary.plan.monthlyOrderLimit;
+  const remaining = resolvedSummary.usage.remaining;
+  const usageRatio = limit > 0 ? resolvedSummary.usage.used / limit : 0;
+  const tone = resolvedSummary.status === "error" || usageRatio >= 0.9 ? "warning" : "default";
+  const title = `${messages.subscription.currentPlan}: ${resolvedSummary.plan.name} · ${resolvedSummary.usage.used}/${limit} ${messages.subscription.ordersUsed}`;
+  const usageText = `${remaining} ${messages.subscription.ordersLeft} · ${resolvedSummary.usage.used}/${limit} ${messages.subscription.ordersUsed}`;
+  const upgradeAction = resolvedSummary.upgrade ?? fallbackPrintOpsSubscription.upgrade;
+
+  return (
+    <div className={styles.subscriptionPlanGroup} data-tone={tone} title={title}>
+      <div className={styles.subscriptionBadge}>
+        <span>{messages.subscription.currentPlan}</span>
+        <strong>{resolvedSummary.plan.name}</strong>
+      </div>
+      <span className={styles.subscriptionTooltip}>{usageText}</span>
+      <a
+        className={styles.subscriptionUpgradeButton}
+        href={upgradeAction?.href ?? "mailto:support@zider.ink?subject=Upgrade%20PrintOps%20plan"}
+        rel={upgradeAction?.provider === "wix" ? "noreferrer" : undefined}
+        target={upgradeAction?.provider === "wix" ? "_blank" : undefined}
+      >
+        {messages.subscription.upgrade}
+      </a>
     </div>
   );
 }
@@ -5536,6 +5735,7 @@ function TemplateCenter({
               const isStoreTemplate = templateRecord.source === "Store copy";
               const canDeleteTemplate = isStoreTemplate && storeTemplateCount > 1;
               const canSetDefaultTemplate = isStoreTemplate && !templateRecord.isDefault && templateRecord.status === "Ready";
+              const previewImageSrc = getTemplateLibraryPreviewImage(templateRecord.id);
               const openTemplatePreview = () => {
                 onSelectedTemplateChange(templateRecord.id);
                 setPreviewTemplate(templateRecord);
@@ -5564,57 +5764,7 @@ function TemplateCenter({
                   {isLibrary ? (
                     <span className={styles.templateCardPreview} aria-hidden="true">
                       <span className={styles.templateCardPreviewFrame}>
-                        <TemplatePaperPreview
-                          accentColor={templateRecord.accentColor}
-                          addressFormat={templateRecord.addressFormat}
-                          brandName={templateRecord.brandName}
-                          dateFormat={templateRecord.dateFormat}
-                          defaultLanguage={templateRecord.defaultLanguage}
-                          density={templateRecord.density}
-                          documentTitleFont={templateRecord.documentTitleFont}
-                          documentTitleFontSize={templateRecord.documentTitleFontSize}
-                          bodyFont={templateRecord.bodyFont}
-                          bodyFontSize={templateRecord.bodyFontSize}
-                          documentType={templateRecord.documentType}
-                          contactPromptText={templateRecord.contactPromptText}
-                          footerContact={templateRecord.footerContact}
-                          footerWebsite={templateRecord.footerWebsite}
-                          labelOverrides={templateRecord.labelOverrides}
-                          layoutPreset={templateRecord.layoutPreset}
-                          logoImageUrl={templateRecord.logoImageUrl}
-                          logoFont={templateRecord.logoFont}
-                          logoFontSize={templateRecord.logoFontSize}
-                          logoSource={templateRecord.logoSource}
-                          logoText={templateRecord.logoText}
-                          paperSize={templateRecord.paperSize}
-                          showBillTo={templateRecord.showBillTo}
-                          showContactFooter={templateRecord.showContactFooter}
-                          showInvoiceMeta={templateRecord.showInvoiceMeta}
-                          showItemOptions={templateRecord.showItemOptions}
-                          showLogoText={templateRecord.showLogoText}
-                          showNotes={templateRecord.showNotes}
-                          showOrderBarcode={templateRecord.showOrderBarcode}
-                          showPaymentMethod={templateRecord.showPaymentMethod}
-                          showProductImages={templateRecord.showProductImages}
-                          showShipTo={templateRecord.showShipTo}
-                          showShippingMethod={templateRecord.showShippingMethod}
-                          showSocialFooter={templateRecord.showSocialFooter}
-                          showSku={templateRecord.showSku}
-                          showStoreName={templateRecord.showStoreName}
-                          showThankYou={templateRecord.showThankYou}
-                          showTotals={templateRecord.showTotals}
-                          showItemsTotal={templateRecord.showItemsTotal ?? templateRecord.showTotals}
-                          showShippingTotal={templateRecord.showShippingTotal ?? templateRecord.showTotals}
-                          showTaxTotal={templateRecord.showTaxTotal ?? templateRecord.showTotals}
-                          showGrandTotal={templateRecord.showGrandTotal ?? templateRecord.showTotals}
-                          customAccentColor={templateRecord.customAccentColor}
-                          socialLinks={templateRecord.socialLinks}
-                          socialProfiles={templateRecord.socialProfiles}
-                          thankYouFontSize={templateRecord.thankYouFontSize}
-                          thankYouText={templateRecord.thankYouText}
-                          variant="editor"
-                          visualStyle={templateRecord.visualStyle}
-                        />
+                        <img className={styles.templateCardPreviewImage} src={previewImageSrc} alt="" loading="lazy" />
                       </span>
                     </span>
                   ) : null}

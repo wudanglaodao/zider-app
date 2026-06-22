@@ -2441,11 +2441,13 @@ input {
   .workspaceDashboardTopbar {
     height: var(--workspace-topbar);
     position: sticky;
+    align-items: center;
   }
 
   .workspaceDashboardBrand {
     width: auto;
     flex: 0 0 auto;
+    height: 100%;
     border-right: 0;
     padding: 0 16px;
   }
@@ -2462,6 +2464,7 @@ input {
     display: inline-grid;
     place-items: center;
     flex: 0 0 auto;
+    align-self: center;
     border: 1px solid #edf3f0;
     border-radius: 10px;
     background: #ffffff;
@@ -2479,6 +2482,7 @@ input {
 
   .workspaceDashboardTopActions {
     flex: 1;
+    height: 100%;
     padding: 0 16px 0 0;
   }
 
