@@ -13,10 +13,10 @@ export type WixOrderEventType =
 type JsonRecord = Record<string, unknown>;
 
 export async function forwardWixOrderEvent(eventType: WixOrderEventType, event: unknown) {
-  const secret = readEnv("PRINTOPS_WIX_EVENT_FORWARD_SECRET");
+  const secret = readForwardSecret();
 
   if (!secret) {
-    throw new Error("Missing PRINTOPS_WIX_EVENT_FORWARD_SECRET");
+    throw new Error("Missing ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON or PRINTOPS_WIX_EVENT_FORWARD_SECRET");
   }
 
   const endpoint = readEnv("PRINTOPS_WIX_EVENT_INGEST_URL") ?? DEFAULT_INGEST_URL;
@@ -82,6 +82,40 @@ function readEnv(name: string) {
 
   const meta = import.meta as ImportMeta & { env?: Record<string, string | undefined> };
   return meta.env?.[name];
+}
+
+function readForwardSecret() {
+  return readForwardSecretFromJson() ?? readEnv("PRINTOPS_WIX_EVENT_FORWARD_SECRET")?.trim() ?? null;
+}
+
+function readForwardSecretFromJson() {
+  const raw = readEnv("ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON")?.trim() ?? readEnv("WIX_EVENT_FORWARD_SECRETS_JSON")?.trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const record = asRecord(JSON.parse(raw));
+    const entry = record?.[APP_KEY];
+
+    if (typeof entry === "string" && entry.trim()) {
+      return entry.trim();
+    }
+
+    if (asRecord(entry)) {
+      const secret = asRecord(entry)?.secret;
+
+      return typeof secret === "string" && secret.trim() ? secret.trim() : null;
+    }
+  } catch (error) {
+    console.error("Invalid ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON", {
+      appKey: APP_KEY,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
+
+  return null;
 }
 
 function asRecord(value: unknown): JsonRecord | null {

@@ -138,6 +138,20 @@ P0.1 / P1 business events for incremental order refresh:
 
 The first dashboard test can work without order webhooks because the workspace has manual latest/history sync buttons. Business webhooks become important after the install loop is stable.
 
+Forwarded Wix backend extension events require a shared secret on both sides:
+
+```text
+ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON={"zider_printops":"replace-with-random-forward-secret"}
+```
+
+Add future Wix apps to the same JSON map, for example:
+
+```text
+ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON={"zider_printops":"...","future_app_key":"..."}
+```
+
+The legacy `PRINTOPS_WIX_EVENT_FORWARD_SECRET` variable is still supported for PrintOps only, but the JSON map is preferred.
+
 ## Runtime Routes
 
 Workspace:
