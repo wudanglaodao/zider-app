@@ -2,10 +2,18 @@
 
 本文档用于发布 Zider 当前三个 Vercel 项目。三个项目共享同一个 GitHub 仓库 `wudanglaodao/zider-app`，但在 Vercel 中使用不同 Root Directory 和不同生产域名。
 
+正式 Vercel 团队/账号固定为：
+
+```text
+https://vercel.com/duorouai-5425s-projects
+```
+
 ## 1. 发布原则
 
-- 生产发布以 `main` 分支为准。代码合并或推送到 `main` 后，由 Vercel Git 集成分别触发三个项目构建。
-- 不要把三个项目手动部署到错误的 Vercel scope。CLI 只能在确认当前账号能看到 `zider-ink`、`zider-app`、`zider-workspace` 三个正式项目时使用。
+- 生产发布以 GitHub `main` 分支为准。代码合并或推送到 `main` 后，由 Vercel Git 集成自动触发三个项目构建。
+- 常规发布不使用 `vercel deploy --prod`。直接推送 GitHub，让 `duorouai-5425s-projects` 下绑定的正式项目自动部署。
+- 不要把三个项目手动部署到错误的 Vercel scope。当前正式 scope 只认 `duorouai-5425s-projects`。
+- 如果 CLI 登录账号不是正式 scope，立即停止，不要继续发布，也不要提交 `.vercel` 变更。
 - 不要移动已经配置到 Wix 的公网回调地址，尤其是 `app.zider.ink/events/...` 和 `app.zider.ink/webhooks/...`。
 - 发布提交只包含产品代码、文档、迁移和正式素材。外部参考模板、临时截图、本地 `.env`、`.vercel` 不进 Git。
 
@@ -129,7 +137,7 @@ npm --prefix apps/workspace run build
 - 确认订单事件仍转发到 `https://app.zider.ink/webhooks/printops/wix`。
 - 确认安装、卸载、付费等 app 管理事件仍走 `https://app.zider.ink/events/wix/zider_printops`。
 
-## 6. Git 发版流程
+## 6. GitHub 发版流程
 
 只 stage 本次发布需要的文件：
 
@@ -150,6 +158,8 @@ git commit -m "chore: release <scope>"
 git push origin main
 ```
 
+推送完成后不要再执行手动 Vercel 部署。等待 `duorouai-5425s-projects` 的 Vercel Git 集成自动创建 Production deployment。
+
 如需要显式版本号，可以加 annotated tag：
 
 ```bash
@@ -164,9 +174,9 @@ zider-2026.06.11-1
 zider-2026.06.11-printops-wix-sync
 ```
 
-## 7. Vercel 发布检查
+## 7. Vercel 自动部署检查
 
-推送后进入 Vercel Dashboard，分别检查：
+推送后进入 `https://vercel.com/duorouai-5425s-projects`，分别检查：
 
 ```text
 zider-ink       -> Deployments -> latest main commit -> Ready
@@ -181,7 +191,15 @@ zider-workspace -> Deployments -> latest main commit -> Ready
 - Production alias 已指向最新 Ready deployment。
 - Build Logs 没有 TypeScript、env、route generation 错误。
 
-不要在错误 scope 下执行 `vercel --prod`。如果 CLI 项目列表里看不到 `zider-ink`、`zider-app`、`zider-workspace`，就只用 Dashboard 检查和发布。
+不要在错误 scope 下执行 `vercel --prod`。常规发版只检查 Dashboard 的自动部署结果。
+
+如果必须排查 Vercel CLI，先确认账号：
+
+```bash
+npx vercel@latest whoami
+```
+
+只有确认当前 CLI 能看到 `duorouai-5425s-projects` 下的 `zider-ink`、`zider-app`、`zider-workspace` 时，才允许用于只读检查。不要用 CLI 做常规生产部署。
 
 ## 8. 发布后 Smoke Test
 
@@ -246,14 +264,16 @@ git push origin main
 
 现象：
 
-- `vercel projects ls` 看不到 `zider-ink`、`zider-app`、`zider-workspace`。
+- `vercel projects ls` 看不到 `duorouai-5425s-projects` 下的 `zider-ink`、`zider-app`、`zider-workspace`。
 - CLI 自动 link 到名为 `app` 或其他临时项目。
+- 部署日志出现非正式账号，例如个人账号或临时 project URL。
 
 处理：
 
 - 立即停止 CLI 发布。
 - 不提交 `.vercel` 变更。
-- 回到 Vercel Dashboard，用已绑定的三个正式项目查看 Git 部署。
+- 回到 `https://vercel.com/duorouai-5425s-projects`，用已绑定的三个正式项目查看 Git 自动部署。
+- 如果错误账号已产生 deployment，不把它视为正式发布；以 GitHub `main` 在正式 scope 的自动部署结果为准。
 
 ### 本地 build 通过，Vercel build 失败
 
