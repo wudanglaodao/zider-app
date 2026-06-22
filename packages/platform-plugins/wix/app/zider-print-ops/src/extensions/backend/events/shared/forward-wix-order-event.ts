@@ -16,7 +16,7 @@ export async function forwardWixOrderEvent(eventType: WixOrderEventType, event: 
   const secret = readForwardSecret();
 
   if (!secret) {
-    throw new Error("Missing ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON or PRINTOPS_WIX_EVENT_FORWARD_SECRET");
+    throw new Error("Missing ZIDER_WIX_EVENT_FORWARD_SECRETS");
   }
 
   const endpoint = readEnv("PRINTOPS_WIX_EVENT_INGEST_URL") ?? DEFAULT_INGEST_URL;
@@ -85,11 +85,11 @@ function readEnv(name: string) {
 }
 
 function readForwardSecret() {
-  return readForwardSecretFromJson() ?? readEnv("PRINTOPS_WIX_EVENT_FORWARD_SECRET")?.trim() ?? null;
+  return readForwardSecretFromMap();
 }
 
-function readForwardSecretFromJson() {
-  const raw = readEnv("ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON")?.trim() ?? readEnv("WIX_EVENT_FORWARD_SECRETS_JSON")?.trim();
+function readForwardSecretFromMap() {
+  const raw = readEnv("ZIDER_WIX_EVENT_FORWARD_SECRETS")?.trim();
 
   if (!raw) {
     return null;
@@ -109,7 +109,7 @@ function readForwardSecretFromJson() {
       return typeof secret === "string" && secret.trim() ? secret.trim() : null;
     }
   } catch (error) {
-    console.error("Invalid ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON", {
+    console.error("Invalid ZIDER_WIX_EVENT_FORWARD_SECRETS", {
       appKey: APP_KEY,
       error: error instanceof Error ? error.message : error,
     });

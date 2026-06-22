@@ -141,16 +141,16 @@ The first dashboard test can work without order webhooks because the workspace h
 Forwarded Wix backend extension events require a shared secret on both sides:
 
 ```text
-ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON={"zider_printops":"replace-with-random-forward-secret"}
+ZIDER_WIX_EVENT_FORWARD_SECRETS={"zider_printops":"replace-with-random-forward-secret"}
 ```
 
 Add future Wix apps to the same JSON map, for example:
 
 ```text
-ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON={"zider_printops":"...","future_app_key":"..."}
+ZIDER_WIX_EVENT_FORWARD_SECRETS={"zider_printops":"...","future_app_key":"..."}
 ```
 
-The legacy `PRINTOPS_WIX_EVENT_FORWARD_SECRET` variable is still supported for PrintOps only, but the JSON map is preferred.
+Only `ZIDER_WIX_EVENT_FORWARD_SECRETS` is supported for forwarded Wix backend extension events.
 
 ## Runtime Routes
 

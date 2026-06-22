@@ -139,7 +139,7 @@ async function parseForwardedEventRequest(
 
   if (!expectedSecret) {
     return {
-      error: "Missing ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON or PRINTOPS_WIX_EVENT_FORWARD_SECRET",
+      error: "Missing ZIDER_WIX_EVENT_FORWARD_SECRETS",
       status: 500,
     };
   }
@@ -182,24 +182,18 @@ async function parseForwardedEventRequest(
 }
 
 async function getPrintOpsForwardSecret(appKey: string) {
-  const jsonSecret = readForwardSecretFromJson(appKey);
+  const mappedSecret = readForwardSecretFromMap(appKey);
 
-  if (jsonSecret) {
-    return jsonSecret;
-  }
-
-  const envSecret = process.env.PRINTOPS_WIX_EVENT_FORWARD_SECRET?.trim();
-
-  if (envSecret) {
-    return envSecret;
+  if (mappedSecret) {
+    return mappedSecret;
   }
 
   const databaseSecret = await getAppPlatformSecret(appKey, "wix");
   return databaseSecret?.webhookSecret?.trim() || null;
 }
 
-function readForwardSecretFromJson(appKey: string) {
-  const raw = process.env.ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON?.trim() ?? process.env.WIX_EVENT_FORWARD_SECRETS_JSON?.trim();
+function readForwardSecretFromMap(appKey: string) {
+  const raw = process.env.ZIDER_WIX_EVENT_FORWARD_SECRETS?.trim();
 
   if (!raw) {
     return null;
@@ -220,7 +214,7 @@ function readForwardSecretFromJson(appKey: string) {
       return typeof secret === "string" && secret.trim() ? secret.trim() : null;
     }
   } catch (error) {
-    console.warn("Invalid ZIDER_WIX_EVENT_FORWARD_SECRETS_JSON", {
+    console.warn("Invalid ZIDER_WIX_EVENT_FORWARD_SECRETS", {
       appKey,
       error: error instanceof Error ? error.message : error,
     });
