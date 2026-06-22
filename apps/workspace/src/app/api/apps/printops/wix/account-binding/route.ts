@@ -26,9 +26,10 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json(
     {
-      ok: result.status !== "error",
+      ok: isAccountBindingOk(result.status),
       accountBinding: result,
       appKey: PRINTOPS_APP_KEY,
+      error: getAccountBindingError(result),
       instance: {
         instanceId: instanceContext.instanceId,
         source: instanceContext.source,
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
       },
       platform: "wix",
     },
-    { status: result.status === "error" ? 500 : 200 },
+    { status: getAccountBindingHttpStatus(result.status) },
   );
 }
 
@@ -99,9 +100,10 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json(
     {
-      ok: result.status !== "error",
+      ok: isAccountBindingOk(result.status),
       accountBinding: result,
       appKey: PRINTOPS_APP_KEY,
+      error: getAccountBindingError(result),
       instance: {
         instanceId: instanceContext.instanceId,
         source: instanceContext.source,
@@ -109,8 +111,24 @@ export async function POST(request: NextRequest) {
       },
       platform: "wix",
     },
-    { status: result.status === "error" ? 500 : 200 },
+    { status: getAccountBindingHttpStatus(result.status) },
   );
+}
+
+function isAccountBindingOk(status: string) {
+  return status !== "error" && status !== "skipped";
+}
+
+function getAccountBindingHttpStatus(status: string) {
+  if (status === "skipped") {
+    return 503;
+  }
+
+  return status === "error" ? 500 : 200;
+}
+
+function getAccountBindingError(result: { reason?: string; status: string }) {
+  return isAccountBindingOk(result.status) ? undefined : result.reason ?? "Account binding unavailable";
 }
 
 function searchParamsToRecord(searchParams: URLSearchParams) {

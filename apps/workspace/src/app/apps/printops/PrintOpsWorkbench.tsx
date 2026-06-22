@@ -1019,6 +1019,14 @@ function readAccountBindingSnapshotFromPayload(value: unknown): AccountBindingSn
   };
 }
 
+function readAccountBindingError(payload: { accountBinding?: unknown; error?: string } | null) {
+  const directError = getString(payload?.error);
+  const accountBinding = getRecord(payload?.accountBinding);
+  const reason = getString(accountBinding?.reason);
+
+  return directError ?? reason;
+}
+
 function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profile: PrintOpsStoreProfileSummary | null) {
   const businessName = cleanProfileString(profile?.businessName) ?? printOpsSystemBrandName;
   const siteUrl = cleanProfileString(profile?.siteUrl) ?? printOpsSystemSiteUrl;
@@ -3456,7 +3464,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       } | null;
 
       if (!response.ok || !payload) {
-        throw new Error(payload?.error ?? `Account binding request failed with ${response.status}`);
+        throw new Error(readAccountBindingError(payload) ?? `Account binding request failed with ${response.status}`);
       }
 
       const snapshot = readAccountBindingSnapshotFromPayload(payload.accountBinding);
@@ -3499,7 +3507,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       } | null;
 
       if (!response.ok || !payload) {
-        throw new Error(payload?.error ?? `Verification request failed with ${response.status}`);
+        throw new Error(readAccountBindingError(payload) ?? `Verification request failed with ${response.status}`);
       }
 
       const snapshot = readAccountBindingSnapshotFromPayload(payload.accountBinding);
@@ -3543,7 +3551,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       } | null;
 
       if (!response.ok || !payload) {
-        throw new Error(payload?.error ?? `Account binding failed with ${response.status}`);
+        throw new Error(readAccountBindingError(payload) ?? `Account binding failed with ${response.status}`);
       }
 
       const snapshot = readAccountBindingSnapshotFromPayload(payload.accountBinding);
