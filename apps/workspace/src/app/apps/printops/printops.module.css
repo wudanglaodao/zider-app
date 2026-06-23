@@ -4320,6 +4320,8 @@
 }
 
 .orderHeroAddressGrid[data-columns="one"],
+.orderClassicAddresses[data-columns="one"],
+.orderSlipAddresses[data-columns="one"],
 .orderHeroSummary[data-columns="one"],
 .orderClassicLower[data-columns="one"] {
   grid-template-columns: minmax(0, 1fr);

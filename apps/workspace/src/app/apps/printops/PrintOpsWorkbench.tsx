@@ -3232,7 +3232,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       return;
     }
 
-    const canRefreshOrders = () => document.visibilityState === "visible" && selectedIds.length === 0;
+    const canRefreshOrders = () => document.visibilityState === "visible";
     const refreshOrders = () => {
       if (canRefreshOrders()) {
         void loadCachedOrders();
@@ -3253,7 +3253,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", refreshOrders);
     };
-  }, [activeView, pluginContext?.instanceId, pluginContext?.ordersEndpoint, selectedIds.length]);
+  }, [activeView, pluginContext?.instanceId, pluginContext?.ordersEndpoint]);
 
   useEffect(() => {
     if (displayOrders.length === 0) {
@@ -4016,7 +4016,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     }));
 
     try {
-      const response = await fetch(pluginContext.ordersEndpoint);
+      const response = await fetch(pluginContext.ordersEndpoint, { cache: "no-store" });
       const payload = (await response.json().catch(() => null)) as {
         cache?: {
           orderCount?: number;
@@ -8679,12 +8679,14 @@ function OrderPaperPreview({
   ) : null;
   const hasContactFooter = showContactFooter && Boolean(displayFooterWebsite || displayFooterContact);
   const hasSocialFooter = showSocialFooter && socialItems.length > 0;
-  const totalRows = [
-    showItemsTotal ? { key: "items", label: labels.items, value: orderDetails.totals.items, emphasis: false } : null,
-    showShippingTotal ? { key: "shipping", label: labels.shipping, value: orderDetails.totals.shipping, emphasis: false } : null,
-    showTaxTotal ? { key: "tax", label: labels.tax, value: orderDetails.totals.tax, emphasis: false } : null,
-    showGrandTotal ? { key: "total", label: labels.total, value: orderDetails.totals.total, emphasis: true } : null,
-  ].filter((row): row is { key: string; label: string; value: string; emphasis: boolean } => Boolean(row));
+  const totalRows = showTotals
+    ? [
+        showItemsTotal ? { key: "items", label: labels.items, value: orderDetails.totals.items, emphasis: false } : null,
+        showShippingTotal ? { key: "shipping", label: labels.shipping, value: orderDetails.totals.shipping, emphasis: false } : null,
+        showTaxTotal ? { key: "tax", label: labels.tax, value: orderDetails.totals.tax, emphasis: false } : null,
+        showGrandTotal ? { key: "total", label: labels.total, value: orderDetails.totals.total, emphasis: true } : null,
+      ].filter((row): row is { key: string; label: string; value: string; emphasis: boolean } => Boolean(row))
+    : [];
   const hasTotals = totalRows.length > 0;
   const socialFooter = hasContactFooter || hasSocialFooter ? (
     <span className={styles.orderSocialFooter}>
@@ -8844,34 +8846,47 @@ function OrderPaperPreview({
   if (visualStyle === "market") {
     return (
       <span {...paperProps}>
-        <span className={styles.orderClassicHeader}>
-          <span>
-            <strong>{labels.invoiceTitle}</strong>
-            <small>{labels.invoiceNo} {orderDetails.number}</small>
-            <small>{labels.orderDate} {displayDate}</small>
-            <small>{labels.payment} {orderDetails.paymentMethod}</small>
-            <small>{labels.shipping} {orderDetails.deliveryMethod}</small>
-            {orderBarcode}
+        {showLogoText || showInvoiceMeta ? (
+          <span className={styles.orderClassicHeader}>
+            {showInvoiceMeta ? (
+              <span>
+                <strong>{labels.invoiceTitle}</strong>
+                {showStoreName ? <small>{displayBrandName}</small> : null}
+                <small>{labels.invoiceNo} {orderDetails.number}</small>
+                <small>{labels.orderDate} {displayDate}</small>
+                {showPaymentMethod ? <small>{labels.payment} {orderDetails.paymentMethod}</small> : null}
+                {showShippingMethod ? <small>{labels.shipping} {orderDetails.deliveryMethod}</small> : null}
+                {orderBarcode}
+              </span>
+            ) : null}
+            {showLogoText ? (
+              <span className={styles.orderClassicLogo}>
+                <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} wordmark={displayWordmark} />
+              </span>
+            ) : null}
           </span>
-          <span className={styles.orderClassicLogo}>
-            <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} wordmark={displayWordmark} />
-          </span>
-        </span>
+        ) : null}
 
-        <span className={styles.orderClassicAddresses}>
-          <span>
-            <strong>{labels.billTo}</strong>
-            {billAddressLines.map((line, index) => (
-              <span key={`${line}-${index}`}>{line}</span>
-            ))}
+        {showBillTo || showShipTo ? (
+          <span className={styles.orderClassicAddresses} data-columns={showBillTo && showShipTo ? "two" : "one"}>
+            {showBillTo ? (
+              <span>
+                <strong>{labels.billTo}</strong>
+                {billAddressLines.map((line, index) => (
+                  <span key={`${line}-${index}`}>{line}</span>
+                ))}
+              </span>
+            ) : null}
+            {showShipTo ? (
+              <span>
+                <strong>{labels.shipTo}</strong>
+                {shipAddressLines.map((line, index) => (
+                  <span key={`${line}-${index}`}>{line}</span>
+                ))}
+              </span>
+            ) : null}
           </span>
-          <span>
-            <strong>{labels.shipTo}</strong>
-            {shipAddressLines.map((line, index) => (
-              <span key={`${line}-${index}`}>{line}</span>
-            ))}
-          </span>
-        </span>
+        ) : null}
 
         <span className={styles.orderClassicTable}>
           <span className={styles.orderClassicTableHead}>
@@ -8913,10 +8928,12 @@ function OrderPaperPreview({
             </span>
         ) : null}
 
-        <span className={styles.orderCenteredFooter}>
-          <span>{displayContactPrompt}</span>
-          <strong>{displayThankYou}</strong>
-        </span>
+        {showThankYou ? (
+          <span className={styles.orderCenteredFooter}>
+            <span>{displayContactPrompt}</span>
+            <strong>{displayThankYou}</strong>
+          </span>
+        ) : null}
         {socialFooter}
       </span>
     );
@@ -8926,33 +8943,48 @@ function OrderPaperPreview({
     <span
       {...paperProps}
     >
-      <span className={styles.orderSlipHeader}>
-        <span>
-          <strong>{labels.invoiceTitle}</strong>
-          <small>{labels.invoiceNo} {orderDetails.number}</small>
-          <small>{labels.orderDate} {displayDate}</small>
-          <small>{labels.totalItems} {orderDetails.lineItems.reduce((total, lineItem) => total + lineItem.quantity, 0)}</small>
-          {orderBarcode}
+      {showLogoText || showInvoiceMeta ? (
+        <span className={styles.orderSlipHeader}>
+          {showInvoiceMeta ? (
+            <span>
+              <strong>{labels.invoiceTitle}</strong>
+              {showStoreName ? <small>{displayBrandName}</small> : null}
+              <small>{labels.invoiceNo} {orderDetails.number}</small>
+              <small>{labels.orderDate} {displayDate}</small>
+              {showPaymentMethod ? <small>{labels.payment} {orderDetails.paymentMethod}</small> : null}
+              {showShippingMethod ? <small>{labels.shipping} {orderDetails.deliveryMethod}</small> : null}
+              <small>{labels.totalItems} {orderDetails.lineItems.reduce((total, lineItem) => total + lineItem.quantity, 0)}</small>
+              {orderBarcode}
+            </span>
+          ) : null}
+          {showLogoText ? (
+            <span className={styles.orderClassicLogo}>
+              <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} wordmark={displayWordmark} />
+            </span>
+          ) : null}
         </span>
-        <span className={styles.orderClassicLogo}>
-          <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} wordmark={displayWordmark} />
-        </span>
-      </span>
+      ) : null}
 
-      <span className={styles.orderSlipAddresses}>
-        <span>
-          <strong>{labels.billTo}</strong>
-          {billAddressLines.map((line, index) => (
-            <span key={`${line}-${index}`}>{line}</span>
-          ))}
+      {showBillTo || showShipTo ? (
+        <span className={styles.orderSlipAddresses} data-columns={showBillTo && showShipTo ? "two" : "one"}>
+          {showBillTo ? (
+            <span>
+              <strong>{labels.billTo}</strong>
+              {billAddressLines.map((line, index) => (
+                <span key={`${line}-${index}`}>{line}</span>
+              ))}
+            </span>
+          ) : null}
+          {showShipTo ? (
+            <span>
+              <strong>{labels.shipTo}</strong>
+              {shipAddressLines.map((line, index) => (
+                <span key={`${line}-${index}`}>{line}</span>
+              ))}
+            </span>
+          ) : null}
         </span>
-        <span>
-          <strong>{labels.shipTo}</strong>
-          {shipAddressLines.map((line, index) => (
-            <span key={`${line}-${index}`}>{line}</span>
-          ))}
-        </span>
-      </span>
+      ) : null}
 
       <span className={styles.orderSlipTable}>
         <span className={styles.orderSlipTableHead}>
@@ -8976,11 +9008,17 @@ function OrderPaperPreview({
 
       {hasOrderDetails ? <span className={styles.orderSlipNotes}>{orderNotesBlock}</span> : null}
 
-      <span className={styles.orderSlipThanks}>
-        <strong>{displayThankYou}</strong>
-        <span>{displayContactPrompt}</span>
-        <span>{displayFooterContact || printOpsSystemSiteUrl}</span>
-      </span>
+      {showThankYou || showContactFooter ? (
+        <span className={styles.orderSlipThanks}>
+          {showThankYou ? (
+            <>
+              <strong>{displayThankYou}</strong>
+              <span>{displayContactPrompt}</span>
+            </>
+          ) : null}
+          {showContactFooter ? <span>{displayFooterContact || printOpsSystemSiteUrl}</span> : null}
+        </span>
+      ) : null}
 
       {socialFooter}
     </span>
