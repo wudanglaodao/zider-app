@@ -1349,29 +1349,29 @@
   border-color: var(--accent-border);
 }
 
-.syncCompactMain {
+.syncPanel[data-variant="compact"] .syncCompactMain {
   min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 18px;
+  height: 18px;
 }
 
-.syncCompactMain strong {
+.syncPanel[data-variant="compact"] .syncCompactMain strong {
   display: inline-flex;
   align-items: center;
-  min-height: 18px;
+  height: 18px;
   color: var(--ink);
   font-size: 12px;
   line-height: 18px;
 }
 
-.syncCompactMain small {
+.syncPanel[data-variant="compact"] .syncCompactMain small {
   min-width: 0;
   margin: 0;
   display: inline-flex;
   align-items: center;
-  min-height: 18px;
+  height: 18px;
   overflow: hidden;
   color: var(--muted);
   font-size: 12px;

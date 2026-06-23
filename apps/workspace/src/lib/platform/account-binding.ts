@@ -674,13 +674,13 @@ async function sendAccountBindingCode(input: { code: string; email: string }): P
   if (brevoApiKey && fromEmail) {
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       body: JSON.stringify({
-        html: `<p>Your ZIDER verification code is:</p><p style="font-size:24px;font-weight:700;letter-spacing:4px;">${input.code}</p><p>This code expires in 10 minutes.</p>`,
+        htmlContent: `<p>Your ZIDER verification code is:</p><p style="font-size:24px;font-weight:700;letter-spacing:4px;">${input.code}</p><p>This code expires in 10 minutes.</p>`,
         sender: {
           email: fromEmail,
           name: fromName,
         },
         subject: "Your ZIDER verification code",
-        text: `Your ZIDER verification code is ${input.code}. This code expires in 10 minutes.`,
+        textContent: `Your ZIDER verification code is ${input.code}. This code expires in 10 minutes.`,
         to: [
           {
             email: input.email,
