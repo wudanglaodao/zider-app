@@ -667,31 +667,39 @@ function hashVerificationCode(code: string) {
 }
 
 async function sendAccountBindingCode(input: { code: string; email: string }): Promise<{ ok: true } | { ok: false; reason: string }> {
-  const resendApiKey = process.env.RESEND_API_KEY;
+  const brevoApiKey = process.env.BREVO_API_KEY;
   const fromEmail = process.env.ACCOUNT_BINDING_FROM_EMAIL;
+  const fromName = process.env.ACCOUNT_BINDING_FROM_NAME ?? "ZIDER";
 
-  if (resendApiKey && fromEmail) {
-    const response = await fetch("https://api.resend.com/emails", {
+  if (brevoApiKey && fromEmail) {
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       body: JSON.stringify({
-        from: fromEmail,
         html: `<p>Your ZIDER verification code is:</p><p style="font-size:24px;font-weight:700;letter-spacing:4px;">${input.code}</p><p>This code expires in 10 minutes.</p>`,
+        sender: {
+          email: fromEmail,
+          name: fromName,
+        },
         subject: "Your ZIDER verification code",
         text: `Your ZIDER verification code is ${input.code}. This code expires in 10 minutes.`,
-        to: input.email,
+        to: [
+          {
+            email: input.email,
+          },
+        ],
       }),
       headers: {
-        Authorization: `Bearer ${resendApiKey}`,
+        "api-key": brevoApiKey,
         "Content-Type": "application/json",
       },
       method: "POST",
     });
 
     if (!response.ok) {
-      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+      const payload = (await response.json().catch(() => null)) as { code?: string; message?: string } | null;
 
       return {
         ok: false,
-        reason: payload?.message ?? `Email delivery failed with ${response.status}`,
+        reason: payload?.message ?? payload?.code ?? `Email delivery failed with ${response.status}`,
       };
     }
 
@@ -705,7 +713,7 @@ async function sendAccountBindingCode(input: { code: string; email: string }): P
 
   return {
     ok: false,
-    reason: "Email delivery is not configured. Set RESEND_API_KEY and ACCOUNT_BINDING_FROM_EMAIL.",
+    reason: "Email delivery is not configured. Set BREVO_API_KEY and ACCOUNT_BINDING_FROM_EMAIL.",
   };
 }
 

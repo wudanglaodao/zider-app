@@ -34,9 +34,9 @@
     <text x="44" y="318" font-size="14" font-weight="850">BILL TO</text>
     <text x="334" y="318" font-size="14" font-weight="850">SHIP TO</text>
     <text x="44" y="344" font-size="12">Yancy Tien</text>
-    <text x="44" y="362" font-size="12">18516526365</text>
+    <text x="44" y="362" font-size="12">180000000</text>
     <text x="334" y="344" font-size="12">Yancy Tien</text>
-    <text x="334" y="362" font-size="12">18516526365</text>
+    <text x="334" y="362" font-size="12">180000000</text>
     <line x1="44" x2="551" y1="435" y2="435" stroke="#151817" stroke-width="2"/>
     <text x="44" y="459" font-size="12" font-weight="850">ITEM DESCRIPTION</text>
     <text x="383" y="459" font-size="12" font-weight="850">QTY</text>

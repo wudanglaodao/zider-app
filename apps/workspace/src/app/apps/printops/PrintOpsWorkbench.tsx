@@ -5479,9 +5479,9 @@ function SubscriptionPlanControl({ messages, summary }: { messages: PrintOpsMess
   const limit = resolvedSummary.plan.monthlyOrderLimit;
   const remaining = resolvedSummary.usage.remaining;
   const usageRatio = limit > 0 ? resolvedSummary.usage.used / limit : 0;
+  const usagePercent = Math.min(100, Math.max(0, Math.round(usageRatio * 100)));
   const tone = resolvedSummary.status === "error" || usageRatio >= 0.9 ? "warning" : "default";
   const title = `${messages.subscription.currentPlan}: ${resolvedSummary.plan.name} · ${resolvedSummary.usage.used}/${limit} ${messages.subscription.ordersUsed}`;
-  const usageText = `${remaining} ${messages.subscription.ordersLeft} · ${resolvedSummary.usage.used}/${limit} ${messages.subscription.ordersUsed}`;
   const upgradeAction = resolvedSummary.upgrade ?? fallbackPrintOpsSubscription.upgrade;
 
   return (
@@ -5490,7 +5490,19 @@ function SubscriptionPlanControl({ messages, summary }: { messages: PrintOpsMess
         <span>{messages.subscription.currentPlan}</span>
         <strong>{resolvedSummary.plan.name}</strong>
       </div>
-      <span className={styles.subscriptionTooltip}>{usageText}</span>
+      <div className={styles.subscriptionUsageCard}>
+        <div className={styles.subscriptionUsageHeader}>
+          <span>{messages.subscription.usageTitle}</span>
+          <strong>{resolvedSummary.plan.name}</strong>
+        </div>
+        <div className={styles.subscriptionUsageMeter} aria-hidden="true">
+          <span style={{ width: `${usagePercent}%` }} />
+        </div>
+        <div className={styles.subscriptionUsageRows}>
+          <span>{remaining} {messages.subscription.ordersLeft}</span>
+          <span>{resolvedSummary.usage.used}/{limit} {messages.subscription.ordersUsed}</span>
+        </div>
+      </div>
       <a
         className={styles.subscriptionUpgradeButton}
         href={upgradeAction?.href ?? "mailto:support@zider.ink?subject=Upgrade%20PrintOps%20plan"}
@@ -7839,7 +7851,7 @@ function getSampleAddressLines(addressFormat: TemplateAddressFormat, type: "bill
   const city = type === "billing" ? "Ottawa" : "Shanghai";
   const region = type === "billing" ? "ON K2P 1L4" : "Shanghai";
   const country = type === "billing" ? "Canada" : "China";
-  const phone = "18516526365";
+  const phone = "180000000";
 
   if (addressFormat === "single-line") {
     return [`${name}, ${street}, ${city}, ${region}, ${country}, ${phone}`];
@@ -7867,7 +7879,7 @@ function getOrderPrintDetails(
   const rawOrder = order?.rawOrder;
   const customerRecord = getRecord(rawOrder?.customer);
   const customerName = order?.customer ?? getString(customerRecord?.name) ?? getString(customerRecord?.fullName) ?? "Yancy Tien";
-  const customerContact = order?.email ?? getString(customerRecord?.email) ?? getString(customerRecord?.phone) ?? "18516526365";
+  const customerContact = order?.email ?? getString(customerRecord?.email) ?? getString(customerRecord?.phone) ?? "180000000";
   const billAddressLines = getOrderAddressLines(rawOrder?.billingAddress, {
     addressFormat: options.addressFormat,
     fallbackContact: customerContact,

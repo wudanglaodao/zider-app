@@ -139,7 +139,8 @@ export const printopsMessages = {
     subscription: {
       currentPlan: "Current plan",
       ordersLeft: "orders left",
-      ordersUsed: "orders used this month",
+      ordersUsed: "orders used",
+      usageTitle: "Monthly order usage",
       upgrade: "Upgrade",
     },
     pages: {
@@ -526,8 +527,9 @@ export const printopsMessages = {
     },
     subscription: {
       currentPlan: "當前方案",
-      ordersLeft: "單剩餘",
-      ordersUsed: "本月已用訂單",
+      ordersLeft: "張訂單可用",
+      ordersUsed: "張訂單已用",
+      usageTitle: "本月訂單額度",
       upgrade: "升級",
     },
     pages: {
