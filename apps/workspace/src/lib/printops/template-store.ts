@@ -74,7 +74,7 @@ export async function readPrintOpsTemplates(input: {
     .returns<PrintOpsTemplateRow[]>();
 
   if (!error) {
-    const rows = data ?? [];
+    const rows = (data ?? []).filter((row) => isPersistedUserTemplate(row.template_id, row.template_record));
     const selectedTemplateId =
       rows
         .map((row) => ({
@@ -125,7 +125,11 @@ export async function persistPrintOpsTemplates(input: PersistPrintOpsTemplatesIn
     };
   }
 
-  const templates = input.templates.filter((template) => readString(template.id));
+  const templates = input.templates.filter((template) => {
+    const templateId = readString(template.id);
+
+    return Boolean(templateId && isPersistedUserTemplate(templateId, template));
+  });
 
   if (templates.length === 0) {
     return {
@@ -218,6 +222,12 @@ function isMissingTableError(error: { code?: string; message?: string }) {
 
 function readString(value: unknown) {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+function isPersistedUserTemplate(templateId: string, template: PrintOpsTemplateRecord) {
+  const source = readString(template.source);
+
+  return source !== "Built-in" && !templateId.startsWith("library-");
 }
 
 function escapePostgrestListValue(value: string) {

@@ -419,6 +419,10 @@ type TemplateLabelDefinition = {
 
 type TemplateRecord = {
   id: string;
+  schemaVersion: number;
+  rendererKey: PrintOpsTemplateRendererKey;
+  baseBlueprintKey?: PrintOpsTemplateBlueprintKey;
+  baseBlueprintVersion?: number;
   name: string;
   description: string;
   documentType: string;
@@ -486,6 +490,10 @@ type TemplateRecord = {
 };
 
 type TemplateEditorMode = "create" | "edit" | "duplicate";
+
+type PrintOpsTemplateBlueprintKey = "invoice_big_brand" | "invoice_minimal";
+
+type PrintOpsTemplateRendererKey = "invoice_big_brand_v1" | "invoice_minimal_v1";
 
 type TemplateDraft = {
   id?: string;
@@ -558,6 +566,8 @@ const lastOrderSyncStorageKey = "printops-last-order-sync-v1";
 const orderAutoRefreshIntervalMs = 3 * 60 * 1000;
 const deprecatedTemplateIds = new Set(["library-order-field-map"]);
 const legacyDefaultLogoFontSize = 68;
+const printOpsTemplateSchemaVersion = 1;
+const printOpsTemplateBlueprintVersion = 1;
 const systemTemplateIds = new Set([
   "store-order-clean",
   "store-order-compact",
@@ -568,6 +578,29 @@ const systemTemplateIds = new Set([
 const templateLibraryPreviewImages: Record<string, string> = {
   "library-order-modern": "/printops/template-previews/invoice-big-brand.jpg",
   "library-order-minimal": "/printops/template-previews/invoice-minimal.jpg",
+};
+const templateBlueprintRegistry: Record<
+  PrintOpsTemplateBlueprintKey,
+  {
+    defaultVisualStyle: OrderTemplateVisualStyle;
+    rendererKey: PrintOpsTemplateRendererKey;
+  }
+> = {
+  invoice_big_brand: {
+    defaultVisualStyle: "atelier",
+    rendererKey: "invoice_big_brand_v1",
+  },
+  invoice_minimal: {
+    defaultVisualStyle: "market",
+    rendererKey: "invoice_minimal_v1",
+  },
+};
+const templateBlueprintIdMap: Record<string, PrintOpsTemplateBlueprintKey> = {
+  "library-order-modern": "invoice_big_brand",
+  "library-order-minimal": "invoice_minimal",
+  "store-order-clean": "invoice_big_brand",
+  "store-order-compact": "invoice_minimal",
+  "store-order-payment-check": "invoice_big_brand",
 };
 
 function getInitialOrderSyncStorageKey(instanceId: string | null | undefined) {
@@ -580,6 +613,30 @@ function getLastOrderSyncStorageKey(instanceId: string | null | undefined) {
 
 function getTemplateLibraryPreviewImage(templateId: string) {
   return templateLibraryPreviewImages[templateId] ?? templateLibraryPreviewImages["library-order-minimal"];
+}
+
+function resolveTemplateBlueprintKey(templateRecord: Partial<TemplateRecord>): PrintOpsTemplateBlueprintKey {
+  if (templateRecord.baseBlueprintKey && templateRecord.baseBlueprintKey in templateBlueprintRegistry) {
+    return templateRecord.baseBlueprintKey;
+  }
+
+  if (templateRecord.id && templateBlueprintIdMap[templateRecord.id]) {
+    return templateBlueprintIdMap[templateRecord.id];
+  }
+
+  return templateRecord.visualStyle === "market" || templateRecord.layoutPreset === "Compact" ? "invoice_minimal" : "invoice_big_brand";
+}
+
+function getTemplateRendererKey(blueprintKey: PrintOpsTemplateBlueprintKey): PrintOpsTemplateRendererKey {
+  return templateBlueprintRegistry[blueprintKey].rendererKey;
+}
+
+function isBuiltInTemplateRecord(templateRecord: Partial<TemplateRecord>) {
+  return templateRecord.source === "Built-in" || Boolean(templateRecord.id && templateRecord.id.startsWith("library-"));
+}
+
+function isStoreTemplateRecord(templateRecord: Partial<TemplateRecord>) {
+  return !isBuiltInTemplateRecord(templateRecord) && templateRecord.source === "Store copy";
 }
 
 const workspaceAccentOptions = [
@@ -971,8 +1028,14 @@ const defaultTemplateBrandSettings = {
 >;
 
 function normalizeStoredTemplateRecord(templateRecord: TemplateRecord): TemplateRecord {
+  const blueprintKey = resolveTemplateBlueprintKey(templateRecord);
   const normalizedTemplateRecord = {
     ...templateRecord,
+    schemaVersion: Number.isFinite(templateRecord.schemaVersion) ? templateRecord.schemaVersion : printOpsTemplateSchemaVersion,
+    rendererKey: templateRecord.rendererKey ?? getTemplateRendererKey(blueprintKey),
+    baseBlueprintKey: blueprintKey,
+    baseBlueprintVersion: templateRecord.baseBlueprintVersion ?? printOpsTemplateBlueprintVersion,
+    source: isBuiltInTemplateRecord(templateRecord) ? ("Built-in" as const) : ("Store copy" as const),
     contactPromptText: templateRecord.contactPromptText ?? defaultTemplateBrandSettings.contactPromptText,
     showItemsTotal: templateRecord.showItemsTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showItemsTotal,
     showShippingTotal: templateRecord.showShippingTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showShippingTotal,
@@ -992,6 +1055,33 @@ function normalizeStoredTemplateRecord(templateRecord: TemplateRecord): Template
   }
 
   return normalizedTemplateRecord;
+}
+
+function getBuiltInTemplateRecords() {
+  return initialTemplateRecords.filter((templateRecord) => templateRecord.source === "Built-in").map(normalizeStoredTemplateRecord);
+}
+
+function mergeStoreTemplatesWithBuiltIns(templates: TemplateRecord[]) {
+  const storeTemplates = templates.filter(isStoreTemplateRecord).map(normalizeStoredTemplateRecord);
+  const builtInTemplates = getBuiltInTemplateRecords();
+  const storeIds = new Set(storeTemplates.map((templateRecord) => templateRecord.id));
+
+  return [...storeTemplates, ...builtInTemplates.filter((templateRecord) => !storeIds.has(templateRecord.id))];
+}
+
+function getStoreTemplatesForPersistence(templates: TemplateRecord[]) {
+  return templates.filter(isStoreTemplateRecord).map(normalizeStoredTemplateRecord);
+}
+
+function resolvePersistedSelectedTemplateId(templates: TemplateRecord[], selectedTemplateId: string) {
+  const storeTemplates = getStoreTemplatesForPersistence(templates);
+
+  return (
+    storeTemplates.find((templateRecord) => templateRecord.id === selectedTemplateId)?.id ??
+    storeTemplates.find((templateRecord) => templateRecord.isDefault)?.id ??
+    storeTemplates[0]?.id ??
+    selectedTemplateId
+  );
 }
 
 function readTemplateRecordsFromPayload(value: unknown): TemplateRecord[] {
@@ -2205,6 +2295,10 @@ function getVisibleFieldGroups(editorCopy: PrintOpsMessages["templateEditor"]): 
 const initialTemplateRecords: TemplateRecord[] = [
   {
     id: "store-order-clean",
+    schemaVersion: printOpsTemplateSchemaVersion,
+    rendererKey: "invoice_big_brand_v1",
+    baseBlueprintKey: "invoice_big_brand",
+    baseBlueprintVersion: printOpsTemplateBlueprintVersion,
     name: "Invoice - Big Brand",
     description: "Large logo invoice layout with bill/ship sections, product photo, notes, totals, and social footer.",
     documentType: "Invoice",
@@ -2232,6 +2326,10 @@ const initialTemplateRecords: TemplateRecord[] = [
   },
   {
     id: "store-order-compact",
+    schemaVersion: printOpsTemplateSchemaVersion,
+    rendererKey: "invoice_minimal_v1",
+    baseBlueprintKey: "invoice_minimal",
+    baseBlueprintVersion: printOpsTemplateBlueprintVersion,
     name: "Invoice - Market",
     description: "Warm retail invoice layout with logo card, product image row, customer blocks, and compact social footer.",
     documentType: "Invoice",
@@ -2260,6 +2358,10 @@ const initialTemplateRecords: TemplateRecord[] = [
   },
   {
     id: "store-order-payment-check",
+    schemaVersion: printOpsTemplateSchemaVersion,
+    rendererKey: "invoice_big_brand_v1",
+    baseBlueprintKey: "invoice_big_brand",
+    baseBlueprintVersion: printOpsTemplateBlueprintVersion,
     name: "Invoice - Mono",
     description: "High-contrast invoice template for sharp office printing, product thumbnails, payment summary, and social footer.",
     documentType: "Invoice",
@@ -2288,6 +2390,10 @@ const initialTemplateRecords: TemplateRecord[] = [
   },
   {
     id: "library-order-modern",
+    schemaVersion: printOpsTemplateSchemaVersion,
+    rendererKey: "invoice_big_brand_v1",
+    baseBlueprintKey: "invoice_big_brand",
+    baseBlueprintVersion: printOpsTemplateBlueprintVersion,
     name: "Invoice - Big Brand",
     description: "Large-brand invoice document adapted to Wix default order fields.",
     documentType: "Invoice",
@@ -2314,6 +2420,10 @@ const initialTemplateRecords: TemplateRecord[] = [
   },
   {
     id: "library-order-minimal",
+    schemaVersion: printOpsTemplateSchemaVersion,
+    rendererKey: "invoice_minimal_v1",
+    baseBlueprintKey: "invoice_minimal",
+    baseBlueprintVersion: printOpsTemplateBlueprintVersion,
     name: "Invoice - Minimal",
     description: "Low-ink black-and-white invoice print for fast office printing and archive copies.",
     documentType: "Invoice",
@@ -2728,9 +2838,17 @@ function resolveOrderFulfillmentStatusLabel(status: Order["fulfillment"], locale
 function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: TemplateRecord): TemplateRecord {
   const dataRequirements = parseDataRequirements(draft.dataRequirements);
   const normalizedSocialProfiles = normalizeSocialProfiles(draft.socialProfiles, draft.socialLinks);
+  const baseBlueprintKey = existing?.baseBlueprintKey ?? resolveTemplateBlueprintKey({
+    layoutPreset: draft.layoutPreset,
+    visualStyle: draft.visualStyle,
+  });
 
   return {
     id: existing?.id ?? createTemplateId(draft.name),
+    schemaVersion: printOpsTemplateSchemaVersion,
+    rendererKey: existing?.rendererKey ?? getTemplateRendererKey(baseBlueprintKey),
+    baseBlueprintKey,
+    baseBlueprintVersion: existing?.baseBlueprintVersion ?? printOpsTemplateBlueprintVersion,
     name: draft.name.trim(),
     description: draft.description.trim(),
     documentType: draft.documentType,
@@ -3044,7 +3162,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         const parsedTemplates = JSON.parse(savedTemplates) as TemplateRecord[];
 
         const supportedTemplates = Array.isArray(parsedTemplates)
-          ? parsedTemplates.filter((templateRecord) => !deprecatedTemplateIds.has(templateRecord.id)).map(normalizeStoredTemplateRecord)
+          ? mergeStoreTemplatesWithBuiltIns(parsedTemplates.filter((templateRecord) => !deprecatedTemplateIds.has(templateRecord.id)).map(normalizeStoredTemplateRecord))
           : [];
 
         if (supportedTemplates.length > 0) {
@@ -3423,20 +3541,25 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
       if (payload.templateStore?.status === "loaded" && databaseTemplates.length > 0) {
         const selectedId = typeof payload.selectedTemplateId === "string" ? payload.selectedTemplateId : null;
+        const nextTemplateRecords = mergeStoreTemplatesWithBuiltIns(databaseTemplates);
 
-        setTemplateRecords(databaseTemplates);
-        templateRecordsRef.current = databaseTemplates;
+        setTemplateRecords(nextTemplateRecords);
+        templateRecordsRef.current = nextTemplateRecords;
 
-        if (selectedId && databaseTemplates.some((templateRecord) => templateRecord.id === selectedId)) {
+        if (selectedId && nextTemplateRecords.some((templateRecord) => templateRecord.id === selectedId)) {
           setSelectedTemplateId(selectedId);
           selectedTemplateIdRef.current = selectedId;
-          persistTemplateState(databaseTemplates, selectedId);
+          persistTemplateState(nextTemplateRecords, selectedId);
         } else {
-          const fallbackSelectedId = databaseTemplates.find((templateRecord) => templateRecord.isDefault)?.id ?? databaseTemplates[0]?.id ?? selectedTemplateIdRef.current;
+          const fallbackSelectedId =
+            nextTemplateRecords.find((templateRecord) => isStoreTemplateRecord(templateRecord) && templateRecord.isDefault)?.id ??
+            nextTemplateRecords.find(isStoreTemplateRecord)?.id ??
+            nextTemplateRecords[0]?.id ??
+            selectedTemplateIdRef.current;
 
           setSelectedTemplateId(fallbackSelectedId);
           selectedTemplateIdRef.current = fallbackSelectedId;
-          persistTemplateState(databaseTemplates, fallbackSelectedId);
+          persistTemplateState(nextTemplateRecords, fallbackSelectedId);
         }
 
         setTemplateStoreStatus({ error: null, status: "loaded" });
@@ -3444,7 +3567,11 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       }
 
       if (payload.templateStore?.status === "loaded" && databaseTemplates.length === 0) {
-        await persistTemplatesToDatabase(templateRecordsRef.current, selectedTemplateIdRef.current);
+        const nextTemplateRecords = mergeStoreTemplatesWithBuiltIns(templateRecordsRef.current);
+
+        setTemplateRecords(nextTemplateRecords);
+        templateRecordsRef.current = nextTemplateRecords;
+        await persistTemplatesToDatabase(nextTemplateRecords, selectedTemplateIdRef.current);
         setTemplateStoreStatus({ error: null, status: "saved" });
         return;
       }
@@ -3476,10 +3603,12 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     setTemplateStoreStatus({ error: null, status: "saving" });
 
     try {
+      const persistedTemplates = getStoreTemplatesForPersistence(templates);
+      const persistedSelectedTemplateId = resolvePersistedSelectedTemplateId(persistedTemplates, nextSelectedTemplateId);
       const response = await fetch(pluginContext.templatesEndpoint, {
         body: JSON.stringify({
-          selectedTemplateId: nextSelectedTemplateId,
-          templates,
+          selectedTemplateId: persistedSelectedTemplateId,
+          templates: persistedTemplates,
         }),
         headers: {
           "Content-Type": "application/json",
@@ -3771,9 +3900,15 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   }
 
   function setDefaultTemplate(templateId: string) {
+    const targetTemplate = templateRecords.find((templateRecord) => templateRecord.id === templateId);
+
+    if (!targetTemplate || !isStoreTemplateRecord(targetTemplate)) {
+      return;
+    }
+
     const nextTemplateRecords = templateRecords.map((templateRecord) => ({
       ...templateRecord,
-      isDefault: templateRecord.id === templateId,
+      isDefault: isStoreTemplateRecord(templateRecord) && templateRecord.id === templateId,
     }));
 
     setTemplateRecords(nextTemplateRecords);
