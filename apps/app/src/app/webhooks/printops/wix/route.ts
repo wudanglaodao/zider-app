@@ -199,6 +199,10 @@ function readForwardSecretFromMap(appKey: string) {
     return null;
   }
 
+  if (!raw.startsWith("{")) {
+    return raw;
+  }
+
   try {
     const parsed = JSON.parse(raw) as unknown;
     const record = isRecord(parsed) ? parsed : null;

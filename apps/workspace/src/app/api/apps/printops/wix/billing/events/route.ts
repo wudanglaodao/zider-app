@@ -70,10 +70,7 @@ export async function POST(request: NextRequest) {
 }
 
 function verifyForwardSecret(request: NextRequest): { ok: true } | { ok: false; reason: string } {
-  const allowedSecrets = (process.env.ZIDER_WIX_EVENT_FORWARD_SECRETS ?? "")
-    .split(",")
-    .map((secret) => secret.trim())
-    .filter(Boolean);
+  const allowedSecrets = readAllowedForwardSecrets(PRINTOPS_APP_KEY);
 
   if (allowedSecrets.length === 0) {
     return {
@@ -97,6 +94,38 @@ function verifyForwardSecret(request: NextRequest): { ok: true } | { ok: false; 
   return {
     ok: true,
   };
+}
+
+function readAllowedForwardSecrets(appKey: string) {
+  const raw = process.env.ZIDER_WIX_EVENT_FORWARD_SECRETS?.trim();
+
+  if (!raw) {
+    return [];
+  }
+
+  if (!raw.startsWith("{")) {
+    return raw
+      .split(",")
+      .map((secret) => secret.trim())
+      .filter(Boolean);
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    const record = readRecord(parsed);
+    const entry = record?.[appKey];
+
+    if (typeof entry === "string" && entry.trim()) {
+      return [entry.trim()];
+    }
+
+    const entryRecord = readRecord(entry);
+    const secret = entryRecord?.secret;
+
+    return typeof secret === "string" && secret.trim() ? [secret.trim()] : [];
+  } catch {
+    return [];
+  }
 }
 
 function normalizeWixBillingEvent(body: Record<string, unknown>) {

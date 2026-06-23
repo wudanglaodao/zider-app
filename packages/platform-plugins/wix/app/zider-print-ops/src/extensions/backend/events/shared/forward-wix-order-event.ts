@@ -95,6 +95,10 @@ function readForwardSecretFromMap() {
     return null;
   }
 
+  if (!raw.startsWith("{")) {
+    return raw;
+  }
+
   try {
     const record = asRecord(JSON.parse(raw));
     const entry = record?.[APP_KEY];
