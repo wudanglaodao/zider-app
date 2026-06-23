@@ -150,7 +150,7 @@ async function parseForwardedEventRequest(
     };
   }
 
-  const actualSecret = auth?.replace(/^Bearer\s+/i, "").trim() ?? "";
+  const actualSecret = normalizeForwardSecret(auth?.replace(/^Bearer\s+/i, "").trim() ?? "", appKey);
 
   if (!secretMatches(actualSecret, expectedSecret)) {
     console.warn("PrintOps Wix forwarded event rejected: invalid forward secret", {
@@ -213,12 +213,14 @@ function readForwardSecretFromMap(appKey: string) {
     return null;
   }
 
-  if (!raw.startsWith("{")) {
-    return raw;
+  const normalizedRaw = unwrapSerializedEnvValue(raw);
+
+  if (!normalizedRaw.startsWith("{")) {
+    return normalizedRaw;
   }
 
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(normalizedRaw) as unknown;
     const record = isRecord(parsed) ? parsed : null;
     const entry = record?.[appKey];
 
@@ -239,6 +241,58 @@ function readForwardSecretFromMap(appKey: string) {
   }
 
   return null;
+}
+
+function normalizeForwardSecret(value: string, appKey: string) {
+  const normalizedValue = unwrapSerializedEnvValue(value.trim());
+
+  if (!normalizedValue.startsWith("{")) {
+    return normalizedValue;
+  }
+
+  try {
+    const parsed = JSON.parse(normalizedValue) as unknown;
+    const record = isRecord(parsed) ? parsed : null;
+    const entry = record?.[appKey];
+
+    if (typeof entry === "string" && entry.trim()) {
+      return entry.trim();
+    }
+
+    if (isRecord(entry)) {
+      const secret = entry.secret;
+
+      return typeof secret === "string" && secret.trim() ? secret.trim() : normalizedValue;
+    }
+  } catch {
+    return normalizedValue;
+  }
+
+  return normalizedValue;
+}
+
+function unwrapSerializedEnvValue(value: string) {
+  let current = value;
+
+  for (let index = 0; index < 2; index += 1) {
+    if (!(current.startsWith('"') && current.endsWith('"'))) {
+      break;
+    }
+
+    try {
+      const parsed = JSON.parse(current) as unknown;
+
+      if (typeof parsed !== "string") {
+        break;
+      }
+
+      current = parsed.trim();
+    } catch {
+      break;
+    }
+  }
+
+  return current;
 }
 
 function secretMatches(actual: string, expected: string) {

@@ -103,15 +103,17 @@ function readAllowedForwardSecrets(appKey: string) {
     return [];
   }
 
-  if (!raw.startsWith("{")) {
-    return raw
+  const normalizedRaw = unwrapSerializedEnvValue(raw);
+
+  if (!normalizedRaw.startsWith("{")) {
+    return normalizedRaw
       .split(",")
       .map((secret) => secret.trim())
       .filter(Boolean);
   }
 
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(normalizedRaw) as unknown;
     const record = readRecord(parsed);
     const entry = record?.[appKey];
 
@@ -126,6 +128,30 @@ function readAllowedForwardSecrets(appKey: string) {
   } catch {
     return [];
   }
+}
+
+function unwrapSerializedEnvValue(value: string) {
+  let current = value;
+
+  for (let index = 0; index < 2; index += 1) {
+    if (!(current.startsWith('"') && current.endsWith('"'))) {
+      break;
+    }
+
+    try {
+      const parsed = JSON.parse(current) as unknown;
+
+      if (typeof parsed !== "string") {
+        break;
+      }
+
+      current = parsed.trim();
+    } catch {
+      break;
+    }
+  }
+
+  return current;
 }
 
 function normalizeWixBillingEvent(body: Record<string, unknown>) {

@@ -95,12 +95,14 @@ function readForwardSecretFromMap() {
     return null;
   }
 
-  if (!raw.startsWith("{")) {
-    return raw;
+  const normalizedRaw = unwrapSerializedEnvValue(raw);
+
+  if (!normalizedRaw.startsWith("{")) {
+    return normalizedRaw;
   }
 
   try {
-    const record = asRecord(JSON.parse(raw));
+    const record = asRecord(JSON.parse(normalizedRaw));
     const entry = record?.[APP_KEY];
 
     if (typeof entry === "string" && entry.trim()) {
@@ -120,6 +122,30 @@ function readForwardSecretFromMap() {
   }
 
   return null;
+}
+
+function unwrapSerializedEnvValue(value: string) {
+  let current = value;
+
+  for (let index = 0; index < 2; index += 1) {
+    if (!(current.startsWith('"') && current.endsWith('"'))) {
+      break;
+    }
+
+    try {
+      const parsed = JSON.parse(current) as unknown;
+
+      if (typeof parsed !== "string") {
+        break;
+      }
+
+      current = parsed.trim();
+    } catch {
+      break;
+    }
+  }
+
+  return current;
 }
 
 function asRecord(value: unknown): JsonRecord | null {
