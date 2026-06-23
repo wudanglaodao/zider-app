@@ -136,6 +136,7 @@ npm --prefix apps/workspace run build
 - 确认 Wix app dashboard URL 仍指向 `https://workspace.zider.ink/apps/printops/wix`。
 - 确认订单事件仍转发到 `https://app.zider.ink/webhooks/printops/wix`。
 - 确认安装、卸载、付费等 app 管理事件仍走 `https://app.zider.ink/events/wix/zider_printops`。
+- 如果改动涉及 PrintOps 主流程，发布前按 [19 PrintOps Main Flow Harness](./19-printops-main-flow-harness.md) 跑一遍核心用例。
 
 ## 6. GitHub 发版流程
 
@@ -229,6 +230,8 @@ curl -I "https://workspace.zider.ink/widget/interactive-custom-cursor/embed.js?i
 ```
 
 Wix PrintOps 检查：
+
+完整主流程以 [19 PrintOps Main Flow Harness](./19-printops-main-flow-harness.md) 为准。这里保留最小发布后 smoke test：
 
 1. 从 Wix Studio 打开 Zider PrintOps。
 2. 确认 dashboard iframe 正常加载 `workspace.zider.ink/apps/printops/wix`。

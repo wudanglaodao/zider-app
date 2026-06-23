@@ -21,6 +21,9 @@ This folder splits the original Interactive Custom Cursor PRD into smaller plann
 - [14 Wix Event Contract](./14-wix-event-contract.md)
 - [15 Zider AI Actions Wix V1.1 Requirements](./15-zider-ai-actions-wix-v1.1-requirements.md)
 - [16 Zider AI Actions Pricing Plan](./16-zider-ai-actions-pricing-plan.md)
+- [17 PrintOps Template Library Architecture](./17-printops-template-library-architecture.md)
+- [18 Zider AI Actions Wix App Market Launch Addendum](./18-zider-ai-actions-wix-app-market-launch.md)
+- [19 PrintOps Main Flow Harness](./19-printops-main-flow-harness.md)
 
 ## Current Decision
 

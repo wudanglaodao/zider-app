@@ -177,6 +177,9 @@ type PrintOpsPluginContext = {
   viewLinks?: Record<PrintOpsView, string>;
   verified: boolean;
 };
+
+type WixSyncMessages = Record<keyof PrintOpsMessages["wixSync"], string>;
+
 type PrintOpsStoreProfileSummary = {
   address?: Record<string, unknown>;
   businessEmail: string | null;
@@ -3036,7 +3039,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       {
         label: messages.nav.menu,
         items: [
-          { icon: Package, label: messages.nav.orders, href: viewLinks.orders, view: "orders", count: String(cachedOrders.length) },
+          { icon: Package, label: messages.nav.orders, href: viewLinks.orders, view: "orders", count: String(orderMetrics.unprinted) },
           { icon: LayoutTemplate, label: messages.nav.templates, href: viewLinks.templates, view: "templates", count: "" },
         ],
       },
@@ -3045,11 +3048,11 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         items: [
           { icon: Settings, label: messages.nav.settings, href: viewLinks.settings, view: "settings", count: "" },
           { icon: BookOpen, label: messages.nav.help, href: "https://zider.ink/forum/apps/printops", view: "help", count: "" },
-          { icon: Mail, label: "Support", href: "mailto:support@zider.ink", view: "support", count: "" },
+          { icon: Mail, label: "Support", href: "https://www.zider.ink/contact", view: "support", count: "" },
         ],
       },
     ],
-    [cachedOrders.length, messages, viewLinks],
+    [messages, orderMetrics.unprinted, viewLinks],
   );
   const filteredTemplates = useMemo(() => {
     const source = templateTab === "mine" ? "Store copy" : "Built-in";
@@ -4370,6 +4373,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                   initialSyncComplete={initialOrderSyncComplete}
                   messages={messages}
                   onSync={syncWixOrders}
+                  siteLocale={siteLocale}
                   status={wixSyncStatus}
                 />
                 <WixOrderCacheNotice messages={messages} status={orderCacheStatus} />
@@ -4956,51 +4960,54 @@ function WixSyncPanel({
   initialSyncComplete,
   messages,
   onSync,
+  siteLocale,
   status,
 }: {
   context: PrintOpsPluginContext;
   initialSyncComplete: boolean;
   messages: PrintOpsMessages;
   onSync: (mode: "latest" | "history") => Promise<void>;
+  siteLocale: SiteLocale;
   status: WixSyncStatus;
 }) {
   const hasInstance = Boolean(context.instanceId);
-  const statusLabel = hasInstance ? (context.verified ? messages.wixSync.connected : messages.wixSync.devMode) : messages.wixSync.missingInstance;
+  const syncMessages = getLocalizedWixSyncMessages(messages, siteLocale);
+  const statusLabel = hasInstance ? (context.verified ? syncMessages.connected : syncMessages.devMode) : syncMessages.missingInstance;
   const statusTone = hasInstance ? (context.verified ? "good" : "warn") : "warn";
   const showCompact = initialSyncComplete;
   const syncMessage =
     status.status === "syncing"
-      ? messages.wixSync.syncing
+      ? syncMessages.syncing
       : status.status === "success"
-        ? messages.wixSync.synced
+        ? syncMessages.synced
         : status.status === "error"
-          ? messages.wixSync.failed
-          : messages.wixSync.ready;
+          ? syncMessages.failed
+          : syncMessages.ready;
   const compactMessage =
     status.error ??
-    (status.status === "syncing" ? messages.wixSync.syncing : formatLastSyncedAt(status.lastSyncedAt, messages));
+    (status.status === "syncing" ? syncMessages.syncing : formatLastSyncedAt(status.lastSyncedAt, syncMessages, siteLocale));
 
   if (showCompact) {
     return (
       <section className={styles.syncPanel} data-tone={status.status === "error" ? "warn" : statusTone} data-variant="compact">
         <div className={styles.syncCompactMain}>
           <span className={styles.syncStatusDot} aria-hidden />
-          <strong>{status.status === "error" ? messages.wixSync.failed : statusLabel}</strong>
+          <strong>{status.status === "error" ? syncMessages.failed : statusLabel}</strong>
           <small data-state={status.status}>{compactMessage}</small>
         </div>
         <div className={styles.syncActions}>
           <button className={styles.secondaryButton} type="button" disabled={!hasInstance || status.status === "syncing"} onClick={() => onSync("latest")}>
-            {messages.wixSync.syncLatest}
+            {syncMessages.syncLatest}
           </button>
           <Menu.Root>
-            <Menu.Trigger className={`${styles.iconButton} ${styles.syncMoreButton}`} aria-label={messages.wixSync.moreActions}>
+            <Menu.Trigger className={`${styles.iconButton} ${styles.syncMoreButton}`} aria-label={syncMessages.moreActions}>
               <MoreHorizontal size={18} aria-hidden />
             </Menu.Trigger>
             <Menu.Portal>
               <Menu.Positioner align="end" className={styles.menuPositioner} collisionPadding={12} side="bottom" sideOffset={8}>
                 <Menu.Popup className={styles.menuPopup}>
                   <Menu.Item className={styles.menuItem} disabled={!hasInstance || status.status === "syncing"} onClick={() => void onSync("history")}>
-                    {messages.wixSync.syncHistory}
+                    {syncMessages.syncHistory}
                   </Menu.Item>
                 </Menu.Popup>
               </Menu.Positioner>
@@ -5019,49 +5026,49 @@ function WixSyncPanel({
         </span>
         <div>
           <div className={styles.syncTitle}>
-            <strong>{messages.wixSync.title}</strong>
+            <strong>{syncMessages.title}</strong>
             <span>{statusLabel}</span>
           </div>
-          <p>{messages.wixSync.firstRunDescription}</p>
+          <p>{syncMessages.firstRunDescription}</p>
           <small data-state={status.status}>{status.error ?? syncMessage}</small>
         </div>
       </div>
 
       <div className={styles.syncActions}>
         <button className={styles.secondaryButton} type="button" disabled={!hasInstance || status.status === "syncing"} onClick={() => onSync("latest")}>
-          {messages.wixSync.syncLatest}
+          {syncMessages.syncLatest}
         </button>
         <button className={styles.primaryButton} type="button" disabled={!hasInstance || status.status === "syncing"} onClick={() => onSync("history")}>
-          {messages.wixSync.syncHistory}
+          {syncMessages.syncHistory}
         </button>
       </div>
 
       {status.status === "success" ? (
         <div className={styles.syncResult}>
           <span>
-            <strong>{status.orderCount}</strong> {messages.wixSync.ordersSynced}
+            <strong>{status.orderCount}</strong> {syncMessages.ordersSynced}
           </span>
           <span>
-            <strong>{status.customFieldCount}</strong> {messages.wixSync.customFieldsFound}
+            <strong>{status.customFieldCount}</strong> {syncMessages.customFieldsFound}
           </span>
           {status.window ? (
             <span>
-              {messages.wixSync.window}: {formatSyncDate(status.window.from)} - {formatSyncDate(status.window.to)}
+              {syncMessages.window}: {formatSyncDate(status.window.from)} - {formatSyncDate(status.window.to)}
             </span>
           ) : null}
           {status.orders.length > 0 ? (
             <span>
-              {messages.wixSync.syncedOrders}: {status.orders.slice(0, 3).map(formatSyncedOrder).join(", ")}
+              {syncMessages.syncedOrders}: {status.orders.slice(0, 3).map(formatSyncedOrder).join(", ")}
             </span>
           ) : null}
           {status.persistence?.status === "persisted" ? (
             <span data-tone="good">
-              <strong>{status.persistence.persistedCount ?? status.orderCount}</strong> {messages.wixSync.cachePersisted}
+              <strong>{status.persistence.persistedCount ?? status.orderCount}</strong> {syncMessages.cachePersisted}
             </span>
           ) : null}
           {status.persistence && status.persistence.status !== "persisted" ? (
             <span data-tone="warning">
-              {messages.wixSync.cacheNotPersisted}: {status.persistence.reason ?? status.persistence.status}
+              {syncMessages.cacheNotPersisted}: {status.persistence.reason ?? status.persistence.status}
             </span>
           ) : null}
         </div>
@@ -5480,12 +5487,68 @@ function formatOrderDate(value: string | null) {
   });
 }
 
-function formatLastSyncedAt(value: string | null, messages: PrintOpsMessages) {
+function formatLastSyncedAt(value: string | null, messages: WixSyncMessages, siteLocale: SiteLocale) {
   if (!value) {
-    return messages.wixSync.ready;
+    return messages.ready;
   }
 
-  return `${messages.wixSync.lastUpdated}: ${formatOrderDate(value)}`;
+  return `${messages.lastUpdated}: ${formatOrderDateForLocale(value, siteLocale)}`;
+}
+
+function formatOrderDateForLocale(value: string, siteLocale: SiteLocale) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString(getDateTimeLocale(siteLocale), {
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    month: "short",
+  });
+}
+
+function getDateTimeLocale(siteLocale: SiteLocale) {
+  if (siteLocale === "zh-Hans") {
+    return "zh-CN";
+  }
+
+  if (siteLocale === "zh-Hant") {
+    return "zh-HK";
+  }
+
+  return "en-US";
+}
+
+function getLocalizedWixSyncMessages(messages: PrintOpsMessages, siteLocale: SiteLocale): WixSyncMessages {
+  if (siteLocale !== "zh-Hans") {
+    return messages.wixSync as WixSyncMessages;
+  }
+
+  return {
+    ...messages.wixSync,
+    cacheNotPersisted: "订单缓存未写入",
+    cachePersisted: "笔订单已缓存",
+    connected: "已连接",
+    customFieldsFound: "个自定义字段",
+    devMode: "开发实例",
+    failed: "同步失败",
+    firstRunDescription: "拉取最近 7 天的 Wix 订单，PrintOps 会立即准备可打印的发票预览。后续手动同步默认拉取最近 3 天。",
+    lastUpdated: "上次更新",
+    missingInstance: "请从 Wix 打开，或在本地开发时传入 instanceId。",
+    moreActions: "更多同步操作",
+    ordersSynced: "笔订单已同步",
+    ready: "可以开始同步",
+    syncHistory: "同步最近 7 天",
+    syncLatest: "同步最新订单",
+    synced: "同步完成",
+    syncedOrders: "已同步订单",
+    syncing: "正在同步订单...",
+    title: "Wix 订单连接",
+    window: "同步范围",
+  };
 }
 
 function mapPaymentStatus(value: string | null): Order["payment"] {
@@ -5893,6 +5956,16 @@ function TemplateCenter({
     label: option.value === "all" ? messages.templates.allDocuments : localizeTemplateDocumentType(option.value, messages),
   }));
 
+  useEffect(() => {
+    setPreviewTemplate((currentTemplate) => {
+      if (!currentTemplate) {
+        return currentTemplate;
+      }
+
+      return filteredTemplates.find((templateRecord) => templateRecord.id === currentTemplate.id) ?? null;
+    });
+  }, [filteredTemplates]);
+
   return (
     <div className={styles.templateGrid} data-detail="preview">
       <section className={styles.templatePanel}>
@@ -6154,6 +6227,27 @@ function applyTemplateExportTokens(element: HTMLElement) {
   });
 }
 
+function positionPdfExportHost(exportHost: HTMLElement) {
+  exportHost.setAttribute("aria-hidden", "true");
+  exportHost.style.position = "fixed";
+  exportHost.style.top = "0";
+  exportHost.style.left = "0";
+  exportHost.style.zIndex = "2147483647";
+  exportHost.style.width = `${A4_EXPORT_WIDTH_PX}px`;
+  exportHost.style.boxSizing = "border-box";
+  exportHost.style.background = "#ffffff";
+  exportHost.style.pointerEvents = "none";
+  exportHost.style.opacity = "1";
+}
+
+function waitForPdfExportLayout() {
+  return new Promise<void>((resolve) => {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
 function getExportPaperTopBorder(sourceNode: HTMLElement) {
   const computedStyle = window.getComputedStyle(sourceNode);
   const topWidth = Number.parseFloat(computedStyle.borderTopWidth);
@@ -6208,22 +6302,16 @@ async function createOrderPdfBlob(sourceNodes: HTMLElement[], fileName: string) 
   const pages = sourceNodes.map((sourceNode, index) => prepareOrderPaperClone(sourceNode, index === sourceNodes.length - 1));
 
   applyTemplateExportTokens(exportHost);
-  exportHost.setAttribute("aria-hidden", "true");
-  exportHost.style.position = "fixed";
-  exportHost.style.top = "0";
-  exportHost.style.left = "-10000px";
-  exportHost.style.width = `${A4_EXPORT_WIDTH_PX}px`;
+  positionPdfExportHost(exportHost);
   exportHost.style.minHeight = `${A4_EXPORT_HEIGHT_PX}px`;
-  exportHost.style.boxSizing = "border-box";
-  exportHost.style.background = "#ffffff";
   exportHost.style.overflow = "visible";
-  exportHost.style.pointerEvents = "none";
   exportHost.style.display = "block";
 
   pages.forEach((page) => exportHost.appendChild(page));
   document.body.appendChild(exportHost);
 
   try {
+    await waitForPdfExportLayout();
     const exportHeight = Math.max(A4_EXPORT_HEIGHT_PX, A4_EXPORT_HEIGHT_PX * Math.max(1, pages.length));
     const pdfOptions = {
       margin: 0,
@@ -6434,23 +6522,18 @@ async function createTemplatePdfBlob(templateRecord: TemplateRecord) {
   const clonedPaper = sourceNode.cloneNode(true) as HTMLElement;
 
   applyTemplateExportTokens(exportHost);
-  exportHost.setAttribute("aria-hidden", "true");
-  exportHost.style.position = "fixed";
-  exportHost.style.top = "0";
-  exportHost.style.left = "-10000px";
-  exportHost.style.width = `${A4_EXPORT_WIDTH_PX}px`;
+  positionPdfExportHost(exportHost);
   exportHost.style.height = `${A4_EXPORT_HEIGHT_PX}px`;
-  exportHost.style.boxSizing = "border-box";
-  exportHost.style.background = "#ffffff";
   exportHost.style.overflow = "hidden";
-  exportHost.style.pointerEvents = "none";
 
+  applyTemplateExportTokens(clonedPaper);
   applyA4ExportPaperStyles(clonedPaper, sourceNode);
 
   exportHost.appendChild(clonedPaper);
   document.body.appendChild(exportHost);
 
   try {
+    await waitForPdfExportLayout();
     return (await html2pdf()
       .set({
         margin: 0,
@@ -6472,7 +6555,7 @@ async function createTemplatePdfBlob(templateRecord: TemplateRecord) {
           unit: "mm",
         },
       })
-      .from(clonedPaper)
+      .from(exportHost)
       .outputPdf("blob")) as Blob;
   } finally {
     exportHost.remove();
@@ -8537,6 +8620,71 @@ function getOrderTemplateTypographyStyle({
   } as CSSProperties;
 }
 
+function createBarcodeBars(value: string) {
+  const normalizedValue = value.replace(/\s+/g, "").toUpperCase() || "0";
+  const modules: boolean[] = [true, false, true, true, false, true, false];
+  let checksum = 0;
+
+  normalizedValue.split("").forEach((character, index) => {
+    const code = character.charCodeAt(0);
+    checksum = (checksum + code * (index + 1)) % 251;
+
+    for (let bit = 0; bit < 9; bit += 1) {
+      const mixed = (code * 31 + index * 17 + bit * 13 + checksum) % 257;
+      modules.push(((mixed >> (bit % 8)) & 1) === 1);
+      if (bit % 4 === 3) {
+        modules.push(false);
+      }
+    }
+  });
+
+  for (let bit = 0; bit < 12; bit += 1) {
+    modules.push(((checksum * 19 + bit * 23) % 11) > 4);
+  }
+
+  while (modules.length < 96) {
+    const currentLength = modules.length;
+    for (let index = 0; index < currentLength && modules.length < 112; index += 1) {
+      modules.push(index % 7 === 0 ? false : !modules[index]);
+    }
+  }
+
+  modules.push(false, true, false, true, true, false, true);
+
+  const moduleWidth = 160 / modules.length;
+  const bars: Array<{ x: number; width: number }> = [];
+  let runStart: number | null = null;
+
+  modules.forEach((active, index) => {
+    if (active && runStart === null) {
+      runStart = index;
+    }
+
+    if ((!active || index === modules.length - 1) && runStart !== null) {
+      const runEnd = active && index === modules.length - 1 ? index + 1 : index;
+      bars.push({
+        width: Math.max(0.65, Number(((runEnd - runStart) * moduleWidth).toFixed(2))),
+        x: Number((runStart * moduleWidth).toFixed(2)),
+      });
+      runStart = null;
+    }
+  });
+
+  return bars;
+}
+
+function BarcodeGraphic({ className, value }: { className: string; value: string }) {
+  const bars = createBarcodeBars(value);
+
+  return (
+    <svg className={className} viewBox="0 0 160 32" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+      {bars.map((bar, index) => (
+        <rect key={`${bar.x}-${bar.width}-${index}`} x={bar.x} y="0" width={bar.width} height="32" fill="currentColor" />
+      ))}
+    </svg>
+  );
+}
+
 function BrandLogoAsset({
   brandName,
   font,
@@ -8774,16 +8922,17 @@ function OrderPaperPreview({
     showSku && lineItem.sku ? (
       <span className={styles.orderSkuBarcodeBlock}>
         <small>{labels.sku}</small>
-        <i aria-hidden="true" />
+        <BarcodeGraphic className={styles.orderSkuBarcodeGraphic} value={lineItem.sku} />
         <em>{lineItem.sku}</em>
       </span>
     ) : null;
   const renderOptionsLine = (lineItem: OrderPrintLineItem) => (showItemOptions && lineItem.optionsText ? <small>{lineItem.optionsText}</small> : null);
+  const orderBarcodeValue = orderDetails.lineItems.find((lineItem) => lineItem.barcode)?.barcode ?? orderDetails.number;
   const orderBarcode = showOrderBarcode ? (
     <span className={styles.orderBarcodeBlock}>
       <small>{labels.orderBarcode}</small>
-      <i aria-hidden="true" />
-      <em>{orderDetails.lineItems.find((lineItem) => lineItem.barcode)?.barcode ?? orderDetails.number}</em>
+      <BarcodeGraphic className={styles.orderBarcodeGraphic} value={orderBarcodeValue} />
+      <em>{orderBarcodeValue}</em>
     </span>
   ) : null;
   const additionalDetailsBlock =

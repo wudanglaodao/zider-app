@@ -16,11 +16,10 @@ V1.1 uses two plans:
 | Plan | Billing | Role |
 | --- | --- | --- |
 | Free | Free forever | Lets a site owner add a simple AI action widget quickly |
-| Plus | Paid plan, price TBD | Unlocks multilingual audience-specific AI experiences |
+| Plus | $4.99/month | Unlocks multilingual audience-specific AI experiences |
 
-The exact monthly / yearly price is not defined in the current requirement
-document. Do not hard-code a price until the Wix billing plan IDs and App Market
-pricing are finalized.
+The recommended V1.1 monthly price is **$4.99/month**. Yearly pricing and Wix
+billing plan IDs are still pending.
 
 ## Positioning
 
@@ -53,7 +52,7 @@ Included:
 - built-in ChatGPT provider,
 - built-in Claude provider,
 - built-in Gemini provider,
-- maximum 2 enabled providers at any time,
+- maximum 3 enabled built-in providers at any time,
 - one shared `Default Profile`,
 - one widget title,
 - one optional description,
@@ -64,12 +63,12 @@ Included:
 - prompt preview,
 - reset to default prompt,
 - basic design options,
-- `Powered by Zider` branding.
+- no `Powered by Zider` label.
 
 Free limits:
 
-- no third enabled AI provider,
 - no custom AI provider,
+- no provider outside the built-in provider catalog,
 - no custom provider URL,
 - no provider-specific delivery mode editing,
 - no Language Profiles,
@@ -77,7 +76,6 @@ Free limits:
 - no language-specific provider list,
 - no language-specific provider order,
 - no language-specific title / description / copied message,
-- no branding removal,
 - no advanced styling.
 
 Important clarification:
@@ -109,7 +107,6 @@ Included:
 - language-specific custom AI providers,
 - fallback profile selection,
 - duplicate Language Profile,
-- remove `Powered by Zider`,
 - advanced styling.
 
 Plus should be described as:
@@ -125,7 +122,7 @@ Build a different AI action entry point for every audience your Wix site serves.
 | Best for | Simple sites and first-time users | Multilingual sites, agencies, international businesses |
 | Configuration model | One shared Default Profile | Multiple Language Profiles |
 | Built-in AI providers | ChatGPT, Claude, Gemini | ChatGPT, Claude, Gemini |
-| Enabled provider count | Up to 2 | Unlimited |
+| Enabled provider count | Up to 3 built-in providers | Unlimited |
 | Custom AI | Not available | Unlimited |
 | Prompt | One shared prompt | One prompt per Language Profile |
 | Widget title | One shared title | One title per Language Profile |
@@ -137,20 +134,19 @@ Build a different AI action entry point for every audience your Wix site serves.
 | Delivery mode | Built-in defaults | Editable per provider and profile |
 | Wix multilingual behavior | Same config on every language page | Match current Wix language / locale |
 | Fallback profile | Not needed | Supported |
-| Branding | Shows `Powered by Zider` | Can remove branding |
+| Branding | No forced Zider branding | No forced Zider branding |
 | Styling | Basic | Advanced |
 
 ## Upgrade Triggers
 
 Show an upgrade prompt when a Free user tries to:
 
-- enable a third AI provider,
 - add Custom AI,
+- use a provider outside the built-in provider catalog,
 - create or enable Language Profiles,
 - configure AI providers by language,
 - edit provider URLs,
 - edit provider delivery mode,
-- remove `Powered by Zider`,
 - use advanced styling.
 
 Upgrade copy:
@@ -170,19 +166,17 @@ Plan limits must be enforced in both the UI and the backend.
 
 Free backend validation:
 
-- enabled provider count must be <= 2,
+- enabled provider count must be <= 3,
 - custom AI count must be 0,
 - profile count must be 1,
-- locale-specific provider config must be rejected,
-- remove branding must be rejected.
+- locale-specific provider config must be rejected.
 
 Plus backend validation:
 
 - provider count is unlimited,
 - custom AI count is unlimited,
 - profile count is unlimited,
-- locale-specific provider config is allowed,
-- remove branding is allowed.
+- locale-specific provider config is allowed.
 
 Do not rely on hidden UI controls as the only enforcement layer.
 
@@ -194,7 +188,7 @@ Free -> Plus:
 - keep existing description,
 - keep existing prompt,
 - keep existing copied message,
-- keep existing 2 enabled providers,
+- keep existing 3 enabled built-in providers,
 - keep provider order,
 - keep appearance settings,
 - convert Default Profile to the site default language profile,
@@ -203,20 +197,19 @@ Free -> Plus:
 Plus -> Free:
 
 - do not delete Plus configuration,
-- require the site owner to choose one profile and up to 2 built-in providers,
-- if the owner does not choose, use the fallback profile and first 2 built-in
+- require the site owner to choose one profile and up to 3 built-in providers,
+- if the owner does not choose, use the fallback profile and first 3 built-in
   providers,
 - disable custom AI in the Free runtime,
-- keep extra Plus settings read-only for future re-upgrade,
-- show `Powered by Zider`.
+- keep extra Plus settings read-only for future re-upgrade.
 
 ## Suggested App Market Plan Summary
 
 Free:
 
 ```text
-Add AI action buttons to your site with one shared prompt and up to two built-in
-AI tools.
+Add AI action buttons to your site with one shared prompt and up to three
+built-in AI tools.
 ```
 
 Plus:
@@ -235,7 +228,6 @@ Plus = separate AI action setups for every language and audience.
 
 ## Open Pricing Decisions
 
-- Final Plus monthly price.
 - Final Plus yearly price and discount.
 - Whether to offer a Wix free trial for Plus.
 - Final Wix billing plan IDs.

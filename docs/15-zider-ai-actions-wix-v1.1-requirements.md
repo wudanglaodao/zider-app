@@ -52,7 +52,7 @@ custom AI providers, URLs, and delivery modes.
 | Footer Bar layout | Yes | Yes |
 | Large Icons layout | Yes | Yes |
 | Built-in providers | ChatGPT, Claude, Gemini | ChatGPT, Claude, Gemini |
-| Enabled provider count | Max 2 | Unlimited |
+| Enabled provider count | Max 3 built-in providers | Unlimited |
 | Custom AI providers | No | Unlimited |
 | Single prompt | Yes | Yes |
 | Language-specific prompts | No | Yes |
@@ -62,7 +62,7 @@ custom AI providers, URLs, and delivery modes.
 | Language-specific provider URL | No | Yes |
 | Language-specific delivery mode | No | Yes |
 | Multilingual widget title / description | No | Yes |
-| Remove `Powered by Zider` | No | Yes |
+| Zider branding in widget | Not shown | Not shown |
 | Advanced styling | No | Yes |
 
 ## Free Requirements
@@ -76,7 +76,7 @@ The profile includes:
 - optional description,
 - prompt,
 - copied message,
-- up to 2 built-in AI providers,
+- up to 3 built-in AI providers,
 - provider order,
 - widget appearance.
 
@@ -86,25 +86,25 @@ Initial Free install writes:
 - profile: `Default Profile`,
 - title: `Get an AI summary of {siteName}`,
 - static default prompt,
-- enabled providers: ChatGPT and Claude,
+- enabled providers: ChatGPT, Claude, and Gemini,
 - language mode: single profile,
 - layout: Footer Bar,
 - theme: follow site theme,
-- branding: `Powered by Zider`.
+- branding: none.
 
 Free restrictions:
 
-- at most 2 enabled AI providers,
+- at most 3 enabled built-in AI providers,
 - no custom AI,
 - no custom provider URL,
 - no locale-specific provider settings,
-- no language profiles,
-- no branding removal.
+- no language profiles.
 
-If a Free user tries to enable a third provider, show:
+If future built-in providers are added and a Free user tries to enable a fourth
+provider, show:
 
 ```text
-Free plan supports up to 2 AI tools.
+Free plan supports up to 3 built-in AI tools.
 Upgrade to Plus to add more tools.
 ```
 
@@ -220,7 +220,7 @@ Each built-in provider should define:
 - default delivery mode.
 
 Free users can select, enable, disable, sort, show names, and set icon style for
-up to 2 built-in providers. Free users cannot modify built-in provider URLs.
+up to 3 built-in providers. Free users cannot modify built-in provider URLs.
 
 Plus users can:
 
@@ -300,8 +300,7 @@ Footer Bar includes:
 - optional description,
 - AI icons,
 - optional provider names,
-- tooltips,
-- optional `Powered by Zider`.
+- tooltips.
 
 Large Icons includes:
 
@@ -309,8 +308,7 @@ Large Icons includes:
 - optional description,
 - large provider cards,
 - provider icons,
-- provider names,
-- optional `Powered by Zider`.
+- provider names.
 
 Responsive rules:
 
@@ -341,7 +339,7 @@ Free AI Tools:
 - ChatGPT,
 - Claude,
 - Gemini,
-- maximum 2 enabled.
+- maximum 3 enabled.
 
 Free Design:
 
@@ -400,7 +398,7 @@ Free site-level configuration:
 ```text
 1 profile
 1 prompt
-up to 2 built-in providers
+up to 3 built-in providers
 1 title set
 1 message set
 ```
@@ -425,6 +423,87 @@ Widget-instance configuration remains separate:
 - alignment,
 - icon size,
 - show provider name.
+
+## Configuration Lifecycle
+
+The app must separate editable configuration from published runtime
+configuration.
+
+Required states:
+
+```text
+draftConfig
+publishedConfig
+lastPublishedAt
+lastSavedAt
+configVersion
+```
+
+Dashboard behavior:
+
+- editing writes `draftConfig`,
+- preview uses `draftConfig`,
+- publish copies validated `draftConfig` to `publishedConfig`,
+- reset to default updates only the current draft until published,
+- unsaved changes must be clearly indicated,
+- leaving the dashboard with unsaved changes should warn the site owner.
+
+Front-site behavior:
+
+- the live widget reads only `publishedConfig`,
+- if no published config exists, the live widget does not render,
+- if published config is invalid, the live widget does not render,
+- owner/editor surfaces should show the configuration error.
+
+This avoids showing half-configured prompts or invalid provider URLs to visitors.
+
+## API Contract Requirements
+
+Exact route names can follow the existing app conventions, but the following
+capabilities are required:
+
+- read current installation and plan by Wix `instanceId`,
+- create first-install default config,
+- read draft config,
+- save draft config,
+- validate draft config,
+- publish draft config,
+- read published runtime config from the front-site widget,
+- receive Wix install/remove/paid-plan events,
+- resolve current Free / Plus feature gates on save and publish.
+
+Runtime config responses must not expose:
+
+- Wix access tokens,
+- app secrets,
+- billing event payloads,
+- unpublished draft config,
+- inactive Plus-only profile data while the installation is Free.
+
+Save and publish endpoints must run the same package validation rules as the UI.
+
+## Validation Limits
+
+Use explicit limits so the dashboard, API, and widget agree.
+
+| Field | Limit |
+| --- | ---: |
+| Widget title | 120 characters |
+| Optional description | 240 characters |
+| Prompt | 8,000 characters |
+| Copied message | 160 characters |
+| Provider label | 40 characters |
+| Provider name | 60 characters |
+| URL Template | 2,000 characters |
+| Language Profile name | 80 characters |
+
+Plus does not have a hard provider count limit. However, the dashboard should
+show a usability warning when a single profile has more than 12 visible
+providers, because the front-site widget may become noisy even though it remains
+valid.
+
+Generated URL Prefill links should fall back to `Copy Prompt + Open` when the
+final encoded URL is longer than 1,800 characters.
 
 ## Suggested Data Model
 
@@ -472,6 +551,11 @@ Free Profile:
       "providerId": "claude",
       "enabled": true,
       "order": 2
+    },
+    {
+      "providerId": "gemini",
+      "enabled": true,
+      "order": 3
     }
   ]
 }
@@ -505,6 +589,62 @@ Plus Language Profile:
 }
 ```
 
+## Provider Registry
+
+Built-in providers should live in a versioned registry rather than hard-coded
+inside UI components.
+
+Each registry entry must include:
+
+- provider ID,
+- public display name,
+- default icon key,
+- allowed icon usage notes,
+- default delivery mode,
+- default URL template,
+- prefill support status,
+- fallback delivery mode,
+- provider terms / brand reference link for internal review.
+
+Initial provider IDs:
+
+```text
+chatgpt
+claude
+gemini
+```
+
+If a provider changes its URL or prefill behavior, update the registry and ship
+it as a config/versioned product update. Do not require site owners to fix
+built-in provider URLs manually.
+
+If brand-icon licensing is unclear for a provider, use a neutral text or
+monochrome icon treatment until approved.
+
+## Error And Empty States
+
+Front-site widget:
+
+- no published config: render nothing,
+- config fetch failure: render nothing and log an operational error,
+- no enabled provider in selected profile: render nothing,
+- current language profile disabled: use fallback profile,
+- all fallback profiles invalid: render nothing,
+- third-party URL blocked: show manual copy modal,
+- clipboard failure: show manual copy modal.
+
+Dashboard:
+
+- no config: create default config automatically,
+- invalid Prompt: block save and publish,
+- invalid Provider URL: block save and publish,
+- Free user attempts Plus feature: show upgrade prompt,
+- subscription status unavailable: use last confirmed plan; if none exists,
+  default to Free until billing is resolved,
+- webhook/billing delay after upgrade: show a retry/check status action.
+
+Do not show owner-facing errors or upgrade prompts to public site visitors.
+
 ## Package Enforcement
 
 Package checks must run in both the UI and the backend. Hidden or disabled UI is
@@ -512,19 +652,17 @@ not sufficient because users can still call save endpoints directly.
 
 Free backend rules:
 
-- enabled providers <= 2,
+- enabled providers <= 3,
 - custom AI count = 0,
 - language profile count = 1,
-- locale-specific provider config is rejected,
-- remove branding is rejected.
+- locale-specific provider config is rejected.
 
 Plus backend rules:
 
 - provider count is unlimited,
 - custom AI count is unlimited,
 - language profile count is unlimited,
-- locale-specific provider config is allowed,
-- remove branding is allowed.
+- locale-specific provider config is allowed.
 
 ## Upgrade And Downgrade
 
@@ -532,7 +670,7 @@ Free -> Plus:
 
 - keep existing title,
 - keep existing prompt,
-- keep existing 2 providers,
+- keep existing 3 built-in providers,
 - keep appearance,
 - convert Default Profile into the site default language profile,
 - unlock Language Profiles,
@@ -550,22 +688,19 @@ Starter templates are static product templates. Duplicate does not translate.
 Plus -> Free:
 
 - do not delete Plus configuration,
-- require the owner to choose one Default Profile and up to 2 built-in providers,
-- if no choice is made, use the fallback profile and the first 2 built-in
+- require the owner to choose one Default Profile and up to 3 built-in providers,
+- if no choice is made, use the fallback profile and the first 3 built-in
   providers,
 - disable custom AI in the Free runtime,
-- keep other Plus settings read-only for future re-upgrade,
-- show `Powered by Zider`.
+- keep other Plus settings read-only for future re-upgrade.
 
 ## Paid Feature Locks
 
 Show an upgrade prompt when Free users try to:
 
-- add a third AI provider,
 - add Custom AI,
 - enable Language Profiles,
 - configure AI by language,
-- remove Zider branding,
 - use advanced styling.
 
 Upgrade prompt:
@@ -590,6 +725,18 @@ V1 does not collect:
 - AI answer content,
 - page body content,
 - browsing history.
+
+Operational logs may store app health data such as `app_key`, `instance_id`,
+provider ID, error code, and timestamp. They must not store final Prompt text,
+visitor AI responses, visitor identifiers, or page body content.
+
+On uninstall:
+
+- mark the installation as removed,
+- stop serving the widget runtime config for that `instanceId`,
+- retain configuration for 30 days for accidental reinstall recovery,
+- delete or anonymize retained configuration earlier if required by user request
+  or policy.
 
 Before opening a third-party AI provider, communicate that the configured prompt
 and current page URL will be opened in a third-party AI service.
@@ -619,21 +766,38 @@ External links must:
 - identity-based profiles
 - AI answer archives
 - automatic provider URL sync
+- storing final generated prompts for analytics
+- tracking visitor-level AI provider clicks
 
 Plus Language Profiles are driven by Wix language / locale, not visitor IP.
+
+## Accessibility Requirements
+
+The widget must support:
+
+- keyboard focus on every provider action,
+- visible focus states,
+- accessible names for icon-only buttons,
+- tooltip text that is not the only source of information,
+- sufficient color contrast for text and icons,
+- responsive layout without text overlap,
+- no required hover-only interaction on mobile.
+
+The dashboard must keep form labels programmatically associated with inputs and
+must surface validation errors near the relevant field.
 
 ## Acceptance Criteria
 
 Free:
 
 - initial install writes one static default prompt,
-- initial install enables 2 built-in providers,
-- at most 2 providers can be enabled,
+- initial install enables 3 built-in providers,
+- at most 3 built-in providers can be enabled,
 - owner can choose among ChatGPT, Claude, and Gemini,
 - custom AI cannot be added,
 - language profiles cannot be created,
 - all Wix language pages share one configuration,
-- `Powered by Zider` is displayed.
+- no `Powered by Zider` label is displayed.
 
 Plus:
 
@@ -646,8 +810,7 @@ Plus:
 - each profile can use different provider URL,
 - each profile can use different delivery mode,
 - Wix language changes load the matching profile,
-- missing current-language profile uses fallback,
-- `Powered by Zider` can be removed.
+- missing current-language profile uses fallback.
 
 Common:
 
@@ -656,8 +819,13 @@ Common:
 - AI APIs are not called,
 - providers open in a new tab,
 - URL Prefill works,
+- URL Prefill falls back when the encoded URL exceeds 1,800 characters,
 - Copy Prompt + Open works,
+- clipboard failure shows a manual copy modal,
 - mobile multi-provider layout wraps correctly,
+- draft config does not affect the live widget until publish,
+- invalid config cannot be published,
+- public visitors never see upgrade prompts,
 - upgrade keeps Free configuration,
 - downgrade preserves Plus configuration.
 
@@ -673,7 +841,7 @@ Common:
 | ZAA-006 | ChatGPT provider | All | P0 |
 | ZAA-007 | Claude provider | All | P0 |
 | ZAA-008 | Gemini provider | All | P0 |
-| ZAA-009 | Free max 2 AI providers | Free | P0 |
+| ZAA-009 | Free max 3 built-in AI providers | Free | P0 |
 | ZAA-010 | Unlimited providers | Plus | P0 |
 | ZAA-011 | Custom AI providers | Plus | P0 |
 | ZAA-012 | Language Profiles | Plus | P0 |
@@ -693,8 +861,15 @@ Common:
 | ZAA-026 | Responsive multi-line layout | All | P0 |
 | ZAA-027 | Prompt Preview | All | P1 |
 | ZAA-028 | Duplicate Language Profile | Plus | P1 |
-| ZAA-029 | Remove Zider branding | Plus | P1 |
+| ZAA-029 | No forced Zider branding | All | P0 |
 | ZAA-030 | Advanced styling | Plus | P1 |
+| ZAA-031 | Draft / published config lifecycle | All | P0 |
+| ZAA-032 | Runtime config API hides draft and secret data | All | P0 |
+| ZAA-033 | Field length validation | All | P0 |
+| ZAA-034 | Provider registry with versioned defaults | All | P0 |
+| ZAA-035 | Manual copy modal fallback | All | P0 |
+| ZAA-036 | Accessibility baseline | All | P0 |
+| ZAA-037 | Uninstall retention and runtime disable behavior | All | P0 |
 
 ## Open Implementation Questions
 
@@ -705,5 +880,6 @@ Common:
   typed table?
 - What are the final Wix billing plan IDs for Free and Plus?
 - Which locales should ship with static starter prompt templates on day one?
-- What URL length threshold should trigger Copy Prompt + Open fallback?
 - Which provider icon assets should be bundled, and which should be remote?
+- Should dashboard UI localization launch in English only, or include Chinese at
+  first release?
