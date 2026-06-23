@@ -1,7 +1,7 @@
 # 字段映射、产品字段、多语言与字体
 
-版本：v0.1
-更新日期：2026-05-29
+版本：v0.2
+更新日期：2026-06-23
 来源：从 [Zider PrintOps 产品需求文档](../order-printing-product-requirements.md) 按模块拆分
 模块说明：字段映射、产品同步、产品打印字段、站点语言、打印语言、阅读方向和字体 fallback。
 ## 1. 字段、产品字段、多语言与字体
@@ -77,7 +77,7 @@ P2：
 
 P0：
 
-- 系统语言支持 English、繁体中文。
+- 系统界面语言当前支持 English、简体中文、繁体中文。
 - 打印语言 P0 支持 English、Spanish、German、Japanese、French、Portuguese、Simplified Chinese、繁体中文、Arabic、Dutch、Italian、Korean。
 - 打印语言选项优先覆盖主流跨境商家语言：English、Spanish、German、Japanese、French、Portuguese、Chinese，并预留 Arabic RTL 场景。
 - 系统语言不影响已保存模板的打印语言。
@@ -87,6 +87,8 @@ P0：
 - P0 模型预留阅读方向字段，但界面不提供独立 `Reading order` 设置。
 - English、Spanish、German、Japanese、French、Portuguese、Simplified Chinese、繁体中文、Dutch、Italian、Korean 默认 `Left to right`。
 - Arabic 默认 `Right to left`，P0 需要让预览、PDF、浏览器打印共用 `dir="rtl"` 结构；P1 再补完整阿拉伯语语言包、RTL 精细排版和 PDF 验证。
+- Arabic 模板头部规则：logo / text logo 放左侧，阿拉伯文标题和订单信息放右侧。
+- Arabic 页脚规则：联系文案、网站和社媒链接默认右对齐；英文 URL、邮箱、订单号、SKU、金额保持原文方向和可读性。
 
 打印语言影响：
 
@@ -106,6 +108,11 @@ P0 模板编辑器必须支持：
 - 内置模板固定标签提供主流语言 fallback；缺失时回退到英文或模板默认文案。
 - 日期格式作为模板参数保存，不只依赖浏览器 locale。
 - 地址格式作为模板参数保存，先支持预设，后续接国家 / 地区规则。
+- 固定 label 自动按打印语言切换；模板内自定义 label 优先于内置翻译。
+- 商品名、客户备注、地址、订单行选项等订单原始数据不做机器翻译。
+- 样例数据必须使用中性信息：网站 `zider.ink`，邮箱 `support@zider.ink`，示例电话 `180000000`。
+- 财务汇总行 Items、Shipping、Tax、Total 的 label 需要跟随打印语言；隐藏开关只影响展示，不修改订单金额。
+- SKU 条形码只在订单行存在 SKU 时展示；无 SKU 时不显示空条码占位。
 
 后续阅读方向影响：
 

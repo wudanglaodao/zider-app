@@ -5510,6 +5510,10 @@
   font-weight: 760;
 }
 
+.editorSaveError {
+  color: #fecaca !important;
+}
+
 .editorSaveBar > div {
   display: flex;
   gap: 8px;

@@ -1,7 +1,7 @@
 # Zider PrintOps 产品需求文档
 
-版本：v0.13
-更新日期：2026-05-30
+版本：v0.20
+更新日期：2026-06-23
 文档类型：功能需求入口 / 模块索引
 当前范围：Wix Stores 首发，优先覆盖订单模板、字段映射、自定义样式、预览、PDF 和浏览器打印；餐饮 / Wix Restaurants 暂缓，后续单独评估
 
@@ -20,15 +20,19 @@
 
 Zider PrintOps 为电商商家提供一个订单文档生成与打印工作台，把订单数据转换成商家履约、生产、打包、财务和门店作业需要的文档。
 
-P0 聚焦 Wix Stores：
+P0 聚焦 Wix Stores，当前已落地的 V1 闭环包括：
 
-- Orders 工作台：最新订单同步、最近 7 天历史订单手动同步、筛选、预览、批量打印。
-- Template Center：My Templates、Template Library、模板详情和预览。
-- Template Editor：内置风格模板 + 参数化配置 + 结构化模板 JSON。
-- Field Mapping：Wix custom fields、checkout extra fields、buyer note、商品选项和上传文件。
-- Output：打印预览、PDF、浏览器打印、Print History。
-- 多店铺：组织下多个店铺隔离订单、模板、字段映射和打印记录。
-- 多语言：站点语言和打印语言分开建模。
+- Wix Dashboard 入口：`/apps/printops/wix` 作为 Wix 后台内嵌工作台。
+- Account Binding：Wix 安装后先创建 pending installation，邮箱验证码通过后再绑定 ZIDER member、workspace 和 connected store。
+- Orders 工作台：默认同步最近 3 天订单，更多菜单提供最近 7 天同步；订单列表每 3 分钟刷新一次缓存；支持已打印 / 未打印筛选、搜索、单订单 PDF / Print / Preview 和批量 PDF / 浏览器打印 / 标记已打印。
+- Wix 订单事件：Wix backend extension 转发 Order Created / Updated / Approved 等业务事件到 `app.zider.ink/webhooks/printops/wix`，接收端用 `ZIDER_WIX_EVENT_FORWARD_SECRETS` 校验。
+- Template Center：My Templates、Template Library、A4 Invoice 内置模板、模板预览、复制、删除、设置默认模板。
+- Template Editor：内置风格模板 + 参数化配置 + 结构化模板 JSON；右侧 A4 预览在编辑滚动时吸附；保存失败不关闭编辑器。
+- Template Persistence：模板、默认模板、PrintOps 设置均以 Supabase 为准；页面加载先读数据库，没有记录再创建默认模板，不再把 localStorage 当正式数据源。
+- Field / Output：支持订单字段、订单行、SKU、商品图、订单条形码、SKU 条形码、财务汇总行开关、社媒页脚和品牌 logo / text logo。
+- 多语言：界面语言与打印语言分开；打印语言支持主流语言和 Arabic RTL；固定 label 自动切换，订单原始内容不自动翻译。
+- Subscription：右上角显示当前 Wix 套餐和 Upgrade；本月用量按当月同步订单数计算，不按是否打印计算。
+- Support / Help：左侧 Support 入口使用 `mailto:support@zider.ink`，Help 入口跳转社区 / 帮助页。
 
 P0 不做：
 
@@ -50,6 +54,7 @@ P0 不做：
 | 05 | [模板中心与模板编辑器](./printops-requirements/05-template-center-editor.md) | Template Center、Template Editor、组件模型、尺寸设置、AI 生成模板入口 |
 | 06 | [字段映射、产品字段、多语言与字体](./printops-requirements/06-fields-localization-fonts.md) | 字段映射、产品同步、产品打印字段、站点语言、打印语言、字体 fallback |
 | 07 | [MVP 范围、路线图与待确认问题](./printops-requirements/07-roadmap-scope-open-questions.md) | P0 必做 / 暂缓、P1/P2/P3、非目标范围、待确认问题 |
+| 08 | [Wix 首发版本发布与测试接入计划](./printops-requirements/08-wix-release-test-plan.md) | Wix 发布、环境变量、Webhook、同步、PDF 和回归测试清单 |
 
 ## 4. 专项文档
 
@@ -61,14 +66,21 @@ P0 不做：
 | [系统结构文档](./order-printing-system-structure.md) | 页面结构、菜单结构、系统信息架构 |
 | [设计语言文档](./order-printing-design-language.md) | 后台视觉语言、Light / Dark token、侧边栏和顶部栏风格 |
 | [Shopify 竞品调研](./order-printing-shopify-competitor-research.md) | Shopify 生态竞品、目标客户、需求和商业场景 |
-| [Haemess / Harness 文档](./order-printing-harness.md) | 早期调研和外部参考材料 |
+| [Harness 文档](./order-printing-harness.md) | 系统边界、运行契约、数据同步、模板、PDF 和发布验收清单 |
 
 ## 5. 当前关键决策
 
 - 应用名称：`Zider PrintOps`，路径使用 `/apps/printops`。
 - Wix app key 使用 `zider_printops`；平台插件代码统一放入 `packages/platform-plugins/`。
 - 早期入口取消 `/order-printer`，不做兼容跳转。
-- P0 同步边界为最新订单 + 最近 7 天历史订单，暂不做任意历史全量导入。
+- P0 默认同步边界为最近 3 天订单；最近 7 天同步放在更多菜单，暂不做任意历史全量导入。
+- 新订单进入列表依赖业务 webhook 入库；前端只做每 3 分钟轻量刷新，不作为唯一同步机制。
+- Wix backend extension 和 Vercel 接收端必须使用同一个 `ZIDER_WIX_EVENT_FORWARD_SECRETS={"zider_printops":"<secret>"}`，401 视为密钥不一致或缺失。
+- App lifecycle / billing event 与 order business webhook 分开处理，不能写进同一条业务同步链路。
+- Wix owner email 只作为默认待验证邮箱；邮箱验证码通过前不创建正式 ZIDER member / workspace 归属。
+- 订单、模板、设置、订阅快照的正式来源是 Supabase；localStorage 只能作为临时 UI 状态或开发 fallback。
+- 订单数据必须记录所属 store / workspace 上下文，为后续多店铺筛选、隔离和合并做准备。
+- 打印订单永远使用数据库里的当前默认模板语言和设置，不使用前端缓存里的旧模板。
 - P0 优先做打印和模板，不做发货平台中转。
 - 订单类型按模板理解，不单独做复杂订单类型系统。
 - 不做打印机配置和连接，先用 PDF / Browser print。
@@ -76,4 +88,5 @@ P0 不做：
 - Browser print 只能标记为 `sent_to_browser_print`，不保证真实打印成功。
 - 模板编辑 P0 采用 Vify 式配置编辑器，不做完整拖拽式设计工具。
 - 模板底层必须结构化，支持后续组件编辑、代码模式和 AI Template Designer。
+- PDF、浏览器打印和屏幕预览必须共用同一份 A4 模板结构；绿色品牌线、RTL 对齐、财务行开关等样式不能只存在于预览。
 - 餐饮 / Wix Restaurants 暂缓，不进入当前 P0 / P1。

@@ -516,3 +516,53 @@ Comparison values:
 | Free | Starter | Pro | Business |
 |---|---|---|---|
 | 10 / job | 50 / job | 250 / job | 500 / job |
+
+## 13. Wix App Market Keywords
+
+Use these keywords for the Wix App Market listing, app metadata, and search-oriented copy. Keep the final keyword list focused on order printing, invoices, packing slips, and custom order documents.
+
+### 13.1 Recommended keyword list
+
+```text
+order printer, invoice printer, PDF invoice, packing slip, packing slips, order printing, print orders, bulk print, custom invoice, invoice template, packing slip template, order documents, receipt, PDF receipt, branded invoices, Wix Stores, store orders, custom fields, order templates, print-ready documents
+```
+
+### 13.2 Priority keywords
+
+Use these first if the Wix field has a tight keyword limit.
+
+| Priority | Keyword | Reason |
+|---:|---|---|
+| 1 | order printer | Highest-intent category keyword |
+| 2 | PDF invoice | Common merchant search phrase |
+| 3 | packing slip | Core fulfillment document |
+| 4 | invoice printer | Direct purchase intent |
+| 5 | order printing | Broad category phrase |
+| 6 | print orders | Action-oriented search phrase |
+| 7 | bulk print | Differentiates from single-order tools |
+| 8 | custom invoice | Connects to template customization |
+| 9 | invoice template | Template-led buyer intent |
+| 10 | order documents | Captures non-invoice documents |
+
+### 13.3 Long-tail phrases
+
+Use these in the app subtitle, short description, or feature copy instead of stuffing all of them into the keyword field.
+
+```text
+print Wix orders
+PDF invoices for Wix Stores
+custom invoice templates
+branded packing slips
+bulk order printing
+print-ready order documents
+custom fields on invoices
+invoice and packing slip templates
+```
+
+### 13.4 Keywords to avoid for now
+
+Avoid these until the product actually supports them, because they create support risk and wrong expectations.
+
+```text
+shipping labels, tax compliant invoice, legal invoice, e-invoicing, certified invoice, Peppol, ZUGFeRD, tracking automation, fulfillment app, printer integration, cloud printing, restaurant tickets
+```

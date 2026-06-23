@@ -8,7 +8,7 @@ persistence boundaries. Update this file before changing any Wix event route.
 - Direct Wix JWT webhooks are verified with the app-specific
   `webhook_public_key`.
 - Wix CLI Event extensions may forward parsed events to the same business route
-  only with `PRINTOPS_WIX_EVENT_FORWARD_SECRET`.
+  only with `ZIDER_WIX_EVENT_FORWARD_SECRETS`.
 - Store the public key in `app_platform_secrets.webhook_public_key`, keyed by
   `app_key` and `platform='wix'`.
 - Do not use `client_id`, `client_secret`, OAuth app ID, or `webhook_secret` for
@@ -39,14 +39,13 @@ There are two valid delivery modes:
    `/webhooks/printops/wix` with:
 
    ```http
-   Authorization: Bearer ${PRINTOPS_WIX_EVENT_FORWARD_SECRET}
+   Authorization: Bearer ${ZIDER_WIX_EVENT_FORWARD_SECRETS[zider_printops]}
    x-zider-event-source: wix-event-extension
    ```
 
    The receiver resolves the forward secret from
-   `PRINTOPS_WIX_EVENT_FORWARD_SECRET`, then
-   `app_platform_secrets.webhook_secret`. These records use
-   `verification_status='trusted_forward'` and have no `raw_jwt`.
+   `ZIDER_WIX_EVENT_FORWARD_SECRETS`, using the `zider_printops` key. These
+   records use `verification_status='trusted_forward'` and have no `raw_jwt`.
 
 Direct Wix webhook bodies are JWT payloads.
 
@@ -132,7 +131,7 @@ This receiver must:
 
 - Verify direct Wix JWT signatures with the PrintOps `webhook_public_key`, or
   verify Wix CLI Event extension forwards with
-  `PRINTOPS_WIX_EVENT_FORWARD_SECRET`.
+  `ZIDER_WIX_EVENT_FORWARD_SECRETS`.
 - Store the verified or trusted-forward payload in `app_business_event_logs`.
 - Upsert the current order into `printops_orders` when the event includes a full
   printable order payload.
@@ -211,12 +210,10 @@ Required environment variables for the Wix CLI app runtime:
 
 - `PRINTOPS_WIX_EVENT_INGEST_URL`, default:
   `https://app.zider.ink/webhooks/printops/wix`
-- `PRINTOPS_WIX_EVENT_FORWARD_SECRET`
+- `ZIDER_WIX_EVENT_FORWARD_SECRETS={"zider_printops":"<same-random-secret>"}`
 
-The app receiver can also read the same secret from:
-
-- `app_platform_secrets.webhook_secret`, where `app_key='zider_printops'` and
-  `platform='wix'`
+The app receiver uses the same `ZIDER_WIX_EVENT_FORWARD_SECRETS` value. Old
+single-secret names are not part of the current contract.
 
 Database setup example:
 
@@ -230,8 +227,8 @@ insert into public.app_platform_secrets (
 values (
   'zider_printops',
   'wix',
-  '<same-value-as-PRINTOPS_WIX_EVENT_FORWARD_SECRET>',
-  'Shared secret for Wix CLI Event extension forwarding to PrintOps order webhook.'
+  '<same-value-as-ZIDER_WIX_EVENT_FORWARD_SECRETS[zider_printops]>',
+  'Legacy DB fallback only. Prefer ZIDER_WIX_EVENT_FORWARD_SECRETS for Wix backend extension forwarding.'
 )
 on conflict (app_key, platform)
 do update set

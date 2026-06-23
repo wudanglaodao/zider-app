@@ -1,10 +1,22 @@
 # 模板中心与模板编辑器
 
-版本：v0.3
-更新日期：2026-05-29
+版本：v0.4
+更新日期：2026-06-23
 来源：从 [Zider PrintOps 产品需求文档](../order-printing-product-requirements.md) 按模块拆分
 模块说明：Template Center、Template Editor、组件模型、尺寸设置、技术要求和 AI 生成模板入口。
 补充专项文档：详见 [模板专项需求文档](../order-printing-template-requirements.md) 和 [模板视觉与场景调研](../order-printing-template-visual-research.md)。
+
+当前 V1 落地快照：
+
+- Template Center 有 `My Templates` 和 `Template Library` 两个 tab。
+- 当前内置模板先只上线两套 A4 Invoice：`Invoice - Big Brand` 和 `Invoice - Minimal`。
+- My Templates 和默认模板状态从 `printops_templates` 读取；没有记录时创建默认模板。
+- Template Settings、Brand and style、Options and format、Text and language 的保存结果必须写入数据库。
+- `localStorage` 只能作为临时 UI 状态或开发 fallback，不能作为模板正式来源。
+- 订单打印、批量 PDF、浏览器打印和单订单预览必须使用数据库中的当前默认模板。
+- 右侧 A4 预览在编辑器滚动时吸附顶部，方便用户边改边看。
+- 模板保存失败时保留编辑器和未保存内容，不关闭弹层。
+- Template Library 卡片缩略图当前可先使用静态图片占位；后续由用户提供 JPG / PNG 封面替换。
 
 ## 1. 模板中心与模板编辑器
 
@@ -99,6 +111,7 @@ P0：Template Library
 
 - 提供系统内置模板库。
 - 当前首批内置模板先聚焦 `Invoice`，使用 Wix 订单数据渲染客户可见发票样式。
+- 当前已实现模板为 `Invoice - Big Brand` 和 `Invoice - Minimal`，其他模板名称保留为后续模板包规划。
 - 当前首批 `Invoice` 模板必须支持打印订单同步过来的自定义字段，包含订单级 custom fields 和订单行级 custom text / options 字段。
 - 其他分类 Fulfillment、Picking、Production、Customer Documents、Finance Helper、Store / POS 保留为后续扩展。
 - 内置模板使用视觉卡片展示，缩略图需要清晰体现版式风格，而不只是显示模板名称。
@@ -168,6 +181,9 @@ P0：默认模板规则
 - 如果当前店铺没有默认模板，系统使用内置 fallback 模板。
 - 设置新默认模板时，需要替换同一文档类型下的旧默认模板。
 - 删除默认模板前必须先选择新的默认模板，或恢复系统 fallback。
+- 设置默认模板必须写入 Supabase；刷新页面后默认状态不能丢失。
+- 打印订单时不得使用前端缓存中的旧默认模板。
+- 模板默认语言、品牌设置、页脚、财务行开关和条码设置属于模板的一部分，必须随默认模板一起参与打印。
 
 P0：页面状态
 
@@ -297,7 +313,9 @@ P0：
 - 支持商品图片显示开关。
 - 支持订单条形码显示开关，并以订单号作为 P0 条码内容。
 - 支持 SKU 显示开关，SKU 位于商品名称和商品选项之间。
+- 支持商品 SKU 条形码开关；只有订单行存在 SKU 时才展示 SKU 条形码。
 - 支持价格显示开关。
+- 支持财务汇总行显示开关：Items、Shipping、Tax、Total 四项可以分别控制是否展示。
 - 支持感谢语、退换货说明、客服联系方式等固定文案。
 - 支持打印预览。
 - 支持根据模板受众展示推荐字段，如客户文档推荐显示政策文案，仓库文档推荐显示 SKU / 数量 / 货位。

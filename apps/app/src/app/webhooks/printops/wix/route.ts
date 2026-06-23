@@ -138,6 +138,12 @@ async function parseForwardedEventRequest(
   const expectedSecret = await getPrintOpsForwardSecret(appKey);
 
   if (!expectedSecret) {
+    console.warn("PrintOps Wix forwarded event rejected: missing forward secret", {
+      appKey,
+      source,
+      hasAuthorization: Boolean(auth),
+    });
+
     return {
       error: "Missing ZIDER_WIX_EVENT_FORWARD_SECRETS",
       status: 500,
@@ -147,6 +153,14 @@ async function parseForwardedEventRequest(
   const actualSecret = auth?.replace(/^Bearer\s+/i, "").trim() ?? "";
 
   if (!secretMatches(actualSecret, expectedSecret)) {
+    console.warn("PrintOps Wix forwarded event rejected: invalid forward secret", {
+      appKey,
+      source,
+      hasAuthorization: Boolean(auth),
+      actualSecretLength: actualSecret.length,
+      expectedSecretLength: expectedSecret.length,
+    });
+
     return {
       error: "Invalid PrintOps Wix event forward secret",
       status: 401,

@@ -1,7 +1,7 @@
 # 订单数据模型与模板渲染上下文
 
-版本：v0.1
-更新日期：2026-05-29
+版本：v0.2
+更新日期：2026-06-23
 来源：从 [Zider PrintOps 产品需求文档](../order-printing-product-requirements.md) 按模块拆分
 模块说明：标准订单模型、产品资料、履约支付、物流、自定义字段、输出元数据和 Template Render Context。
 ## 5. 标准订单模型
@@ -13,9 +13,14 @@
 | 字段 | 说明 |
 |---|---|
 | `organization_id` | 商家组织 ID |
+| `workspace_id` | ZIDER workspace ID；账户绑定后必须写入 |
 | `store_id` | 系统内店铺 ID |
+| `app_key` | 应用 key，如 `zider_printops` |
+| `platform` | 平台，如 `wix` |
+| `instance_id` | Wix app instance ID；未绑定账户前用于兼容读取 |
 | `source_platform` | 订单来源，如 wix、woocommerce、shopify、csv、api |
 | `source_store_id` | 来源店铺 ID |
+| `store_name` | 同步时的店铺名快照，用于列表和多店铺区分 |
 | `source_order_id` | 平台原始订单 ID |
 | `display_order_number` | 商家和客户看到的订单号 |
 | `order_date` | 下单时间 |
@@ -24,6 +29,13 @@
 | `tags` | 平台标签和内部标签 |
 | `purchase_order_number` | PO number，如平台、B2B 或自定义字段可提供 |
 | `customer_locale` | 订单或客户语言区域，如 en-US、zh-TW、de-DE |
+
+当前 V1 约束：
+
+- `app_key + platform + instance_id + source_order_id` 是未绑定账户时的兼容唯一定位。
+- 账户绑定后，新订单必须同时保留 `workspace_id` 和 `store_id`。
+- 多店铺 UI 暂未完全展开，但订单数据必须先记录店铺上下文，后续才能筛选、合并和隔离。
+- 真实订单列表只能使用同步订单字段，不得使用模板样例数据或 mock 文案。
 
 ### 5.1.1 Wix 默认订单打印字段基线
 

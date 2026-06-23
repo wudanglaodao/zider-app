@@ -2822,7 +2822,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const [selectedTemplateId, setSelectedTemplateId] = useState("store-order-clean");
   const [templateRecords, setTemplateRecords] = useState<TemplateRecord[]>(initialTemplateRecords);
   const [templatesHydrated, setTemplatesHydrated] = useState(false);
-  const [, setTemplateStoreStatus] = useState<TemplateStoreStatus>({
+  const [templateStoreStatus, setTemplateStoreStatus] = useState<TemplateStoreStatus>({
     error: null,
     status: "idle",
   });
@@ -3379,6 +3379,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   }
 
   function openCreateTemplate() {
+    setTemplateStoreStatus({ error: null, status: "idle" });
     setTemplateEditorMode("create");
     setTemplateDraft(createTemplateDraftWithStoreProfile(storeProfile));
     setTemplateEditorOpen(true);
@@ -3387,6 +3388,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   function openTemplateEditor(templateRecord: TemplateRecord) {
     const mode: TemplateEditorMode = templateRecord.source === "Built-in" ? "duplicate" : "edit";
 
+    setTemplateStoreStatus({ error: null, status: "idle" });
     setTemplateEditorMode(mode);
     setTemplateDraft(createDraftFromTemplate(templateRecord, mode));
     setTemplateEditorOpen(true);
@@ -3459,9 +3461,16 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     }
   }
 
-  async function persistTemplatesToDatabase(templates: TemplateRecord[], nextSelectedTemplateId: string) {
+  async function persistTemplatesToDatabase(templates: TemplateRecord[], nextSelectedTemplateId: string): Promise<TemplateStoreStatus> {
     if (!pluginContext?.templatesEndpoint) {
-      return;
+      const nextStatus: TemplateStoreStatus = {
+        error: "Template database endpoint is not available.",
+        status: "skipped",
+      };
+
+      setTemplateStoreStatus(nextStatus);
+
+      return nextStatus;
     }
 
     setTemplateStoreStatus({ error: null, status: "saving" });
@@ -3488,15 +3497,23 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         throw new Error(payload?.templateStore?.reason ?? `Template save failed with ${response.status}`);
       }
 
-      setTemplateStoreStatus({
+      const nextStatus: TemplateStoreStatus = {
         error: payload?.templateStore?.reason ?? null,
         status: payload?.templateStore?.status === "skipped" ? "skipped" : "saved",
-      });
+      };
+
+      setTemplateStoreStatus(nextStatus);
+
+      return nextStatus;
     } catch (error) {
-      setTemplateStoreStatus({
+      const nextStatus: TemplateStoreStatus = {
         error: error instanceof Error ? error.message : "Failed to save PrintOps templates",
         status: "error",
-      });
+      };
+
+      setTemplateStoreStatus(nextStatus);
+
+      return nextStatus;
     }
   }
 
@@ -3712,7 +3729,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     void persistSettingsToDatabase(nextSettings);
   }
 
-  function saveTemplateDraft() {
+  async function saveTemplateDraft() {
     const existingTemplate = templateRecords.find((templateRecord) => templateRecord.id === templateDraft.id);
     const savedTemplate = createTemplateRecordFromDraft(templateDraft, templateEditorMode === "edit" ? existingTemplate : undefined);
     const shouldUseSavedTemplateByDefault = savedTemplate.status === "Ready";
@@ -3740,11 +3757,16 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       ];
     })();
 
+    const saveStatus = await persistTemplatesToDatabase(nextTemplateRecords, nextSavedTemplate.id);
+
+    if (saveStatus.status === "error" || saveStatus.status === "skipped") {
+      return;
+    }
+
     setTemplateRecords(nextTemplateRecords);
     setTemplateTab("mine");
     setSelectedTemplateId(nextSavedTemplate.id);
     persistTemplateState(nextTemplateRecords, nextSavedTemplate.id);
-    void persistTemplatesToDatabase(nextTemplateRecords, nextSavedTemplate.id);
     setTemplateEditorOpen(false);
   }
 
@@ -4415,6 +4437,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         siteLocale={siteLocale}
         storeProfile={storeProfile}
         storeProfileStatus={storeProfileStatus}
+        templateStoreStatus={templateStoreStatus}
       />
 
       <Drawer.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
@@ -5982,6 +6005,12 @@ function applyTemplateExportTokens(element: HTMLElement) {
     "--paper-surface": "#ffffff",
     "--paper-ink": "#121817",
     "--paper-muted": "#65706d",
+    "--order-accent": "#087a46",
+    "--order-accent-2": "#046137",
+    "--order-soft": "#eff6f1",
+    "--order-line": "#dce5de",
+    "--order-ink": "#111816",
+    "--order-muted": "#65706d",
     "--shadow-soft": "none",
   };
 
@@ -5990,10 +6019,20 @@ function applyTemplateExportTokens(element: HTMLElement) {
   });
 }
 
-function prepareOrderPaperClone(sourceNode: HTMLElement, isLastPage: boolean) {
-  const clonedPaper = sourceNode.cloneNode(true) as HTMLElement;
+function getExportPaperTopBorder(sourceNode: HTMLElement) {
+  const computedStyle = window.getComputedStyle(sourceNode);
+  const topWidth = Number.parseFloat(computedStyle.borderTopWidth);
 
-  clonedPaper.setAttribute("data-order-paper", "true");
+  if (!Number.isFinite(topWidth) || topWidth <= 1.5 || computedStyle.borderTopStyle === "none") {
+    return null;
+  }
+
+  return `${computedStyle.borderTopWidth} ${computedStyle.borderTopStyle} ${computedStyle.borderTopColor}`;
+}
+
+function applyA4ExportPaperStyles(clonedPaper: HTMLElement, sourceNode: HTMLElement) {
+  const topBorder = getExportPaperTopBorder(sourceNode);
+
   clonedPaper.style.width = `${A4_EXPORT_WIDTH_PX}px`;
   clonedPaper.style.maxWidth = "none";
   clonedPaper.style.minHeight = `${A4_EXPORT_HEIGHT_PX}px`;
@@ -6001,15 +6040,29 @@ function prepareOrderPaperClone(sourceNode: HTMLElement, isLastPage: boolean) {
   clonedPaper.style.boxSizing = "border-box";
   clonedPaper.style.boxShadow = "none";
   clonedPaper.style.border = "0";
+  if (topBorder) {
+    clonedPaper.style.borderTop = topBorder;
+  }
   clonedPaper.style.borderRadius = "0";
   clonedPaper.style.margin = "0";
   clonedPaper.style.overflow = "hidden";
   clonedPaper.style.padding = "64px";
-  clonedPaper.style.breakAfter = isLastPage ? "auto" : "page";
-  clonedPaper.style.pageBreakAfter = isLastPage ? "auto" : "always";
+  clonedPaper.style.setProperty("-webkit-print-color-adjust", "exact");
+  clonedPaper.style.setProperty("print-color-adjust", "exact");
   clonedPaper.querySelectorAll<HTMLElement>("*").forEach((node) => {
     node.style.boxSizing = "border-box";
+    node.style.setProperty("-webkit-print-color-adjust", "exact");
+    node.style.setProperty("print-color-adjust", "exact");
   });
+}
+
+function prepareOrderPaperClone(sourceNode: HTMLElement, isLastPage: boolean) {
+  const clonedPaper = sourceNode.cloneNode(true) as HTMLElement;
+
+  clonedPaper.setAttribute("data-order-paper", "true");
+  applyA4ExportPaperStyles(clonedPaper, sourceNode);
+  clonedPaper.style.breakAfter = isLastPage ? "auto" : "page";
+  clonedPaper.style.pageBreakAfter = isLastPage ? "auto" : "always";
 
   return clonedPaper;
 }
@@ -6121,6 +6174,12 @@ function openOrderPrintWindow(sourceNodes: HTMLElement[], title: string) {
         --paper-surface: #ffffff;
         --paper-ink: #121817;
         --paper-muted: #65706d;
+        --order-accent: #087a46;
+        --order-accent-2: #046137;
+        --order-soft: #eff6f1;
+        --order-line: #dce5de;
+        --order-ink: #111816;
+        --order-muted: #65706d;
       }
 
       * {
@@ -6154,11 +6213,21 @@ function openOrderPrintWindow(sourceNodes: HTMLElement[], title: string) {
         max-width: none !important;
         min-height: ${A4_EXPORT_HEIGHT_PX}px !important;
         height: ${A4_EXPORT_HEIGHT_PX}px !important;
-        border: 0 !important;
+        border-left: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
         border-radius: 0 !important;
         box-shadow: none !important;
         margin: 0 !important;
         padding: 64px !important;
+      }
+
+      .printops-order-print-preview [data-order-paper="true"]:not([data-style="market"]) {
+        border-top: 0 !important;
+      }
+
+      .printops-order-print-preview [data-order-paper="true"][data-document="order"][data-style="market"] {
+        border-top: 0.55em solid var(--order-accent-2) !important;
       }
 
       .printops-order-print-preview [data-order-paper="true"]:not(:last-child) {
@@ -6187,10 +6256,20 @@ function openOrderPrintWindow(sourceNodes: HTMLElement[], title: string) {
           max-width: none !important;
           min-height: 297mm !important;
           height: 297mm !important;
-          border: 0 !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+          border-bottom: 0 !important;
           border-radius: 0 !important;
           box-shadow: none !important;
           padding: 17mm !important;
+        }
+
+        .printops-order-print-preview [data-order-paper="true"]:not([data-style="market"]) {
+          border-top: 0 !important;
+        }
+
+        .printops-order-print-preview [data-order-paper="true"][data-document="order"][data-style="market"] {
+          border-top: 0.55em solid var(--order-accent-2) !important;
         }
       }
     </style>
@@ -6231,20 +6310,7 @@ async function createTemplatePdfBlob(templateRecord: TemplateRecord) {
   exportHost.style.overflow = "hidden";
   exportHost.style.pointerEvents = "none";
 
-  clonedPaper.style.width = `${A4_EXPORT_WIDTH_PX}px`;
-  clonedPaper.style.maxWidth = "none";
-  clonedPaper.style.minHeight = `${A4_EXPORT_HEIGHT_PX}px`;
-  clonedPaper.style.height = `${A4_EXPORT_HEIGHT_PX}px`;
-  clonedPaper.style.boxSizing = "border-box";
-  clonedPaper.style.boxShadow = "none";
-  clonedPaper.style.border = "0";
-  clonedPaper.style.borderRadius = "0";
-  clonedPaper.style.margin = "0";
-  clonedPaper.style.overflow = "hidden";
-  clonedPaper.style.padding = "64px";
-  clonedPaper.querySelectorAll<HTMLElement>("*").forEach((node) => {
-    node.style.boxSizing = "border-box";
-  });
+  applyA4ExportPaperStyles(clonedPaper, sourceNode);
 
   exportHost.appendChild(clonedPaper);
   document.body.appendChild(exportHost);
@@ -6354,11 +6420,21 @@ function openTemplatePrintWindow(templateRecord: TemplateRecord) {
         max-width: none !important;
         min-height: ${A4_EXPORT_HEIGHT_PX}px !important;
         height: ${A4_EXPORT_HEIGHT_PX}px !important;
-        border: 0 !important;
+        border-left: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
         border-radius: 0 !important;
         box-shadow: none;
         margin: 0;
         padding: 64px !important;
+      }
+
+      .printops-print-preview [class*="templatePaper"]:not([data-style="market"]) {
+        border-top: 0 !important;
+      }
+
+      .printops-print-preview [class*="templatePaper"][data-document="order"][data-style="market"] {
+        border-top: 0.55em solid var(--order-accent-2) !important;
       }
 
       @page {
@@ -6381,10 +6457,20 @@ function openTemplatePrintWindow(templateRecord: TemplateRecord) {
           max-width: none !important;
           min-height: 297mm !important;
           height: 297mm !important;
-          border: 0 !important;
+          border-left: 0 !important;
+          border-right: 0 !important;
+          border-bottom: 0 !important;
           border-radius: 0 !important;
           box-shadow: none;
           padding: 17mm !important;
+        }
+
+        .printops-print-preview [class*="templatePaper"]:not([data-style="market"]) {
+          border-top: 0 !important;
+        }
+
+        .printops-print-preview [class*="templatePaper"][data-document="order"][data-style="market"] {
+          border-top: 0.55em solid var(--order-accent-2) !important;
         }
       }
     </style>
@@ -6628,18 +6714,20 @@ function TemplateEditorDrawer({
   siteLocale,
   storeProfile,
   storeProfileStatus,
+  templateStoreStatus,
 }: {
   draft: TemplateDraft;
   messages: PrintOpsMessages;
   mode: TemplateEditorMode;
   onDraftChange: (patch: Partial<TemplateDraft>) => void;
   onOpenChange: (open: boolean) => void;
-  onSave: () => void;
+  onSave: () => Promise<void>;
   open: boolean;
   printLanguageOptions: { label: string; value: string }[];
   siteLocale: SiteLocale;
   storeProfile: PrintOpsStoreProfileSummary | null;
   storeProfileStatus: StoreProfileStatus;
+  templateStoreStatus: TemplateStoreStatus;
 }) {
   const editorCopy = messages.templateEditor;
   const visibleFieldGroups = useMemo(() => getVisibleFieldGroups(editorCopy), [editorCopy]);
@@ -6650,6 +6738,13 @@ function TemplateEditorDrawer({
       : editorCopy.createDescription;
   const parsedRequirements = parseDataRequirements(draft.dataRequirements);
   const canSave = draft.name.trim().length > 0 && draft.description.trim().length > 0;
+  const isSavingTemplate = templateStoreStatus.status === "saving";
+  const saveBarCopy =
+    templateStoreStatus.status === "saving"
+      ? "Saving template..."
+      : templateStoreStatus.status === "error" || templateStoreStatus.status === "skipped"
+        ? (templateStoreStatus.error ?? "Template database is not available.")
+        : editorCopy.unsavedChanges;
   const [activeSection, setActiveSection] = useState<TemplateEditorSectionId>("brand");
   const [socialPlatformToAdd, setSocialPlatformToAdd] = useState<SocialPlatform>("instagram");
   const [isExportingTestPdf, setIsExportingTestPdf] = useState(false);
@@ -7341,14 +7436,14 @@ function TemplateEditorDrawer({
         <Drawer.Viewport className={styles.drawerViewport}>
           <Drawer.Popup className={styles.drawerPopup}>
             <div className={styles.editorSaveBar}>
-              <span>
+              <span className={templateStoreStatus.status === "error" || templateStoreStatus.status === "skipped" ? styles.editorSaveError : undefined}>
                 <AlertTriangle size={16} aria-hidden />
-                {editorCopy.unsavedChanges}
+                {saveBarCopy}
               </span>
               <div>
                 <Drawer.Close className={styles.editorGhostButton}>{editorCopy.discard}</Drawer.Close>
-                <button className={styles.editorSaveButton} type="button" disabled={!canSave} onClick={onSave}>
-                  {editorCopy.save}
+                <button className={styles.editorSaveButton} type="button" disabled={!canSave || isSavingTemplate} onClick={onSave}>
+                  {isSavingTemplate ? "Saving" : editorCopy.save}
                 </button>
               </div>
             </div>
@@ -7409,9 +7504,9 @@ function TemplateEditorDrawer({
                 )}
 
                 <div className={styles.drawerActions}>
-                  <button className={styles.primaryButton} type="button" disabled={!canSave} onClick={onSave}>
+                  <button className={styles.primaryButton} type="button" disabled={!canSave || isSavingTemplate} onClick={onSave}>
                     <LayoutTemplate size={17} aria-hidden />
-                    {mode === "duplicate" ? editorCopy.addToMyTemplates : editorCopy.saveTemplate}
+                    {isSavingTemplate ? "Saving" : mode === "duplicate" ? editorCopy.addToMyTemplates : editorCopy.saveTemplate}
                   </button>
                   <Drawer.Close className={styles.secondaryButton}>{editorCopy.cancel}</Drawer.Close>
                 </div>

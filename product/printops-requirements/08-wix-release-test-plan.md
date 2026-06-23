@@ -1,5 +1,8 @@
 # Wix 首发版本发布与测试接入计划
 
+版本：v0.2
+更新日期：2026-06-23
+
 模块说明：先发布 PrintOps v0.1 可测试版本，再接入 Wix 开发环境获取真实订单数据。P0 目标是验证“安装 Wix App -> 同步订单 -> 选择 Invoice 模板 -> 预览 / 下载 PDF / 打印”的最短闭环。
 
 ## 1. 发布策略
@@ -7,9 +10,10 @@
 ### 1.1 版本名称
 
 - 产品名：Zider PrintOps
-- 首发版本：`v0.1 Wix Preview`
-- 发布目标：内部测试 / Wix 开发环境安装测试
-- 不进入 Wix App Market 正式上架审核
+- 当前版本：`v0.5+ Wix Preview / Market readiness`
+- 发布目标：Wix 开发环境、Wix 后台内嵌测试、App Market 上架前回归
+- 部署目标 Vercel 账户：`duorouai-5425s-projects`
+- 部署方式：推送 GitHub 主分支后由 Vercel 自动部署
 
 ### 1.2 发布范围
 
@@ -33,6 +37,14 @@
 - 复杂拖拽式模板编辑器。
 - 正式计费。
 
+当前已接入但仍需配置验证：
+
+- Account binding 邮箱验证码。
+- Wix billing plan 镜像和 Upgrade URL。
+- Wix backend extension 订单事件转发。
+- 每 3 分钟订单列表刷新。
+- 订阅用量按当月订单数计算。
+
 ## 2. 发布前检查清单
 
 ### 2.1 技术检查
@@ -48,12 +60,22 @@
 
 ### 2.2 配置检查
 
-Workspace 发布环境需要：
+Workspace / App 接收端发布环境需要：
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `WIX_PRINTOPS_APP_ID`
-- `WIX_PRINTOPS_APP_SECRET`
+- `ZIDER_PRINTOPS_WIX_APP_ID`，用于生成 Wix upgrade URL；兼容旧名 `WIX_PRINTOPS_APP_ID`
+- `WIX_PRINTOPS_APP_SECRET` 或数据库 `app_platform_secrets`，用于 Wix OAuth / instance 验证
+- `ZIDER_WIX_EVENT_FORWARD_SECRETS={"zider_printops":"<random-secret>"}`
+- `ZIDER_PRINTOPS_WIX_PLAN_IDS=free=basic,free;starter=starter;pro=pro;business=business`
+- `BREVO_API_KEY`
+- `ACCOUNT_BINDING_FROM_EMAIL=support@zider.ink`
+- `ACCOUNT_BINDING_FROM_NAME=ZIDER`
+
+Wix backend extension 环境需要：
+
+- `ZIDER_WIX_EVENT_FORWARD_SECRETS={"zider_printops":"<same-random-secret>"}`
+- `PRINTOPS_WIX_EVENT_INGEST_URL=https://app.zider.ink/webhooks/printops/wix`，默认值已指向生产接收端，但建议显式配置
 
 如使用数据库保存 app secret，则写入：
 
@@ -86,6 +108,14 @@ Webhooks：
 - Order Created
 - Order Updated
 - Order Canceled / Deleted，如 Wix 当前事件可用
+- Order Approved / Payment / Fulfillment 相关事件，如 Wix 当前事件可用
+
+Webhook 验收：
+
+- Wix Developer Console 测试 Order Created / Updated 返回 2xx。
+- Vercel 日志不再出现 `/webhooks/printops/wix` 401。
+- 如果仍是 401，优先检查 Wix backend extension 和 Vercel 是否使用同一份 `ZIDER_WIX_EVENT_FORWARD_SECRETS`。
+- app lifecycle / billing event 必须打到 `/events/wix/zider_printops` 或专用 billing endpoint，不能打到 `/webhooks/printops/wix`。
 
 ## 3. Wix 订单接入方案
 
@@ -104,8 +134,8 @@ P0 不实时把每个页面请求都打到 Wix，而是：
 
 首次同步策略：
 
-- 默认同步最近 24 小时订单。
-- 手动历史同步最多 7 天。
+- 默认同步最近 3 天订单。
+- 手动历史同步最多 7 天，并放入更多菜单。
 - 使用 `updatedDate` 倒序同步，保证订单状态变更、支付变更、履约变更可以覆盖旧记录。
 - 每页默认 50 条。
 - P0 最多连续同步 10 页，超过后保留 `nextCursor` 继续执行。
@@ -181,6 +211,9 @@ P0 UI 不显示“需重打”状态，但底层预留：
 - `total_formatted`
 - `line_item_count`
 - `custom_field_count`
+- `workspace_id`
+- `store_id`
+- `store_name`
 - `normalized_order`
 - `raw_order`
 - `last_sync_mode`
@@ -198,7 +231,33 @@ P0 UI 不显示“需重打”状态，但底层预留：
 
 - Orders 页面 API：`/api/apps/printops/wix/orders`
 
-### 4.2 `app_business_event_logs`
+订单列表验收：
+
+- 页面刷新后，同步过的订单仍能从数据库读取。
+- 新订单若 webhook 成功，应入库并在 3 分钟内被前端刷新展示。
+- 列表字段来自 `normalized_order`，不得显示 mock customer / item 文案。
+- 订单必须可追溯所属 Wix instance，绑定后还需可追溯 workspace / store。
+
+### 4.2 `printops_templates`
+
+存储 My Templates、默认模板、模板参数和打印语言。
+
+验收：
+
+- 保存模板后刷新页面，模板名称、语言、品牌、logo、财务行开关、SKU 条形码和社媒页脚不丢失。
+- 设置默认模板后，订单打印使用数据库中最新默认模板。
+- PDF、Browser print 和屏幕预览共用同一份模板结构。
+
+### 4.3 `printops_settings`
+
+存储 PrintOps 偏好设置，如界面语言、默认打印语言、时区和区域预览。
+
+验收：
+
+- Settings 保存后刷新页面不丢失。
+- 设置不覆盖模板自己的打印语言；模板语言优先用于订单打印。
+
+### 4.4 `app_business_event_logs`
 
 存储 PrintOps 业务事件日志，用于订单事件追踪、调试和后续重放。
 
@@ -225,7 +284,7 @@ P0 UI 不显示“需重打”状态，但底层预留：
 - `received_at`
 - `processed_at`
 
-### 4.3 后续增强表
+### 4.5 后续增强表
 
 以下表 P0 先不强依赖，后续在正式打印记录、增量补偿任务和多平台连接管理时再引入：
 
@@ -255,11 +314,11 @@ P0 UI 不显示“需重打”状态，但底层预留：
 
 - 更新 workspace 路由说明。
 - 修复 PrintOps Wix dashboard 使用自己的 app secret。
-- 补齐 `WIX_PRINTOPS_*` 环境变量说明。
+- 补齐 `ZIDER_WIX_EVENT_FORWARD_SECRETS`、`ZIDER_PRINTOPS_WIX_PLAN_IDS`、Brevo 邮件环境变量说明。
 - 跑 typecheck。
 - 跑 workspace build。
-- 发布 workspace preview。
-- 用 preview URL 配置 Wix dashboard URL。
+- 推送 GitHub 主分支，由 `duorouai-5425s-projects` 下的 Vercel 项目自动部署。
+- 用生产 URL 配置 Wix dashboard URL。
 
 ### 5.2 Wix 插件测试任务
 
@@ -270,7 +329,7 @@ P0 UI 不显示“需重打”状态，但底层预留：
 - 获取真实 `instance` 参数并验证签名。
 - 打开 readiness 检查：`/api/apps/printops/wix/readiness?verifyOAuth=1`，确认 instance、OAuth credentials、`printops_orders`、access token 均已就绪。
 - 使用 `instance_id` 换取 access token。
-- 调用 Wix Orders Search API 同步最近 24 小时订单。
+- 调用 Wix Orders Search API 同步最近 3 天订单。
 - 保存 raw payload 和 normalized order。
 - 在 Orders 页面展示同步订单。
 - 用同步订单渲染 Big Brand Invoice。
@@ -322,7 +381,7 @@ P0 测试通过标准：
 - Wix 测试站点可以打开 PrintOps dashboard。
 - 可以识别真实 `instance_id`。
 - 可以拿到 Wix access token。
-- 可以同步最近 24 小时订单。
+- 可以同步最近 3 天订单。
 - 可以同步最多 7 天历史订单。
 - 可以接住订单状态更新。
 - 可以保留 raw payload。
@@ -330,3 +389,6 @@ P0 测试通过标准：
 - Orders 预览、Invoice 模板预览、PDF 和浏览器打印使用同一份自定义字段结果。
 - 可以用真实订单生成 A4 Invoice PDF。
 - 打印快照不被后续订单更新覆盖。
+- PDF 不是空白，且顶部品牌线、RTL 方向、财务行开关与预览一致。
+- Account binding 可以发送验证码；缺少 Brevo 配置时显示明确错误。
+- 当前计划显示 Basic / Starter / Pro / Business，hover 显示当月订单用量。

@@ -74,12 +74,23 @@ export async function readPrintOpsTemplates(input: {
     .returns<PrintOpsTemplateRow[]>();
 
   if (!error) {
-    const templates = (data ?? []).map((row) => ({
-      ...row.template_record,
-      id: readString(row.template_record.id) ?? row.template_id,
-      isDefault: Boolean(row.template_record.isDefault ?? row.is_default),
-    }));
-    const selectedTemplateId = templates.find((template) => template.isDefault)?.id;
+    const rows = data ?? [];
+    const selectedTemplateId =
+      rows
+        .map((row) => ({
+          id: readString(row.template_record.id) ?? row.template_id,
+          isDefault: Boolean(row.template_record.isDefault ?? row.is_default),
+        }))
+        .find((template) => template.isDefault)?.id ?? null;
+    const templates = rows.map((row) => {
+      const id = readString(row.template_record.id) ?? row.template_id;
+
+      return {
+        ...row.template_record,
+        id,
+        isDefault: selectedTemplateId ? id === selectedTemplateId : false,
+      };
+    });
 
     return {
       selectedTemplateId: readString(selectedTemplateId),
@@ -123,11 +134,12 @@ export async function persistPrintOpsTemplates(input: PersistPrintOpsTemplatesIn
     };
   }
 
-  const selectedTemplateId = input.selectedTemplateId ?? readString(templates.find((template) => template.isDefault)?.id);
+  const selectedTemplateId =
+    input.selectedTemplateId ?? readString(templates.find((template) => template.isDefault)?.id) ?? readString(templates[0]?.id);
   const installationContext = await readAppInstallationContext(input);
   const rows = templates.map((template) => {
     const templateId = readString(template.id)!;
-    const isDefault = templateId === selectedTemplateId || Boolean(template.isDefault);
+    const isDefault = selectedTemplateId ? templateId === selectedTemplateId : false;
 
     return {
       app_key: input.appKey,

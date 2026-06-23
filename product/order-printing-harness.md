@@ -1,9 +1,9 @@
 # 订单打印 Product Harness
 
-版本：v0.1
-更新日期：2026-05-24
+版本：v0.3
+更新日期：2026-06-23
 文档类型：系统边界与模块契约
-当前范围：Wix Stores 首发，优先订单模板、字段映射、自定义样式、预览、PDF 和打印记录
+当前范围：Wix Stores 首发，已覆盖订单同步、模板持久化、设置持久化、邮箱绑定、订阅用量、预览、PDF、浏览器打印和批量操作
 
 ## 1. 目的
 
@@ -29,12 +29,10 @@
 
 ## 2. 产品边界
 
-订单打印系统提供：
+订单打印系统长期提供：
 
 - 订单同步。
-- 产品资料同步。
 - 标准订单模型。
-- 标准产品模型。
 - 字段映射。
 - 模板组件模型。
 - 模板场景和匹配规则。
@@ -43,9 +41,26 @@
 - 浏览器打印。
 - Print job 记录。
 - 多店铺上下文。
+- Wix 安装记录、账户绑定和 workspace / store 归属。
+- Wix 订阅计划镜像和本月订单用量统计。
+
+其中产品资料同步、标准产品模型和产品打印字段管理是 P1+ 能力。当前 V1 只使用订单行自带的商品信息，避免把订单打印做成商品管理系统。
+
+当前 V1 已落地：
+
+- Wix backend extension 将订单业务事件转发到 `app.zider.ink/webhooks/printops/wix`。
+- Workspace API 将同步订单写入 `printops_orders`，并保留 `raw_order` 与 `normalized_order`。
+- `printops_templates` 是模板、默认模板和打印语言设置的正式来源。
+- `printops_settings` 是 PrintOps 偏好设置的正式来源。
+- `app_installations` 保存 Wix 安装与 pending / verified 账户绑定状态。
+- 邮箱验证码通过后创建或复用 ZIDER member、workspace 和 connected store。
+- Orders 页面支持 3 天默认同步、7 天手动同步、每 3 分钟刷新、批量 PDF、浏览器打印和标记已打印。
+- Template Editor 支持品牌、logo、text logo、字号、财务汇总行开关、SKU 条形码、社媒页脚、多语言 label 和 Arabic RTL。
+- Subscription 以 Wix billing 为 provider，右上角展示当前计划；用量按当月同步订单数量计算。
 
 前期不提供：
 
+- 产品资料同步和产品打印字段管理。
 - 复杂拖拽式设计工具。
 - 打印机连接。
 - 云打印。
@@ -60,6 +75,8 @@
 推荐结构：
 
 ```text
+Wix Dashboard Extension
+↓
 Workspace UI
 ↓
 Store Context
@@ -75,6 +92,20 @@ Template Engine
 Preview / PDF Renderer
 ↓
 Print Job Layer
+```
+
+当前 Wix V1 运行链路：
+
+```text
+Wix backend event extension
+↓ Authorization: Bearer ${ZIDER_WIX_EVENT_FORWARD_SECRETS[zider_printops]}
+app.zider.ink/webhooks/printops/wix
+↓
+app_business_event_logs + printops_orders
+↓
+workspace.zider.ink/apps/printops/wix
+↓
+Template renderer / PDF / Browser print
 ```
 
 ## 4. 核心层
@@ -269,11 +300,18 @@ Store Context 决定：
 
 规则：
 
-- 所有查询必须带 `organization_id`。
+- 订单查询必须至少带 `app_key + platform + instance_id`；完成账户绑定后必须同时带 `workspace_id / store_id`。
 - 店铺级数据必须带 `store_id`。
 - 切换店铺后清空已选订单。
 - 批量打印不能跨店铺执行。
 - 组织共享模板只能作为模板来源，打印时仍落到具体店铺。
+
+当前 V1 兼容规则：
+
+- 老数据可继续用 `instance_id` 读取。
+- 新数据应尽量写入 `workspace_id` 和 `store_id`。
+- 订单列表可以先按当前 Wix instance 过滤，后续多店铺时再开放 workspace 级筛选。
+- 订单缓存必须记录所属店铺，避免未来多店铺合并时无法区分来源。
 
 ## 6. 平台适配层
 
@@ -304,7 +342,36 @@ P0 适配层。
 - 读取商品、SKU、variant、图片等订单行字段。
 - 保存 Wix 原始 payload。
 - 支持手动刷新订单。
-- 后续支持 webhook 增量同步。
+- 支持 webhook 增量同步。
+- 支持安装后 pending installation 记录。
+- 支持读取 Wix site owner email 作为默认待验证邮箱。
+
+Wix 事件转发契约：
+
+- Wix backend extension 与 Vercel 接收端使用同一个环境变量：`ZIDER_WIX_EVENT_FORWARD_SECRETS`。
+- 推荐值为 JSON map：`{"zider_printops":"<random-secret>"}`，后续其他应用可继续追加 app key。
+- 业务事件接收端：`POST https://app.zider.ink/webhooks/printops/wix`。
+- 请求头必须携带：`Authorization: Bearer <secret>`。
+- 401 代表密钥缺失、格式错误、app key 不存在或两端不一致。
+- `/events/wix/{appKey}` 只处理 app lifecycle / billing analytics，订单业务事件不得打到该地址。
+
+Account Binding 契约：
+
+- Wix 安装后只创建 pending installation，不直接创建正式会员归属。
+- Settings > Account binding 展示 Wix owner email，用户可修改后发送验证码。
+- 验证码邮件使用 Brevo：`BREVO_API_KEY`、`ACCOUNT_BINDING_FROM_EMAIL`、`ACCOUNT_BINDING_FROM_NAME`。
+- 验证通过后创建或复用 member，并创建默认 workspace 与 connected store。
+- 绑定完成后 installation 需要写入 member / workspace / store 关联。
+- 邮箱未验证前，PrintOps 仍可按 `instance_id` 兼容读取订单，但不应开放跨设备 / 多店铺账户能力。
+
+Wix 订阅契约：
+
+- Wix 是 billing provider，ZIDER 只镜像计划和用量。
+- PrintOps 计划映射变量为：`ZIDER_PRINTOPS_WIX_PLAN_IDS`。
+- 支持 JSON map：`{"free":"basic,free","starter":"starter","pro":"pro","business":"business"}`。
+- 也支持紧凑格式：`free=basic,free;starter=starter;pro=pro;business=business`。
+- Upgrade URL 由 Wix app id + instance id 生成，不需要单独维护静态升级链接。
+- 当前计划用量按当月同步订单数量计算，不按打印次数计算。
 
 ### 6.2 Wix Products Adapter
 
@@ -428,6 +495,25 @@ P1：
 - 长文本必须截断、换行或提示溢出。
 - 货币、日期、地址格式必须由打印语言和订单 locale 决定。
 - PDF 和预览使用同一份模板结构。
+- 下载 PDF 不能出现空白页；如果 PDF 生成失败，应返回明确错误，不得下载空白文件。
+- A4 预览、下载 PDF 和 Browser print 必须保留同一套品牌色、顶部绿色线、RTL 方向和财务行可见性。
+- 批量 PDF / 批量打印必须使用数据库中当前默认模板和语言，不使用前端旧缓存。
+
+## 9.1 当前验收 Harness
+
+每次发布前至少验证：
+
+- `ZIDER_WIX_EVENT_FORWARD_SECRETS` 在 Wix backend extension 与 Vercel 接收端一致。
+- Wix Developer Console 测试 Order Created / Updated webhook 返回 2xx，不再出现 401。
+- 手动 `Sync latest` 后刷新页面，订单仍存在。
+- 新订单通过 webhook 入库后，Orders 页面最多 3 分钟内刷新可见；如果 webhook 失败，手动同步可补偿。
+- 订单列表字段来自真实 `normalized_order`，不得显示 `Wix customer`、`Wix order item` 等 mock 文案。
+- 订单记录包含店铺上下文，至少可追溯 `instance_id`，绑定后可追溯 `workspace_id / store_id`。
+- Template Editor 保存后刷新页面，模板名称、语言、品牌、logo、财务行开关、SKU 条形码和社媒页脚不丢失。
+- 设置默认模板后，订单列表、打印预览、PDF 和浏览器打印都使用数据库里的最新默认模板。
+- Arabic 打印语言下，固定文案 RTL 对齐，订单号、SKU、邮箱、金额等原始数据不被翻译。
+- 批量选择多个订单后，PDF、Browser print、Mark as printed 都对同一批选中订单生效。
+- Subscription 卡片显示当前 plan；hover 展示当月已用 / 剩余额度；Upgrade 一次点击进入 Wix 升级链接或明确 fallback 到 support。
 
 ## 10. 推荐文件结构
 
