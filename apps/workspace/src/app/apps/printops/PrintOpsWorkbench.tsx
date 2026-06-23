@@ -704,10 +704,6 @@ function getTemplateAddressFormatOptions(locale: SiteLocale) {
   return templateAddressFormatOptions[getInterfaceCopyLocale(locale)];
 }
 
-const templates = [
-  { label: "Invoice", value: "invoice" },
-];
-
 const printOpsSystemBrandName = "ZIDER";
 const printOpsSystemSiteUrl = "https://www.zider.ink/";
 const printOpsSystemFooterContact = "";
@@ -1197,7 +1193,11 @@ function readAccountBindingError(payload: { accountBinding?: unknown; error?: st
   return directError ?? reason;
 }
 
-function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profile: PrintOpsStoreProfileSummary | null) {
+function applyStoreProfileDefaultsToTemplates(
+  templates: TemplateRecord[],
+  profile: PrintOpsStoreProfileSummary | null,
+  options: { includeNewDrafts?: boolean } = {},
+) {
   const businessName = cleanProfileString(profile?.businessName) ?? printOpsSystemBrandName;
   const siteUrl = cleanProfileString(profile?.siteUrl) ?? printOpsSystemSiteUrl;
   const siteDisplay = getWebsiteDisplay(siteUrl) ?? siteUrl;
@@ -1213,7 +1213,7 @@ function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profi
   ];
 
   return templates.map((templateRecord) => {
-    if (templateRecord.source !== "Store copy") {
+    if (!isProfileDefaultSeedTemplate(templateRecord) && !(options.includeNewDrafts && templateRecord.source === "Store copy")) {
       return templateRecord;
     }
 
@@ -1253,7 +1253,7 @@ function applyStoreProfileDefaultsToTemplates(templates: TemplateRecord[], profi
 
 function createTemplateDraftWithStoreProfile(profile: PrintOpsStoreProfileSummary | null) {
   const blankDraft = createBlankTemplateDraft();
-  const seededTemplate = applyStoreProfileDefaultsToTemplates([createTemplateRecordFromDraft(blankDraft)], profile)[0];
+  const seededTemplate = applyStoreProfileDefaultsToTemplates([createTemplateRecordFromDraft(blankDraft)], profile, { includeNewDrafts: true })[0];
   const seededSocialProfiles = normalizeSocialProfiles(seededTemplate.socialProfiles, seededTemplate.socialLinks);
 
   return {
@@ -2455,6 +2455,16 @@ const initialTemplateRecords: TemplateRecord[] = [
   },
 ];
 
+function isProfileDefaultSeedTemplate(templateRecord: TemplateRecord) {
+  if (templateRecord.source !== "Store copy") {
+    return false;
+  }
+
+  const seedTemplate = initialTemplateRecords.find((seed) => seed.id === templateRecord.id);
+
+  return Boolean(seedTemplate && seedTemplate.source === "Store copy" && seedTemplate.updatedAt === templateRecord.updatedAt);
+}
+
 const documentFilters = [
   { label: "All documents", value: "all" },
   { label: "Invoice", value: "Invoice" },
@@ -2943,6 +2953,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const [selectedTemplateId, setSelectedTemplateId] = useState("store-order-clean");
   const [templateRecords, setTemplateRecords] = useState<TemplateRecord[]>(initialTemplateRecords);
   const [templatesHydrated, setTemplatesHydrated] = useState(false);
+  const [templatesLoadedFromDatabase, setTemplatesLoadedFromDatabase] = useState(false);
   const [templateStoreStatus, setTemplateStoreStatus] = useState<TemplateStoreStatus>({
     error: null,
     status: "idle",
@@ -2950,7 +2961,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [templateEditorMode, setTemplateEditorMode] = useState<TemplateEditorMode>("create");
   const [templateDraft, setTemplateDraft] = useState<TemplateDraft>(() => createBlankTemplateDraft());
-  const [template, setTemplate] = useState("order");
   const [language, setLanguage] = useState<PrintLocale>(defaultPrintLocale);
   const [timezone, setTimezone] = useState("Asia/Shanghai");
   const [wixSyncStatus, setWixSyncStatus] = useState<WixSyncStatus>({
@@ -3318,7 +3328,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   }, [initialOrderSyncComplete, orderCacheStatus.orderCount, orderCacheStatus.status, pluginContext?.instanceId]);
 
   useEffect(() => {
-    if (!templatesHydrated || !storeProfile || storeProfileDefaultsApplied) {
+    if (!templatesHydrated || !storeProfile || storeProfileDefaultsApplied || templatesLoadedFromDatabase) {
       return;
     }
 
@@ -3336,7 +3346,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     }
 
     setStoreProfileDefaultsApplied(true);
-  }, [language, storeProfile, storeProfileDefaultsApplied, templatesHydrated, timezone]);
+  }, [language, storeProfile, storeProfileDefaultsApplied, templatesHydrated, templatesLoadedFromDatabase, timezone]);
 
   useEffect(() => {
     if (!pluginContext) {
@@ -3546,6 +3556,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         const selectedId = typeof payload.selectedTemplateId === "string" ? payload.selectedTemplateId : null;
         const nextTemplateRecords = mergeStoreTemplatesWithBuiltIns(databaseTemplates);
 
+        setTemplatesLoadedFromDatabase(true);
         setTemplateRecords(nextTemplateRecords);
         templateRecordsRef.current = nextTemplateRecords;
 
@@ -3572,6 +3583,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       if (payload.templateStore?.status === "loaded" && databaseTemplates.length === 0) {
         const nextTemplateRecords = mergeStoreTemplatesWithBuiltIns(templateRecordsRef.current);
 
+        setTemplatesLoadedFromDatabase(false);
         setTemplateRecords(nextTemplateRecords);
         templateRecordsRef.current = nextTemplateRecords;
         await persistTemplatesToDatabase(nextTemplateRecords, selectedTemplateIdRef.current);
@@ -3918,20 +3930,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     setSelectedTemplateId(templateId);
     persistTemplateState(nextTemplateRecords, templateId);
     void persistTemplatesToDatabase(nextTemplateRecords, templateId);
-  }
-
-  function updateDefaultOrderTemplateLanguage(nextLanguage: PrintLocale) {
-    if (!defaultOrderTemplate) {
-      return;
-    }
-
-    const nextTemplateRecords = templateRecords.map((templateRecord) =>
-      templateRecord.id === defaultOrderTemplate.id ? { ...templateRecord, defaultLanguage: nextLanguage } : templateRecord,
-    );
-
-    setTemplateRecords(nextTemplateRecords);
-    persistTemplateState(nextTemplateRecords, selectedTemplateId);
-    void persistTemplatesToDatabase(nextTemplateRecords, selectedTemplateId);
   }
 
   function deleteTemplate(templateId: string) {
@@ -4586,52 +4584,19 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             <Drawer.Popup className={styles.drawerPopup}>
               <div className={styles.drawerHeader}>
                 <div>
-                  <Drawer.Title className={styles.drawerTitle}>{messages.drawer.batchPrint}</Drawer.Title>
+                  <Drawer.Title className={styles.drawerTitle}>{messages.orderPanel.printPreview}</Drawer.Title>
                   <Drawer.Description className={styles.drawerDescription}>
                     {selectedCount} {messages.drawer.selectedOrders}
                   </Drawer.Description>
                 </div>
-                <Drawer.Close className={styles.iconButton} aria-label="Close batch print">
+                <Drawer.Close className={styles.iconButton} aria-label="Close print preview">
                   <X size={18} aria-hidden />
                 </Drawer.Close>
               </div>
 
               <div className={styles.drawerGrid}>
-                <section className={styles.drawerControls}>
-                  <SelectField label={messages.drawer.documentType} options={templates} value={template} onValueChange={setTemplate} />
-                  <SelectField
-                    label={messages.drawer.printLanguage}
-                    options={printLanguageOptions}
-                    value={defaultOrderTemplateLanguage}
-                    onValueChange={(value) => isPrintLocale(value) && updateDefaultOrderTemplateLanguage(value)}
-                  />
-                  <label className={styles.fieldGroup}>
-                    <span>{messages.drawer.paperSize}</span>
-                    <input className={styles.textInput} readOnly value="A4" />
-                  </label>
-
-                  <div className={styles.drawerActions}>
-                    <button
-                      className={styles.primaryButton}
-                      type="button"
-                      onClick={() => document.querySelector<HTMLButtonElement>('[data-preview-id="drawer"][data-preview-action="download"]')?.click()}
-                    >
-                      <FileText size={17} aria-hidden />
-                      {messages.drawer.generatePdf}
-                    </button>
-                    <button
-                      className={styles.secondaryButton}
-                      type="button"
-                      onClick={() => document.querySelector<HTMLButtonElement>('[data-preview-id="drawer"][data-preview-action="print"]')?.click()}
-                    >
-                      <Printer size={17} aria-hidden />
-                      {messages.drawer.browserPrint}
-                    </button>
-                  </div>
-                </section>
-
                 <section className={styles.drawerPreview}>
-                  <PrintPreview compact previewId="drawer" printLocale={defaultOrderTemplateLanguage} selectedOrders={selectedOrders} templateRecord={defaultOrderTemplate} />
+                  <PrintPreview previewId="drawer" printLocale={defaultOrderTemplateLanguage} selectedOrders={selectedOrders} templateRecord={defaultOrderTemplate} />
                 </section>
               </div>
             </Drawer.Popup>
@@ -6229,15 +6194,17 @@ function applyTemplateExportTokens(element: HTMLElement) {
 
 function positionPdfExportHost(exportHost: HTMLElement) {
   exportHost.setAttribute("aria-hidden", "true");
+  exportHost.setAttribute("data-printops-pdf-export", "true");
   exportHost.style.position = "fixed";
   exportHost.style.top = "0";
-  exportHost.style.left = "0";
-  exportHost.style.zIndex = "2147483647";
+  exportHost.style.left = "-10000px";
+  exportHost.style.zIndex = "-1";
   exportHost.style.width = `${A4_EXPORT_WIDTH_PX}px`;
   exportHost.style.boxSizing = "border-box";
   exportHost.style.background = "#ffffff";
   exportHost.style.pointerEvents = "none";
   exportHost.style.opacity = "1";
+  exportHost.style.visibility = "visible";
 }
 
 function waitForPdfExportLayout() {

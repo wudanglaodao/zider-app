@@ -1354,17 +1354,16 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 20px;
-  line-height: 1;
+  min-height: 18px;
 }
 
 .syncCompactMain strong {
   display: inline-flex;
   align-items: center;
-  height: 16px;
+  min-height: 18px;
   color: var(--ink);
   font-size: 12px;
-  line-height: 16px;
+  line-height: 18px;
 }
 
 .syncCompactMain small {
@@ -1372,12 +1371,12 @@
   margin: 0;
   display: inline-flex;
   align-items: center;
-  height: 16px;
+  min-height: 18px;
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 720;
-  line-height: 16px;
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -5580,7 +5579,7 @@
 
 .drawerGrid {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 18px;
   margin-top: 18px;
 }
@@ -5723,6 +5722,24 @@
 
 .drawerPreview {
   min-width: 0;
+  display: grid;
+  justify-items: center;
+}
+
+.drawerPreview .previewStack {
+  width: min(100%, 980px);
+}
+
+.drawerPreview .orderTemplateStage {
+  width: 100%;
+  max-height: calc(100vh - 220px);
+  padding: 22px;
+}
+
+.drawerPreview .orderTemplateStage .templatePaper[data-variant="detail"] {
+  width: min(100%, 760px);
+  min-height: 1075px;
+  padding: 54px;
 }
 
 @media (max-width: 1180px) {
