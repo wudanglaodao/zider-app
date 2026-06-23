@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   Download,
+  Eye,
   FileText,
   Globe,
   Languages,
@@ -154,6 +155,12 @@ type PageMetric = {
   tone?: "warning";
 };
 
+type PrintOpsSubscriptionUpgradeAction = {
+  href: string;
+  provider: "wix" | "support";
+  targetPlanId: string | null;
+};
+
 type PrintOpsPluginContext = {
   accountBindingEndpoint?: string;
   appKey: string;
@@ -164,6 +171,7 @@ type PrintOpsPluginContext = {
   settingsEndpoint?: string;
   source: "instance" | "dev-instance-id" | "missing";
   storeProfileEndpoint?: string;
+  subscriptionUpgrade?: PrintOpsSubscriptionUpgradeAction;
   syncEndpoint: string;
   templatesEndpoint?: string;
   viewLinks?: Record<PrintOpsView, string>;
@@ -304,11 +312,7 @@ type PrintOpsSubscriptionSummary = {
   };
   reason?: string;
   status: "loaded" | "skipped" | "error";
-  upgrade?: {
-    href: string;
-    provider: "wix" | "support";
-    targetPlanId: string | null;
-  };
+  upgrade?: PrintOpsSubscriptionUpgradeAction;
   usage: {
     limit?: number;
     metric?: string;
@@ -650,11 +654,11 @@ const printOpsSystemFooterContact = "";
 
 const legacyTemplateDefaults = {
   brandName: "Green Studio",
-  footerContact: "150 Elgin Street, 8th Floor / support@wixcn.net",
-  footerWebsite: "greenstudio.com",
+  footerContact: "150 Elgin Street, 8th Floor / support@zider.ink",
+  footerWebsite: "Zider.ink",
   logoText: "Hello",
   socialUsername: "greenstudio",
-  websiteUrl: "https://greenstudio.com",
+  websiteUrl: "https://www.zider.ink/",
 };
 
 const socialPlatformOptions = [
@@ -3294,6 +3298,11 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     });
   }
 
+  function openOrderPreview(order: Order) {
+    setSelectedIds([order.id]);
+    setDrawerOpen(true);
+  }
+
   async function markOrdersAsPrinted(orderIds: string[]) {
     if (orderIds.length === 0) {
       return;
@@ -4116,7 +4125,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
             </button>
           </div>
           <div className={styles.topbarActions}>
-            <SubscriptionPlanControl messages={messages} summary={subscriptionSummary} />
+            <SubscriptionPlanControl messages={messages} summary={subscriptionSummary} initialUpgrade={pluginContext?.subscriptionUpgrade} />
             <button className={styles.roundAction} type="button" aria-label={messages.topbar.notifications} title={messages.topbar.notifications}>
               <BellRing size={18} aria-hidden />
               {hasUnreadProductUpdates ? <span aria-hidden /> : null}
@@ -4343,6 +4352,15 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                               >
                                 <Printer size={15} aria-hidden />
                                 <span>{messages.orderPanel.printAction}</span>
+                              </button>
+                              <button
+                                aria-label={`${messages.orderPanel.openPreview}: ${order.number}`}
+                                className={styles.iconButton}
+                                title={messages.orderPanel.openPreview}
+                                type="button"
+                                onClick={() => openOrderPreview(order)}
+                              >
+                                <Eye size={16} aria-hidden />
                               </button>
                               <OrderMenu
                                 messages={messages}
@@ -5474,7 +5492,15 @@ function Metric({ label, value, tone }: { label: string; value: string; tone?: "
   );
 }
 
-function SubscriptionPlanControl({ messages, summary }: { messages: PrintOpsMessages; summary: PrintOpsSubscriptionSummary | null }) {
+function SubscriptionPlanControl({
+  initialUpgrade,
+  messages,
+  summary,
+}: {
+  initialUpgrade?: PrintOpsSubscriptionUpgradeAction;
+  messages: PrintOpsMessages;
+  summary: PrintOpsSubscriptionSummary | null;
+}) {
   const resolvedSummary = summary ?? fallbackPrintOpsSubscription;
   const limit = resolvedSummary.plan.monthlyOrderLimit;
   const remaining = resolvedSummary.usage.remaining;
@@ -5482,7 +5508,7 @@ function SubscriptionPlanControl({ messages, summary }: { messages: PrintOpsMess
   const usagePercent = Math.min(100, Math.max(0, Math.round(usageRatio * 100)));
   const tone = resolvedSummary.status === "error" || usageRatio >= 0.9 ? "warning" : "default";
   const title = `${messages.subscription.currentPlan}: ${resolvedSummary.plan.name} · ${resolvedSummary.usage.used}/${limit} ${messages.subscription.ordersUsed}`;
-  const upgradeAction = resolvedSummary.upgrade ?? fallbackPrintOpsSubscription.upgrade;
+  const upgradeAction = resolvedSummary.upgrade ?? initialUpgrade ?? fallbackPrintOpsSubscription.upgrade;
 
   return (
     <div className={styles.subscriptionPlanGroup} data-tone={tone} title={title}>
@@ -5916,6 +5942,14 @@ function getOrderFileName(order: Order) {
   return `invoice-${normalizedNumber || order.id || "order"}.pdf`;
 }
 
+function getOrderBatchFileName(orders: Order[]) {
+  if (orders.length === 1 && orders[0]) {
+    return getOrderFileName(orders[0]);
+  }
+
+  return `printops-invoices-${orders.length || "selected"}-orders.pdf`;
+}
+
 function getTemplatePreviewNode() {
   const previewNode = document.querySelector<HTMLElement>('[data-template-print-preview="true"]');
   const paperNode = previewNode?.querySelector<HTMLElement>('[class*="templatePaper"]');
@@ -5923,8 +5957,14 @@ function getTemplatePreviewNode() {
   return paperNode ?? previewNode;
 }
 
-function getOrderPreviewPaperNode(previewNode: HTMLElement | null) {
-  return previewNode?.querySelector<HTMLElement>('[class*="templatePaper"]') ?? previewNode;
+function getOrderPreviewPaperNodes(previewNode: HTMLElement | null) {
+  if (!previewNode) {
+    return [];
+  }
+
+  const paperNodes = Array.from(previewNode.querySelectorAll<HTMLElement>('[class*="templatePaper"]'));
+
+  return paperNodes.length > 0 ? paperNodes : [previewNode];
 }
 
 function applyTemplateExportTokens(element: HTMLElement) {
@@ -5950,24 +5990,10 @@ function applyTemplateExportTokens(element: HTMLElement) {
   });
 }
 
-async function createOrderPdfBlob(sourceNode: HTMLElement, fileName: string) {
-  const { default: html2pdf } = await import("html2pdf.js");
-  const exportHost = document.createElement("div");
+function prepareOrderPaperClone(sourceNode: HTMLElement, isLastPage: boolean) {
   const clonedPaper = sourceNode.cloneNode(true) as HTMLElement;
 
   clonedPaper.setAttribute("data-order-paper", "true");
-  applyTemplateExportTokens(exportHost);
-  exportHost.setAttribute("aria-hidden", "true");
-  exportHost.style.position = "fixed";
-  exportHost.style.top = "0";
-  exportHost.style.left = "-10000px";
-  exportHost.style.width = `${A4_EXPORT_WIDTH_PX}px`;
-  exportHost.style.height = `${A4_EXPORT_HEIGHT_PX}px`;
-  exportHost.style.boxSizing = "border-box";
-  exportHost.style.background = "#ffffff";
-  exportHost.style.overflow = "hidden";
-  exportHost.style.pointerEvents = "none";
-
   clonedPaper.style.width = `${A4_EXPORT_WIDTH_PX}px`;
   clonedPaper.style.maxWidth = "none";
   clonedPaper.style.minHeight = `${A4_EXPORT_HEIGHT_PX}px`;
@@ -5979,36 +6005,65 @@ async function createOrderPdfBlob(sourceNode: HTMLElement, fileName: string) {
   clonedPaper.style.margin = "0";
   clonedPaper.style.overflow = "hidden";
   clonedPaper.style.padding = "64px";
+  clonedPaper.style.breakAfter = isLastPage ? "auto" : "page";
+  clonedPaper.style.pageBreakAfter = isLastPage ? "auto" : "always";
   clonedPaper.querySelectorAll<HTMLElement>("*").forEach((node) => {
     node.style.boxSizing = "border-box";
   });
 
-  exportHost.appendChild(clonedPaper);
+  return clonedPaper;
+}
+
+async function createOrderPdfBlob(sourceNodes: HTMLElement[], fileName: string) {
+  const { default: html2pdf } = await import("html2pdf.js");
+  const exportHost = document.createElement("div");
+  const pages = sourceNodes.map((sourceNode, index) => prepareOrderPaperClone(sourceNode, index === sourceNodes.length - 1));
+
+  applyTemplateExportTokens(exportHost);
+  exportHost.setAttribute("aria-hidden", "true");
+  exportHost.style.position = "fixed";
+  exportHost.style.top = "0";
+  exportHost.style.left = "-10000px";
+  exportHost.style.width = `${A4_EXPORT_WIDTH_PX}px`;
+  exportHost.style.minHeight = `${A4_EXPORT_HEIGHT_PX}px`;
+  exportHost.style.boxSizing = "border-box";
+  exportHost.style.background = "#ffffff";
+  exportHost.style.overflow = "visible";
+  exportHost.style.pointerEvents = "none";
+  exportHost.style.display = "block";
+
+  pages.forEach((page) => exportHost.appendChild(page));
   document.body.appendChild(exportHost);
 
   try {
+    const exportHeight = Math.max(A4_EXPORT_HEIGHT_PX, A4_EXPORT_HEIGHT_PX * Math.max(1, pages.length));
+    const pdfOptions = {
+      margin: 0,
+      filename: fileName,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        backgroundColor: "#ffffff",
+        height: exportHeight,
+        logging: false,
+        scale: 3,
+        useCORS: true,
+        width: A4_EXPORT_WIDTH_PX,
+        windowHeight: exportHeight,
+        windowWidth: A4_EXPORT_WIDTH_PX,
+      },
+      jsPDF: {
+        format: "a4",
+        orientation: "portrait",
+        unit: "mm",
+      },
+      pagebreak: {
+        mode: ["css", "legacy"],
+      },
+    };
+
     return (await html2pdf()
-      .set({
-        margin: 0,
-        filename: fileName,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: {
-          backgroundColor: "#ffffff",
-          height: A4_EXPORT_HEIGHT_PX,
-          logging: false,
-          scale: 3,
-          useCORS: true,
-          width: A4_EXPORT_WIDTH_PX,
-          windowHeight: A4_EXPORT_HEIGHT_PX,
-          windowWidth: A4_EXPORT_WIDTH_PX,
-        },
-        jsPDF: {
-          format: "a4",
-          orientation: "portrait",
-          unit: "mm",
-        },
-      })
-      .from(clonedPaper)
+      .set(pdfOptions as never)
+      .from(exportHost)
       .outputPdf("blob")) as Blob;
   } finally {
     exportHost.remove();
@@ -6027,15 +6082,16 @@ function downloadPdfBlob(pdfBlob: Blob, fileName: string) {
   window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }
 
-function openOrderPrintWindow(sourceNode: HTMLElement, title: string) {
+function openOrderPrintWindow(sourceNodes: HTMLElement[], title: string) {
   const printWindow = window.open("", "_blank", "width=980,height=1200");
 
-  if (!printWindow) {
+  if (!printWindow || sourceNodes.length === 0) {
     return;
   }
 
-  const clonedPaper = sourceNode.cloneNode(true) as HTMLElement;
-  clonedPaper.setAttribute("data-order-paper", "true");
+  const pagesMarkup = sourceNodes
+    .map((sourceNode, index) => prepareOrderPaperClone(sourceNode, index === sourceNodes.length - 1).outerHTML)
+    .join("\n");
   const stylesMarkup = Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
     .map((node) => node.outerHTML)
     .join("\n");
@@ -6088,6 +6144,7 @@ function openOrderPrintWindow(sourceNode: HTMLElement, title: string) {
       .printops-order-print-preview {
         display: grid;
         justify-items: center;
+        gap: 24px;
         min-height: 100vh;
         padding: 32px;
       }
@@ -6104,6 +6161,11 @@ function openOrderPrintWindow(sourceNode: HTMLElement, title: string) {
         padding: 64px !important;
       }
 
+      .printops-order-print-preview [data-order-paper="true"]:not(:last-child) {
+        break-after: page;
+        page-break-after: always;
+      }
+
       @page {
         size: A4 portrait;
         margin: 0;
@@ -6117,6 +6179,7 @@ function openOrderPrintWindow(sourceNode: HTMLElement, title: string) {
         .printops-order-print-preview {
           min-height: auto;
           padding: 0;
+          gap: 0;
         }
 
         .printops-order-print-preview [data-order-paper="true"] {
@@ -6133,7 +6196,7 @@ function openOrderPrintWindow(sourceNode: HTMLElement, title: string) {
     </style>
   </head>
   <body>
-    <main class="printops-order-print-preview">${clonedPaper.outerHTML}</main>
+    <main class="printops-order-print-preview">${pagesMarkup}</main>
     <script>
       window.addEventListener("load", () => {
         window.focus();
@@ -8922,17 +8985,17 @@ function PrintPreview({
   const copy = getPrintTemplateCopy(printLocale);
 
   const handleDownloadPdf = async () => {
-    const paperNode = getOrderPreviewPaperNode(paperRef.current);
+    const paperNodes = getOrderPreviewPaperNodes(paperRef.current);
 
-    if (!firstOrder || !paperNode || isExportingPdf) {
+    if (!firstOrder || paperNodes.length === 0 || isExportingPdf) {
       return;
     }
 
     setIsExportingPdf(true);
 
     try {
-      const fileName = getOrderFileName(firstOrder);
-      const pdfBlob = await createOrderPdfBlob(paperNode, fileName);
+      const fileName = getOrderBatchFileName(selectedOrders);
+      const pdfBlob = await createOrderPdfBlob(paperNodes, fileName);
 
       downloadPdfBlob(pdfBlob, fileName);
     } finally {
@@ -8941,13 +9004,13 @@ function PrintPreview({
   };
 
   const handlePrint = () => {
-    const paperNode = getOrderPreviewPaperNode(paperRef.current);
+    const paperNodes = getOrderPreviewPaperNodes(paperRef.current);
 
-    if (!firstOrder || !paperNode) {
+    if (!firstOrder || paperNodes.length === 0) {
       return;
     }
 
-    openOrderPrintWindow(paperNode, `${copy.title} ${firstOrder.number}`);
+    openOrderPrintWindow(paperNodes, selectedOrders.length > 1 ? `${copy.title} batch - ${selectedOrders.length} orders` : `${copy.title} ${firstOrder.number}`);
   };
 
   if (!firstOrder) {
@@ -8972,7 +9035,9 @@ function PrintPreview({
         <span>{templateRecord.paperSize}</span>
       </div>
       <div className={styles.orderTemplateStage} data-compact={compact} ref={paperRef}>
-        <OrderTemplatePrintDocument order={firstOrder} printLocale={printLocale} templateRecord={templateRecord} />
+        {selectedOrders.map((order) => (
+          <OrderTemplatePrintDocument key={order.id} order={order} printLocale={printLocale} templateRecord={templateRecord} />
+        ))}
       </div>
       <div className={styles.previewFooter}>
         <span>{selectedOrders.length || 1} orders in batch</span>
@@ -9018,17 +9083,17 @@ function OrderExportController({
   const copy = getPrintTemplateCopy(printLocale);
 
   const handleDownloadPdf = async () => {
-    const paperNode = getOrderPreviewPaperNode(paperRef.current);
+    const paperNodes = getOrderPreviewPaperNodes(paperRef.current);
 
-    if (!firstOrder || !paperNode || isExportingPdf) {
+    if (!firstOrder || paperNodes.length === 0 || isExportingPdf) {
       return;
     }
 
     setIsExportingPdf(true);
 
     try {
-      const fileName = getOrderFileName(firstOrder);
-      const pdfBlob = await createOrderPdfBlob(paperNode, fileName);
+      const fileName = getOrderBatchFileName(activeOrders);
+      const pdfBlob = await createOrderPdfBlob(paperNodes, fileName);
 
       downloadPdfBlob(pdfBlob, fileName);
     } finally {
@@ -9037,13 +9102,13 @@ function OrderExportController({
   };
 
   const handlePrint = () => {
-    const paperNode = getOrderPreviewPaperNode(paperRef.current);
+    const paperNodes = getOrderPreviewPaperNodes(paperRef.current);
 
-    if (!firstOrder || !paperNode) {
+    if (!firstOrder || paperNodes.length === 0) {
       return;
     }
 
-    openOrderPrintWindow(paperNode, `${copy.title} ${firstOrder.number}`);
+    openOrderPrintWindow(paperNodes, activeOrders.length > 1 ? `${copy.title} batch - ${activeOrders.length} orders` : `${copy.title} ${firstOrder.number}`);
   };
 
   useEffect(() => {
@@ -9081,7 +9146,9 @@ function OrderExportController({
 
   return (
     <div aria-hidden className={styles.exportOnlyStage} ref={paperRef}>
-      <OrderTemplatePrintDocument order={firstOrder} printLocale={printLocale} templateRecord={templateRecord} />
+      {activeOrders.map((order) => (
+        <OrderTemplatePrintDocument key={order.id} order={order} printLocale={printLocale} templateRecord={templateRecord} />
+      ))}
     </div>
   );
 }

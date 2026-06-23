@@ -215,8 +215,9 @@ function readUpgradeHref(appKey: string, instanceId: string | null, wixAppId: st
 
 function readWixAppIdFromEnvironment(appKey: string) {
   const appPrefix = toEnvPrefix(appKey);
+  const legacyWixPrefix = appPrefix.replace(/^ZIDER_/, "WIX_");
 
-  return process.env[`${appPrefix}_WIX_APP_ID`] ?? process.env[`${appPrefix}_APP_ID`] ?? null;
+  return process.env[`${appPrefix}_WIX_APP_ID`] ?? process.env[`${legacyWixPrefix}_APP_ID`] ?? process.env[`${appPrefix}_APP_ID`] ?? null;
 }
 
 function normalizePlanText(value: string | null | undefined) {

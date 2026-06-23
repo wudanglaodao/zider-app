@@ -436,10 +436,10 @@ export const sampleTemplateRenderContext: TemplateRenderContext = {
   locale: "en",
   store: {
     name: "Green Studio",
-    email: "hello@greenstudio.example",
+    email: "support@zider.ink",
     phone: "+1 555 555 5555",
     address: "150 Elgin Street, Ottawa, ON",
-    website: "greenstudio.example",
+    website: "Zider.ink",
     brandColor: "#087a46",
     policyText: {
       default: "Thanks for your business.",

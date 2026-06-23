@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PrintOpsWorkbench } from "@/app/apps/printops/PrintOpsWorkbench";
+import { buildAppSubscriptionUpgradeAction } from "@/lib/platform/subscriptions/app-subscription-plans";
 import { PRINTOPS_APP_KEY, resolveWixInstanceIdForApp } from "@/lib/wix/app-instance";
 
 export const metadata: Metadata = {
@@ -16,6 +17,13 @@ type PrintOpsWixPageProps = {
 export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageProps) {
   const params = await searchParams;
   const instanceContext = await resolveWixInstanceIdForApp(PRINTOPS_APP_KEY, params);
+  const subscriptionUpgrade = instanceContext.instanceId
+    ? buildAppSubscriptionUpgradeAction({
+        appKey: PRINTOPS_APP_KEY,
+        currentPlanId: "free",
+        instanceId: instanceContext.instanceId,
+      })
+    : undefined;
   const initialView = getPrintOpsView(params.view);
   const apiQueryString = createQueryString(params, { excludeKeys: ["view"] });
   const accountBindingEndpoint = `/api/apps/printops/wix/account-binding${apiQueryString ? `?${apiQueryString}` : ""}`;
@@ -38,6 +46,7 @@ export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageP
         settingsEndpoint,
         source: instanceContext.source,
         storeProfileEndpoint,
+        subscriptionUpgrade,
         syncEndpoint,
         templatesEndpoint,
         viewLinks: {
