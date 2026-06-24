@@ -5,21 +5,26 @@ Source requirements:
 - [15 Zider AI Actions Wix V1.1 Requirements](./15-zider-ai-actions-wix-v1.1-requirements.md)
 - `/Users/yancy/Desktop/Zider_AI_Actions_Wix_V1.1_套餐与多语言需求.md`
 
-This document defines the commercial plan boundary for Zider AI Actions V1.1.
-It focuses on what Free and Plus mean, what should be gated, and how upgrade
-messages should be explained to Wix site owners.
+This document defines the commercial plan roadmap for Zider AI Actions. V1.0
+ships as a Free-first App Market launch. Plus is a post-launch paid plan.
 
-## Pricing Structure
+## Pricing Roadmap
 
-V1.1 uses two plans:
+V1.0 launches with one active plan:
 
 | Plan | Billing | Role |
 | --- | --- | --- |
 | Free | Free forever | Lets a site owner add a simple AI action widget quickly |
+
+V1.1 adds the paid plan:
+
+| Plan | Billing | Role |
+| --- | --- | --- |
 | Plus | $4.99/month | Unlocks multilingual audience-specific AI experiences |
 
-The recommended V1.1 monthly price is **$4.99/month**. Yearly pricing and Wix
-billing plan IDs are still pending.
+The recommended Plus monthly price is **$4.99/month**. Yearly pricing and Wix
+billing plan IDs are still pending. Do not activate Wix Billing or advertise
+Plus in the V1.0 App Market listing.
 
 ## Positioning
 
@@ -52,6 +57,7 @@ Included:
 - built-in ChatGPT provider,
 - built-in Claude provider,
 - built-in Gemini provider,
+- bundled brand icons for built-in providers,
 - maximum 3 enabled built-in providers at any time,
 - one shared `Default Profile`,
 - one widget title,
@@ -84,7 +90,7 @@ Free can use any language in its single prompt and title. A Chinese, Japanese,
 Spanish, or bilingual prompt is allowed. The limit is that Free cannot store
 different configurations for different Wix languages.
 
-## Plus Plan
+## Post-Launch Plus Plan
 
 Plus unlocks the full configuration model.
 
@@ -107,6 +113,7 @@ Included:
 - language-specific custom AI providers,
 - fallback profile selection,
 - duplicate Language Profile,
+- complete Language Profiles in the first Plus release,
 - advanced styling,
 - future click reports by day, language / locale, and provider.
 
@@ -123,6 +130,7 @@ Build a different AI action entry point for every audience your Wix site serves.
 | Best for | Simple sites and first-time users | Multilingual sites, agencies, international businesses |
 | Configuration model | One shared Default Profile | Multiple Language Profiles |
 | Built-in AI providers | ChatGPT, Claude, Gemini | ChatGPT, Claude, Gemini |
+| Built-in provider icons | Brand icons | Brand icons |
 | Enabled provider count | Up to 3 built-in providers | Unlimited |
 | Custom AI | Not available | Unlimited |
 | Prompt | One shared prompt | One prompt per Language Profile |
@@ -141,7 +149,8 @@ Build a different AI action entry point for every audience your Wix site serves.
 
 ## Upgrade Triggers
 
-Show an upgrade prompt when a Free user tries to:
+In V1.0, paid locks should be passive and may say Plus is coming soon. After
+Plus launches, show an upgrade prompt when a Free user tries to:
 
 - add Custom AI,
 - use a provider outside the built-in provider catalog,
@@ -208,14 +217,17 @@ Plus -> Free:
 
 ## Suggested App Market Plan Summary
 
-Free:
+V1.0 Free listing:
 
 ```text
 Add AI action buttons to your site with one shared prompt and up to three
 built-in AI tools.
 ```
 
-Plus:
+Do not mention Plus, custom AI, Language Profiles, or reports in the V1.0 App
+Market listing.
+
+Post-launch Plus listing:
 
 ```text
 Unlock unlimited AI tools, custom AI providers, and independent language
@@ -238,4 +250,4 @@ Plus = separate AI action setups for every language and audience.
   `Premium`. Current requirements use `Plus`.
 - Whether future higher tiers are needed for advanced analytics, A/B testing,
   or per-page profiles. Basic click reports are planned as a future Plus
-  feature; advanced analytics remain out of scope for V1.1.
+  feature; advanced analytics remain out of scope for V1.0 and V1.1.

@@ -26,22 +26,25 @@ for App Market submission we still need explicit requirements for:
 - app identity and distribution setup,
 - Wix OAuth / instance identity,
 - minimum permissions,
-- App Installed / Removed / paid-plan webhooks,
-- Wix Billing plan configuration,
+- App Installed / Removed webhooks,
 - App Market listing copy and media,
 - demo site and review notes,
 - privacy / terms / third-party AI disclosure,
 - accessibility and browser QA,
-- upgrade, downgrade, cancellation, and site duplication flows,
+- site duplication flows,
 - review rejection prevention.
+
+Wix Billing, paid-plan webhooks, upgrade, downgrade, and cancellation flows are
+post-launch Plus scope.
 
 ## App Identity
 
-Required decisions:
+Required setup:
 
 - final Wix app name,
-- internal `app_key`, recommended: `zider_ai_actions`,
-- Wix app type: Wix CLI app, self-managed app, or hybrid,
+- internal `app_key`: `zider_ai_actions`,
+- Wix app type: hybrid Wix CLI app with Zider-hosted backend/workspace/runtime
+  APIs,
 - dashboard URL,
 - widget/runtime URL,
 - support email,
@@ -65,7 +68,8 @@ Add AI action buttons for ChatGPT, Claude, Gemini, and custom AI workflows.
 ```
 
 Review risk: the app name and listing mention third-party AI brands. The listing
-must not imply official affiliation with OpenAI, Anthropic, Google, or any other
+and UI may use provider brand icons for ChatGPT, Claude, and Gemini, but must
+not imply official affiliation with OpenAI, Anthropic, Google, or any other
 provider. Use compatibility wording and add a clear no-affiliation note where
 appropriate.
 
@@ -77,6 +81,7 @@ Requirements:
 
 - resolve and persist `instanceId` after install,
 - isolate all app data by `app_key + platform + instance_id`,
+- host AI Actions configuration and future report data in Zider-owned storage,
 - do not identify installed sites by browser cookies,
 - support the Manage Apps reopen flow,
 - support installing on multiple Wix sites under the same owner,
@@ -96,12 +101,14 @@ If the app uses OAuth:
 
 The app should request the minimum Wix permissions needed.
 
-Expected V1.1 permission profile:
+Expected V1.0 Free Launch permission profile:
 
 - read site identity / app instance data,
 - install or manage the site widget / embedded script if required by the chosen
-  Wix implementation,
-- billing / plan reads if required to resolve Free vs Plus.
+  Wix implementation.
+
+Post-launch Plus may add billing / plan reads if required to resolve Free vs
+Plus.
 
 Out of scope permissions:
 
@@ -118,10 +125,13 @@ adding it. Wix review checks whether requested permissions are necessary.
 
 ## Webhooks
 
-Add lifecycle and billing webhooks before submission:
+Add lifecycle webhooks before V1.0 submission:
 
 - App Instance Installed
 - App Instance Removed
+
+Add billing webhooks before the post-launch Plus release:
+
 - Paid Plan Purchased
 - Paid Plan Changed
 - Paid Plan Auto Renewal Cancelled
@@ -136,7 +146,7 @@ The receiver should:
 - deduplicate events,
 - persist raw event payloads for review/debugging,
 - update current installation state,
-- update current plan state.
+- update current plan state after Plus is enabled.
 
 Use the existing contract as the shared boundary:
 
@@ -144,26 +154,44 @@ Use the existing contract as the shared boundary:
 
 ## Billing And Pricing
 
-Business model:
+V1.0 business model:
+
+```text
+Free
+```
+
+V1.0 plan:
+
+| Plan | Billing | App Market role |
+| --- | --- | --- |
+| Free | Free | Default install plan |
+
+Post-launch Plus business model:
 
 ```text
 Freemium
 ```
 
-Plans:
+Post-launch Plus plan:
 
 | Plan | Billing | App Market role |
 | --- | --- | --- |
-| Free | Free | Default install plan |
 | Plus | $4.99/month | Paid recurring plan |
 
-Requirements:
+V1.0 requirements:
+
+- do not configure active Wix Billing for launch,
+- do not route users to checkout,
+- do not advertise Plus in the App Market listing,
+- enforce Free limits in both UI and backend,
+- test free install, uninstall, and free feature usage.
+
+Post-launch Plus requirements:
 
 - configure Free and Plus in the Wix app dashboard,
 - map Wix billing plan IDs to internal plan IDs,
 - route upgrade CTAs to Wix checkout / pricing flow,
 - do not use external billing links or license-key unlocks,
-- enforce Free / Plus limits in both UI and backend,
 - test install, upgrade, cancellation, and paid-plan recognition,
 - keep price copy consistent between app dashboard, pricing page, and in-app UI.
 
@@ -177,12 +205,13 @@ Free benefits:
 - 2 widget layouts
 - Basic design controls
 
-Plus benefits:
+Post-launch Plus benefits:
 
 - Unlimited AI tools
 - Custom AI providers
 - Language Profiles
 - Language-specific prompts and URLs
+- Complete multilingual configuration in the first Plus release
 
 Do not allow downgrade directly inside a custom pricing page. Wix handles some
 subscription changes through cancellation and repurchase, so downgrade behavior
@@ -230,9 +259,8 @@ Recommended feature bullets:
 
 - Add AI action buttons to Wix pages
 - Choose ChatGPT, Claude, and Gemini on Free
-- Create custom AI destinations on Plus
-- Configure different prompts for each site language on Plus
 - Use URL prefill or copy prompt delivery
+- Customize one shared title, description, and Prompt
 
 ## Review Notes Package
 
@@ -244,14 +272,12 @@ Include:
 - test Wix site URL,
 - demo site URL,
 - Free test path,
-- Plus test path,
-- upgrade flow steps,
-- downgrade/cancellation behavior,
-- language profile setup steps,
-- custom AI setup steps,
 - explanation that the app opens third-party AI sites only after user click,
 - no-affiliation statement for AI provider brands,
 - privacy summary: no page body scraping, no AI conversations collected.
+
+Do not include Plus, upgrade, downgrade, Language Profile, custom AI, or report
+test paths in the V1.0 submission notes because those features are post-launch.
 
 This is important because the app's core behavior intentionally opens external
 AI providers. The review notes should make the user-initiated flow and privacy
@@ -386,15 +412,13 @@ Test flows:
 - URL Prefill,
 - Copy Prompt + Open,
 - clipboard failure fallback,
-- upgrade to Plus,
-- create Language Profile,
-- custom AI provider,
-- Wix language switch,
-- fallback profile,
-- plan cancellation / return to Free,
 - app removed webhook,
 - site duplication,
 - multiple Wix sites under one owner.
+
+Post-launch Plus QA must add upgrade, cancellation, downgrade, Language Profile,
+return to Free, custom AI provider, Wix language switch, and fallback profile
+flows.
 
 ## Rejection Risks To Prevent
 
@@ -403,9 +427,8 @@ High-risk items:
 - listing says a feature exists but the app does not implement it,
 - dashboard or widget has broken buttons or stuck loading,
 - app cannot be installed on a fresh Wix site,
-- paid features are accessible on Free,
-- app does not recognize Plus after upgrade,
-- upgrade prompts appear to public site visitors,
+- V1.0 listing or review notes claim Plus features that are not implemented,
+- upgrade prompts or checkout links appear in V1.0,
 - demo site is broken or empty,
 - screenshots are low quality or not showing the app in use,
 - privacy/terms links are missing,
@@ -414,22 +437,33 @@ High-risk items:
 - app redirects users to external payment flows,
 - app profile changes are saved as draft but not released before submission.
 
-## P0 Additions To The Product Backlog
+## V1.0 P0 Additions To The Product Backlog
 
-| ID | Requirement | Priority |
+| ID | Requirement | Phase |
 | --- | --- | --- |
-| ZAA-MKT-001 | Finalize app name, app key, support email, privacy URL, terms URL | P0 |
-| ZAA-MKT-002 | Choose Wix app implementation path and dashboard/widget URLs | P0 |
-| ZAA-MKT-003 | Define minimum Wix permissions and document why each is needed | P0 |
-| ZAA-MKT-004 | Add install, uninstall, and paid-plan webhooks | P0 |
-| ZAA-MKT-005 | Configure Free and Plus in Wix Billing | P0 |
-| ZAA-MKT-006 | Implement Wix checkout upgrade flow for Plus | P0 |
-| ZAA-MKT-007 | Add plan recognition and backend enforcement by instanceId | P0 |
-| ZAA-MKT-008 | Create market listing copy, keywords, audience, and benefit text | P0 |
-| ZAA-MKT-009 | Produce at least 3 listing screenshots and a real Wix demo site | P0 |
-| ZAA-MKT-010 | Write App Review notes with Free/Plus/language/custom AI test paths | P0 |
-| ZAA-MKT-011 | Add third-party AI disclosure and no-affiliation language | P0 |
-| ZAA-MKT-012 | Run the full Wix App Checks QA matrix before submission | P0 |
+| ZAA-MKT-001 | Finalize app name, app key, support email, privacy URL, terms URL | V1.0 |
+| ZAA-MKT-002 | Implement hybrid Wix CLI shell with Zider-hosted backend/workspace/runtime APIs | V1.0 |
+| ZAA-MKT-003 | Define minimum Wix permissions and document why each is needed | V1.0 |
+| ZAA-MKT-004 | Add install and uninstall webhooks | V1.0 |
+| ZAA-MKT-005 | Add free install lifecycle tracking by instanceId | V1.0 |
+| ZAA-MKT-006 | Create Zider-hosted typed storage for AI Actions config | V1.0 |
+| ZAA-MKT-007 | Bundle built-in provider brand icons and no-affiliation copy | V1.0 |
+| ZAA-MKT-008 | Create Free-only market listing copy, keywords, audience, and benefit text | V1.0 |
+| ZAA-MKT-009 | Produce at least 3 listing screenshots and a real Wix demo site | V1.0 |
+| ZAA-MKT-010 | Write App Review notes with Free install/config/widget test path | V1.0 |
+| ZAA-MKT-011 | Add third-party AI disclosure and no-affiliation language | V1.0 |
+| ZAA-MKT-012 | Run the full Wix App Checks QA matrix before submission | V1.0 |
+
+## Post-Launch Plus Additions
+
+| ID | Requirement | Phase |
+| --- | --- | --- |
+| ZAA-MKT-PLUS-001 | Configure Free and Plus in Wix Billing | V1.1 |
+| ZAA-MKT-PLUS-002 | Implement Wix checkout upgrade flow for Plus | V1.1 |
+| ZAA-MKT-PLUS-003 | Add paid-plan webhooks and plan recognition | V1.1 |
+| ZAA-MKT-PLUS-004 | Add backend Plus enforcement by instanceId | V1.1 |
+| ZAA-MKT-PLUS-005 | Update App Market listing and review notes for Plus | V1.1 |
+| ZAA-MKT-PLUS-006 | Test upgrade, cancellation, downgrade, and Plus restore flows | V1.1 |
 
 ## Open Decisions
 

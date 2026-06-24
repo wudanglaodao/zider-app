@@ -335,3 +335,5 @@ create index if not exists idx_printops_settings_workspace
 
 alter table public.printops_templates enable row level security;
 alter table public.printops_settings enable row level security;
+
+notify pgrst, 'reload schema';

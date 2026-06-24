@@ -6238,12 +6238,6 @@ function applyTemplateExportTokens(element: HTMLElement) {
     "--paper-surface": "#ffffff",
     "--paper-ink": "#121817",
     "--paper-muted": "#65706d",
-    "--order-accent": "#087a46",
-    "--order-accent-2": "#046137",
-    "--order-soft": "#eff6f1",
-    "--order-line": "#dce5de",
-    "--order-ink": "#111816",
-    "--order-muted": "#65706d",
     "--shadow-soft": "none",
   };
 
@@ -6257,8 +6251,8 @@ function positionPdfExportHost(exportHost: HTMLElement) {
   exportHost.setAttribute("data-printops-pdf-export", "true");
   exportHost.style.position = "fixed";
   exportHost.style.top = "0";
-  exportHost.style.left = "-10000px";
-  exportHost.style.zIndex = "-1";
+  exportHost.style.left = "0";
+  exportHost.style.zIndex = "-2147483647";
   exportHost.style.width = `${A4_EXPORT_WIDTH_PX}px`;
   exportHost.style.boxSizing = "border-box";
   exportHost.style.background = "#ffffff";
@@ -6349,10 +6343,14 @@ async function createOrderPdfBlob(sourceNodes: HTMLElement[], fileName: string) 
         height: exportHeight,
         logging: false,
         scale: 3,
+        scrollX: 0,
+        scrollY: 0,
         useCORS: true,
         width: A4_EXPORT_WIDTH_PX,
         windowHeight: exportHeight,
         windowWidth: A4_EXPORT_WIDTH_PX,
+        x: 0,
+        y: 0,
       },
       jsPDF: {
         format: "a4",
@@ -6571,10 +6569,14 @@ async function createTemplatePdfBlob(templateRecord: TemplateRecord, previewRoot
           height: A4_EXPORT_HEIGHT_PX,
           logging: false,
           scale: 3,
+          scrollX: 0,
+          scrollY: 0,
           useCORS: true,
           width: A4_EXPORT_WIDTH_PX,
           windowHeight: A4_EXPORT_HEIGHT_PX,
           windowWidth: A4_EXPORT_WIDTH_PX,
+          x: 0,
+          y: 0,
         },
         jsPDF: {
           format: "a4",
@@ -6957,8 +6959,8 @@ function TemplateEditorDrawer({
     { label: editorCopy.logoFontMono, value: "mono" },
   ];
   const localizedAccentOptions = [
-    { label: editorCopy.accentCharcoal, value: "charcoal" },
     { label: editorCopy.accentForest, value: "forest" },
+    { label: editorCopy.accentCharcoal, value: "charcoal" },
     { label: editorCopy.accentSlate, value: "slate" },
     { label: editorCopy.accentCustom, value: "custom" },
   ];
@@ -7044,6 +7046,14 @@ function TemplateEditorDrawer({
     ) : (
       draft.logoText || defaultTemplateBrandSettings.logoText
     );
+  const draftBlueprintKey = resolveTemplateBlueprintKey({
+    id: draft.id,
+    layoutPreset: draft.layoutPreset,
+    visualStyle: draft.visualStyle,
+  });
+  const isBigBrandDraft = draftBlueprintKey === "invoice_big_brand";
+  const supportsLogoTextColor = draftBlueprintKey === "invoice_big_brand" || draftBlueprintKey === "invoice_minimal";
+  const draftAccentHexColor = getOrderTemplateAccentHex(draft.accentColor, draft.customAccentColor);
   const showMissingLogoHint = storeProfileStatus.status === "loaded" && !storeProfile?.logoUrl && draft.logoSource !== "uploaded-image";
   const showMissingEmailHint = storeProfileStatus.status === "loaded" && !storeProfile?.businessEmail;
 
@@ -7197,6 +7207,26 @@ function TemplateEditorDrawer({
                 value={draft.logoSource}
                 onValueChange={(value) => onDraftChange({ logoSource: value as OrderTemplateLogoSource })}
               />
+              {supportsLogoTextColor && draft.logoSource === "generated-svg" ? (
+                <label className={styles.fieldGroup}>
+                  <span>{editorCopy.logoColor}</span>
+                  <span className={styles.colorInputRow}>
+                    <input
+                      aria-label={editorCopy.logoColor}
+                      className={styles.colorInput}
+                      type="color"
+                      value={draftAccentHexColor}
+                      onChange={(event) => onDraftChange({ accentColor: "custom", customAccentColor: event.target.value })}
+                    />
+                    <input
+                      className={styles.textInput}
+                      placeholder="#087A46"
+                      value={draft.accentColor === "custom" ? draft.customAccentColor : draftAccentHexColor}
+                      onChange={(event) => onDraftChange({ accentColor: "custom", customAccentColor: event.target.value })}
+                    />
+                  </span>
+                </label>
+              ) : null}
               {draft.logoSource === "uploaded-image" ? (
                 <>
                   <label className={styles.logoUploadField}>
@@ -7378,31 +7408,36 @@ function TemplateEditorDrawer({
             </div>
 
             <span className={styles.settingsGroupTitle}>{editorCopy.styleBasics}</span>
-            <div className={styles.formTwoColumns}>
-              <SelectField
-                label={editorCopy.accent}
-                options={localizedAccentOptions}
-                value={draft.accentColor}
-                onValueChange={(value) => onDraftChange({ accentColor: value as OrderTemplateAccent })}
-              />
-              <label className={styles.fieldGroup}>
-                <span>{editorCopy.customAccentHex}</span>
-                <span className={styles.colorInputRow}>
-                  <input
-                    aria-label={editorCopy.customAccent}
-                    className={styles.colorInput}
-                    type="color"
-                    value={isValidHexColor(draft.customAccentColor) ? draft.customAccentColor : defaultTemplateBrandSettings.customAccentColor}
-                    onChange={(event) => onDraftChange({ accentColor: "custom", customAccentColor: event.target.value })}
+            <div className={isBigBrandDraft ? styles.formOneColumn : styles.formTwoColumns}>
+              {isBigBrandDraft ? null : (
+                <>
+                  <SelectField
+                    label={editorCopy.accent}
+                    options={localizedAccentOptions}
+                    value={draft.accentColor}
+                    onValueChange={(value) => onDraftChange({ accentColor: value as OrderTemplateAccent })}
                   />
-                  <input
-                    className={styles.textInput}
-                    placeholder="#087A46"
-                    value={draft.customAccentColor}
-                    onChange={(event) => onDraftChange({ accentColor: "custom", customAccentColor: event.target.value })}
-                  />
-                </span>
-              </label>
+                  <label className={styles.fieldGroup}>
+                    <span>{editorCopy.customAccentHex}</span>
+                    <span className={styles.colorInputRow}>
+                      <input
+                        aria-label={editorCopy.customAccentHex}
+                        className={styles.colorInput}
+                        disabled={draft.accentColor !== "custom"}
+                        type="color"
+                        value={draftAccentHexColor}
+                        onChange={(event) => onDraftChange({ customAccentColor: event.target.value })}
+                      />
+                      <input
+                        className={styles.textInput}
+                        disabled={draft.accentColor !== "custom"}
+                        value={draft.customAccentColor}
+                        onChange={(event) => onDraftChange({ customAccentColor: event.target.value })}
+                      />
+                    </span>
+                  </label>
+                </>
+              )}
               <SelectField
                 label={editorCopy.density}
                 options={localizedDensityOptions}
@@ -8154,6 +8189,15 @@ function getOrderTemplateAccentStyle(accentColor: OrderTemplateAccent, customAcc
   };
 
   return palettes[accentColor] as CSSProperties;
+}
+
+function getOrderTemplateAccentHex(accentColor: OrderTemplateAccent, customAccentColor = defaultTemplateBrandSettings.customAccentColor) {
+  if (accentColor === "custom") {
+    return isValidHexColor(customAccentColor) ? customAccentColor : defaultTemplateBrandSettings.customAccentColor;
+  }
+
+  const accentStyle = getOrderTemplateAccentStyle(accentColor, customAccentColor) as Record<string, string>;
+  return accentStyle["--order-accent"] ?? defaultTemplateBrandSettings.customAccentColor;
 }
 
 function formatTemplateDate(format: TemplateDateFormat, locale: PrintLocale | SiteLocale) {

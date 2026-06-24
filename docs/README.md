@@ -19,7 +19,7 @@ This folder splits the original Interactive Custom Cursor PRD into smaller plann
 - [12 ZIDER Ink Release Checklist](./12-zider-ink-release-checklist.md)
 - [13 Vercel Multi-Project Release Playbook](./13-vercel-multi-project-release.md)
 - [14 Wix Event Contract](./14-wix-event-contract.md)
-- [15 Zider AI Actions Wix V1.1 Requirements](./15-zider-ai-actions-wix-v1.1-requirements.md)
+- [15 Zider AI Actions Wix Free-First Requirements](./15-zider-ai-actions-wix-v1.1-requirements.md)
 - [16 Zider AI Actions Pricing Plan](./16-zider-ai-actions-pricing-plan.md)
 - [17 PrintOps Template Library Architecture](./17-printops-template-library-architecture.md)
 - [18 Zider AI Actions Wix App Market Launch Addendum](./18-zider-ai-actions-wix-app-market-launch.md)

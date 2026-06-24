@@ -133,7 +133,7 @@ export async function persistPrintOpsSettings(input: {
   }
 
   return {
-    reason: error.message ?? "Failed to persist PrintOps settings",
+    reason: formatSupabaseError(error, "Failed to persist PrintOps settings"),
     status: "error",
   };
 }
@@ -152,10 +152,22 @@ function hasSupabaseEnv() {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-function isMissingTableError(error: { code?: string; message?: string }) {
-  const message = error.message?.toLowerCase() ?? "";
+function isMissingTableError(error: { code?: string; details?: string; message?: string }) {
+  const message = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
 
-  return error.code === "42P01" || message.includes("relation") || message.includes("printops_settings");
+  return (
+    error.code === "42P01" ||
+    message.includes('relation "public.printops_settings" does not exist') ||
+    message.includes('relation "printops_settings" does not exist') ||
+    message.includes("could not find the table 'printops_settings'") ||
+    message.includes('could not find the table "printops_settings"')
+  );
+}
+
+function formatSupabaseError(error: { code?: string; details?: string; hint?: string; message?: string }, fallback: string) {
+  const parts = [error.message, error.details, error.hint, error.code ? `code: ${error.code}` : null].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" · ") : fallback;
 }
 
 function readString(value: unknown) {

@@ -1,9 +1,9 @@
-# Zider AI Actions Wix V1.1 Requirements
+# Zider AI Actions Wix Free-First Requirements
 
 Source: `/Users/yancy/Desktop/Zider_AI_Actions_Wix_V1.1_套餐与多语言需求.md`
 
-This document reorganizes the V1.1 package and multilingual requirements into
-an implementation-oriented source of truth.
+This document reorganizes the package, multilingual, and App Market launch
+requirements into an implementation-oriented source of truth.
 
 ## Product Goal
 
@@ -11,18 +11,136 @@ Zider AI Actions adds AI action buttons to a Wix site. A visitor clicks
 ChatGPT, Claude, Gemini, or a custom AI provider, then the widget opens the
 selected third-party AI service with a site-owner configured prompt.
 
-V1.1 should deliver a Wix App Market app that is:
+V1.0 should deliver a Free-first Wix App Market app that is:
 
 - installable,
 - configurable,
-- subscribable,
-- publishable,
-- limited by Free / Plus package rules.
+- publishable.
+
+Paid Plus is a post-launch release. V1.0 must not depend on Wix Billing,
+checkout, subscription state, or paid feature unlocks.
 
 The core Wix surface is one Site Widget with two layouts:
 
 - Footer Bar
 - Large Icons
+
+## Release Strategy
+
+Ship in three phases:
+
+```text
+V1.0 Free Launch
+-> V1.1 Plus Foundation
+-> V1.2 Plus Analytics
+```
+
+V1.0 Free Launch:
+
+- Wix App Market submission,
+- Free forever,
+- no Wix Billing,
+- no paid checkout,
+- no active Plus subscription logic,
+- 3 built-in providers: ChatGPT, Claude, Gemini,
+- one shared Default Profile,
+- one shared Prompt,
+- Footer Bar and Large Icons,
+- Prompt preview,
+- draft / published config lifecycle,
+- no `Powered by Zider`,
+- no custom AI,
+- no Language Profiles,
+- no click reports.
+
+V1.1 Plus Foundation:
+
+- Wix Billing,
+- Plus plan at `$4.99/month`,
+- upgrade flow,
+- backend paid feature enforcement,
+- Custom AI,
+- complete Language Profiles,
+- language-specific Prompt, provider list, provider URL, and delivery mode.
+
+V1.2 Plus Analytics:
+
+- daily clicks,
+- clicks by language / locale,
+- clicks by provider,
+- language + provider breakdowns.
+
+Do not advertise Plus or analytics in the V1.0 App Market listing until those
+features are implemented and ready for review.
+
+## Implementation Shape And Data Hosting
+
+Zider AI Actions uses a hybrid Wix implementation:
+
+```text
+Wix CLI app shell + Zider-hosted backend, workspace, and runtime APIs
+```
+
+Wix owns:
+
+- App Market identity,
+- Wix app installation flow,
+- Wix permissions,
+- Wix Billing in the post-launch Plus release,
+- dashboard/page extension shell,
+- site widget / extension shell,
+- install and remove event sources,
+- paid-plan event sources after Plus is enabled.
+
+Zider owns and hosts:
+
+- configuration storage,
+- `draftConfig`,
+- `publishedConfig`,
+- prompts,
+- Language Profiles,
+- provider registry and custom provider config,
+- Free package enforcement in V1.0,
+- Free / Plus package enforcement after Plus is enabled,
+- runtime config API,
+- future Plus click report aggregates.
+
+The Wix CLI project should stay thin. It should integrate with Wix-native app
+surfaces and forward identity, installation, billing, and extension context to
+Zider services. It should not become the primary business database or duplicate
+Zider package enforcement logic.
+
+Canonical data isolation key:
+
+```text
+app_key + platform + instance_id
+```
+
+Initial values:
+
+```text
+app_key = zider_ai_actions
+platform = wix
+instance_id = Wix installation instanceId
+```
+
+Zider AI Actions should use dedicated app data tables rather than the generic
+`widget_configs` table. The configuration model includes profiles, providers,
+package gates, draft/published lifecycle, uninstall retention, and future report
+aggregates, so a typed schema is safer than a broad shared JSON bucket.
+
+Required dedicated tables:
+
+```text
+ai_actions_installations
+ai_actions_site_configs
+ai_actions_provider_registry
+ai_actions_click_daily_aggregates
+ai_actions_click_events
+```
+
+`ai_actions_click_events` is only for future Plus analytics deduplication or
+short retention. It is not required for the first App Market submission.
 
 ## Non-Negotiable Product Rules
 
@@ -43,11 +161,11 @@ Free is a single-language, single-audience configuration. It may be written in
 any language, but it cannot store different configurations for different Wix
 languages.
 
-Plus is a language-profile system. Each language or locale can have a different
-audience experience, including different text, prompts, providers, ordering,
-custom AI providers, URLs, and delivery modes.
+Plus is a post-launch language-profile system. Each language or locale can have
+a different audience experience, including different text, prompts, providers,
+ordering, custom AI providers, URLs, and delivery modes.
 
-| Capability | Free | Plus |
+| Capability | V1.0 Free | Post-launch Plus |
 | --- | --- | --- |
 | Footer Bar layout | Yes | Yes |
 | Large Icons layout | Yes | Yes |
@@ -108,9 +226,17 @@ Free plan supports up to 3 built-in AI tools.
 Upgrade to Plus to add more tools.
 ```
 
-## Plus Requirements
+## Post-Launch Plus Requirements
 
-Plus supports unlimited providers and multiple `Language Profiles`.
+Plus is not required for the V1.0 App Market submission. These requirements
+define the V1.1 Plus Foundation release.
+
+When Plus ships, it should support unlimited providers and multiple
+`Language Profiles`.
+
+Plus should ship the complete Language Profile configuration model in the first
+Plus release. Do not split core multilingual configuration across multiple paid
+releases unless App Market review or implementation constraints force it.
 
 Each Language Profile contains:
 
@@ -127,6 +253,20 @@ Each Language Profile contains:
 - custom AI providers,
 - provider URL templates,
 - prompt delivery modes.
+
+Complete Plus multilingual scope for V1.1:
+
+- create multiple Language Profiles,
+- duplicate a Language Profile,
+- enable / disable a Language Profile,
+- set fallback profile,
+- configure title, description, Prompt, copied message per profile,
+- configure provider list and order per profile,
+- configure provider label per profile,
+- configure provider URL template per profile,
+- configure delivery mode per provider and profile,
+- configure custom AI per profile,
+- resolve runtime profile by Wix language / locale.
 
 Plus should use full locales where possible, not only language codes:
 
@@ -204,7 +344,7 @@ Editing one Plus profile must not change any other profile.
 
 ## AI Provider Requirements
 
-Built-in providers for V1.1:
+Built-in providers for V1.0:
 
 - ChatGPT
 - Claude
@@ -218,6 +358,19 @@ Each built-in provider should define:
 - monochrome icon,
 - default URL,
 - default delivery mode.
+
+Use brand icons for the three built-in providers in V1.0:
+
+```text
+ChatGPT
+Claude
+Gemini
+```
+
+Brand icons should be bundled as product assets where possible so the widget
+does not depend on third-party image hosts at runtime. Listing, UI copy, and
+review notes must avoid implying official partnership or endorsement by the AI
+providers.
 
 Free users can select, enable, disable, sort, show names, and set icon style for
 up to 3 built-in providers. Free users cannot modify built-in provider URLs.
@@ -326,7 +479,7 @@ Free dashboard sections:
 - AI Tools
 - Prompt
 - Design
-- Upgrade to Plus
+- Plus coming soon / upgrade entry
 
 Free General fields:
 
@@ -350,7 +503,7 @@ Free Design:
 - icon size,
 - show provider name.
 
-Plus dashboard sections:
+Post-launch Plus dashboard sections:
 
 - General
 - Language Profiles
@@ -507,6 +660,28 @@ final encoded URL is longer than 1,800 characters.
 
 ## Suggested Data Model
 
+Storage owner:
+
+```text
+Zider-hosted database
+```
+
+Primary scope key:
+
+```text
+app_key + platform + instance_id
+```
+
+Dedicated table ownership:
+
+| Table | Purpose |
+| --- | --- |
+| `ai_actions_installations` | Current Wix installation, plan state, and lifecycle metadata |
+| `ai_actions_site_configs` | Draft and published AI Actions site configuration |
+| `ai_actions_provider_registry` | Versioned built-in provider defaults and icon metadata |
+| `ai_actions_click_daily_aggregates` | Future Plus aggregate reports by date, locale, provider, and delivery mode |
+| `ai_actions_click_events` | Future short-retention click events for dedupe/replay only |
+
 Subscription:
 
 ```json
@@ -598,13 +773,14 @@ Each registry entry must include:
 
 - provider ID,
 - public display name,
-- default icon key,
-- allowed icon usage notes,
+- brand icon asset key,
+- monochrome icon asset key,
 - default delivery mode,
 - default URL template,
 - prefill support status,
 - fallback delivery mode,
-- provider terms / brand reference link for internal review.
+- provider terms / brand reference link for internal review,
+- no-affiliation copy note for listing and review materials.
 
 Initial provider IDs:
 
@@ -617,9 +793,6 @@ gemini
 If a provider changes its URL or prefill behavior, update the registry and ship
 it as a config/versioned product update. Do not require site owners to fix
 built-in provider URLs manually.
-
-If brand-icon licensing is unclear for a provider, use a neutral text or
-monochrome icon treatment until approved.
 
 ## Error And Empty States
 
@@ -650,14 +823,17 @@ Do not show owner-facing errors or upgrade prompts to public site visitors.
 Package checks must run in both the UI and the backend. Hidden or disabled UI is
 not sufficient because users can still call save endpoints directly.
 
-Free backend rules:
+V1.0 only enforces Free rules. Plus rules become active after Wix Billing and
+the Plus release are implemented.
+
+V1.0 Free backend rules:
 
 - enabled providers <= 3,
 - custom AI count = 0,
 - language profile count = 1,
 - locale-specific provider config is rejected.
 
-Plus backend rules:
+Post-launch Plus backend rules:
 
 - provider count is unlimited,
 - custom AI count is unlimited,
@@ -665,6 +841,9 @@ Plus backend rules:
 - locale-specific provider config is allowed.
 
 ## Upgrade And Downgrade
+
+Upgrade and downgrade behavior is post-launch Plus scope. V1.0 Free Launch does
+not include Wix Billing, paid checkout, or active subscription transitions.
 
 Free -> Plus:
 
@@ -695,6 +874,10 @@ Plus -> Free:
 - keep other Plus settings read-only for future re-upgrade.
 
 ## Paid Feature Locks
+
+Paid feature locks are passive in V1.0. The dashboard may show Plus as coming
+soon, but must not route users to checkout or claim that Plus is available until
+Wix Billing and Plus are implemented.
 
 Show an upgrade prompt when Free users try to:
 
@@ -854,7 +1037,7 @@ Report UI requirements for Plus:
 If click analytics becomes part of a submitted App Market listing, update the
 privacy policy, review notes, and listing copy before claiming analytics.
 
-## Out Of Scope For V1.1
+## Out Of Scope For V1.0 Free Launch
 
 - AI-generated prompts
 - AI-translated prompts
@@ -896,7 +1079,7 @@ must surface validation errors near the relevant field.
 
 ## Acceptance Criteria
 
-Free:
+V1.0 Free Launch:
 
 - initial install writes one static default prompt,
 - initial install enables 3 built-in providers,
@@ -907,20 +1090,7 @@ Free:
 - all Wix language pages share one configuration,
 - no `Powered by Zider` label is displayed.
 
-Plus:
-
-- provider count is unlimited,
-- unlimited Custom AI providers can be added,
-- multiple Language Profiles can be created,
-- each profile can use a different prompt,
-- each profile can use different providers,
-- each profile can use different provider order,
-- each profile can use different provider URL,
-- each profile can use different delivery mode,
-- Wix language changes load the matching profile,
-- missing current-language profile uses fallback.
-
-Common:
+V1.0 common:
 
 - variables are replaced correctly,
 - page body is not scraped,
@@ -934,6 +1104,20 @@ Common:
 - draft config does not affect the live widget until publish,
 - invalid config cannot be published,
 - public visitors never see upgrade prompts,
+- App Market listing does not advertise Plus or analytics.
+
+Post-launch Plus:
+
+- provider count is unlimited,
+- unlimited Custom AI providers can be added,
+- multiple Language Profiles can be created,
+- each profile can use a different prompt,
+- each profile can use different providers,
+- each profile can use different provider order,
+- each profile can use different provider URL,
+- each profile can use different delivery mode,
+- Wix language changes load the matching profile,
+- missing current-language profile uses fallback,
 - upgrade keeps Free configuration,
 - downgrade preserves Plus configuration.
 
@@ -948,59 +1132,58 @@ Future Plus analytics:
 
 ## Implementation Backlog
 
-| ID | Feature | Plan | Priority |
+| ID | Feature | Plan | Phase |
 | --- | --- | --- | --- |
-| ZAA-001 | Initial install writes static default prompt | All | P0 |
-| ZAA-002 | Manual prompt editing | All | P0 |
-| ZAA-003 | Prompt variable replacement | All | P0 |
-| ZAA-004 | Footer Bar | All | P0 |
-| ZAA-005 | Large Icons | All | P0 |
-| ZAA-006 | ChatGPT provider | All | P0 |
-| ZAA-007 | Claude provider | All | P0 |
-| ZAA-008 | Gemini provider | All | P0 |
-| ZAA-009 | Free max 3 built-in AI providers | Free | P0 |
-| ZAA-010 | Unlimited providers | Plus | P0 |
-| ZAA-011 | Custom AI providers | Plus | P0 |
-| ZAA-012 | Language Profiles | Plus | P0 |
-| ZAA-013 | Language-specific prompts | Plus | P0 |
-| ZAA-014 | Language-specific provider lists | Plus | P0 |
-| ZAA-015 | Language-specific provider order | Plus | P0 |
-| ZAA-016 | Language-specific provider URL | Plus | P0 |
-| ZAA-017 | Language-specific delivery mode | Plus | P0 |
-| ZAA-018 | Wix current-language matching | Plus | P0 |
-| ZAA-019 | Fallback profile | Plus | P0 |
-| ZAA-020 | URL Prefill | All | P0 |
-| ZAA-021 | Copy Prompt + Open | All | P0 |
-| ZAA-022 | Provider safety validation | All | P0 |
-| ZAA-023 | Backend package enforcement | All | P0 |
-| ZAA-024 | Free -> Plus migration | All | P0 |
-| ZAA-025 | Plus -> Free preservation | All | P0 |
-| ZAA-026 | Responsive multi-line layout | All | P0 |
-| ZAA-027 | Prompt Preview | All | P1 |
-| ZAA-028 | Duplicate Language Profile | Plus | P1 |
-| ZAA-029 | No forced Zider branding | All | P0 |
-| ZAA-030 | Advanced styling | Plus | P1 |
-| ZAA-031 | Draft / published config lifecycle | All | P0 |
-| ZAA-032 | Runtime config API hides draft and secret data | All | P0 |
-| ZAA-033 | Field length validation | All | P0 |
-| ZAA-034 | Provider registry with versioned defaults | All | P0 |
-| ZAA-035 | Manual copy modal fallback | All | P0 |
-| ZAA-036 | Accessibility baseline | All | P0 |
-| ZAA-037 | Uninstall retention and runtime disable behavior | All | P0 |
-| ZAA-038 | Plus-only daily click reports | Plus | Future |
-| ZAA-039 | Plus-only click reports by language / locale | Plus | Future |
-| ZAA-040 | Plus-only click reports by provider | Plus | Future |
-| ZAA-041 | Anonymous aggregate click event collection | Plus | Future |
+| ZAA-001 | Initial install writes static default prompt | Free | V1.0 |
+| ZAA-002 | Manual prompt editing | Free | V1.0 |
+| ZAA-003 | Prompt variable replacement | Free | V1.0 |
+| ZAA-004 | Footer Bar | Free | V1.0 |
+| ZAA-005 | Large Icons | Free | V1.0 |
+| ZAA-006 | ChatGPT provider | Free | V1.0 |
+| ZAA-007 | Claude provider | Free | V1.0 |
+| ZAA-008 | Gemini provider | Free | V1.0 |
+| ZAA-009 | Free max 3 built-in AI providers | Free | V1.0 |
+| ZAA-010 | URL Prefill | Free | V1.0 |
+| ZAA-011 | Copy Prompt + Open | Free | V1.0 |
+| ZAA-012 | Provider safety validation | Free | V1.0 |
+| ZAA-013 | Free backend package enforcement | Free | V1.0 |
+| ZAA-014 | Responsive multi-line layout | Free | V1.0 |
+| ZAA-015 | Prompt Preview | Free | V1.0 |
+| ZAA-016 | No forced Zider branding | Free | V1.0 |
+| ZAA-017 | Draft / published config lifecycle | Free | V1.0 |
+| ZAA-018 | Runtime config API hides draft and secret data | Free | V1.0 |
+| ZAA-019 | Field length validation | Free | V1.0 |
+| ZAA-020 | Provider registry with versioned defaults | Free | V1.0 |
+| ZAA-021 | Manual copy modal fallback | Free | V1.0 |
+| ZAA-022 | Accessibility baseline | Free | V1.0 |
+| ZAA-023 | Uninstall retention and runtime disable behavior | Free | V1.0 |
+| ZAA-024 | Hybrid Wix CLI shell integration | Free | V1.0 |
+| ZAA-025 | Zider-hosted typed AI Actions data schema | Free | V1.0 |
+| ZAA-026 | Built-in provider brand icons | Free | V1.0 |
+| ZAA-027 | Wix Billing and Plus plan recognition | Plus | V1.1 |
+| ZAA-028 | Upgrade flow and Plus feature locks | Plus | V1.1 |
+| ZAA-029 | Unlimited providers | Plus | V1.1 |
+| ZAA-030 | Custom AI providers | Plus | V1.1 |
+| ZAA-031 | Complete Language Profiles | Plus | V1.1 |
+| ZAA-032 | Language-specific prompts | Plus | V1.1 |
+| ZAA-033 | Language-specific provider lists | Plus | V1.1 |
+| ZAA-034 | Language-specific provider order | Plus | V1.1 |
+| ZAA-035 | Language-specific provider URL | Plus | V1.1 |
+| ZAA-036 | Language-specific delivery mode | Plus | V1.1 |
+| ZAA-037 | Wix current-language matching | Plus | V1.1 |
+| ZAA-038 | Fallback profile | Plus | V1.1 |
+| ZAA-039 | Duplicate Language Profile | Plus | V1.1 |
+| ZAA-040 | Free -> Plus migration | Plus | V1.1 |
+| ZAA-041 | Plus -> Free preservation | Plus | V1.1 |
+| ZAA-042 | Advanced styling | Plus | V1.1 |
+| ZAA-043 | Plus-only daily click reports | Plus | V1.2 |
+| ZAA-044 | Plus-only click reports by language / locale | Plus | V1.2 |
+| ZAA-045 | Plus-only click reports by provider | Plus | V1.2 |
+| ZAA-046 | Anonymous aggregate click event collection | Plus | V1.2 |
 
 ## Open Implementation Questions
 
-- What is the final internal `app_key` for this Wix app?
-- Is the Wix app implemented as a Wix CLI project, a self-hosted app, or a
-  hybrid like PrintOps?
-- Should configuration reuse `widget_configs`, or should AI Actions get its own
-  typed table?
 - What are the final Wix billing plan IDs for Free and Plus?
 - Which locales should ship with static starter prompt templates on day one?
-- Which provider icon assets should be bundled, and which should be remote?
 - Should dashboard UI localization launch in English only, or include Chinese at
   first release?

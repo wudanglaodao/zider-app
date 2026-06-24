@@ -90,7 +90,7 @@ export async function readPrintOpsTemplates(input: {
       rows
         .map((row) => ({
           id: readString(row.template_record.id) ?? row.template_id,
-          isDefault: Boolean(row.template_record.isDefault ?? row.is_default),
+          isDefault: Boolean(row.is_default),
         }))
         .find((template) => template.isDefault)?.id ?? null;
     const templates = rows.map((row) => {
@@ -99,7 +99,7 @@ export async function readPrintOpsTemplates(input: {
       return {
         ...row.template_record,
         id,
-        isDefault: selectedTemplateId ? id === selectedTemplateId : false,
+        isDefault: selectedTemplateId ? id === selectedTemplateId : Boolean(row.is_default),
       };
     });
 
@@ -121,7 +121,7 @@ export async function readPrintOpsTemplates(input: {
   }
 
   return {
-    reason: error.message ?? "Failed to read PrintOps templates",
+    reason: formatSupabaseError(error, "Failed to read PrintOps templates"),
     selectedTemplateId: null,
     status: "error",
     templates: [],
@@ -186,6 +186,22 @@ export async function persistPrintOpsTemplates(input: PersistPrintOpsTemplatesIn
   });
 
   const supabase = getSupabaseAdmin();
+  const clearDefaultError = await clearExistingDefaultTemplates({
+    appKey: input.appKey,
+    defaultRows: rows.filter((row) => row.is_default),
+    instanceId: input.instanceId,
+    platform: input.platform,
+    supabase,
+  });
+
+  if (clearDefaultError) {
+    return {
+      persistedCount: 0,
+      reason: formatSupabaseError(clearDefaultError, "Failed to clear previous PrintOps default template"),
+      status: "error",
+    };
+  }
+
   const { error } = await supabase.from("printops_templates").upsert(rows, {
     onConflict: "app_key,platform,instance_id,template_id",
   });
@@ -203,7 +219,7 @@ export async function persistPrintOpsTemplates(input: PersistPrintOpsTemplatesIn
     if (deleteError) {
       return {
         persistedCount: 0,
-        reason: deleteError.message ?? "Failed to prune deleted PrintOps templates",
+        reason: formatSupabaseError(deleteError, "Failed to prune deleted PrintOps templates"),
         status: "error",
       };
     }
@@ -225,7 +241,7 @@ export async function persistPrintOpsTemplates(input: PersistPrintOpsTemplatesIn
 
   return {
     persistedCount: 0,
-    reason: error.message ?? "Failed to persist PrintOps templates",
+    reason: formatSupabaseError(error, "Failed to persist PrintOps templates"),
     status: "error",
   };
 }
@@ -234,10 +250,68 @@ function hasSupabaseEnv() {
   return Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
 }
 
-function isMissingTableError(error: { code?: string; message?: string }) {
-  const message = error.message?.toLowerCase() ?? "";
+function isMissingTableError(error: { code?: string; details?: string; message?: string }) {
+  const message = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
 
-  return error.code === "42P01" || message.includes("relation") || message.includes("printops_templates");
+  return (
+    error.code === "42P01" ||
+    message.includes('relation "public.printops_templates" does not exist') ||
+    message.includes('relation "printops_templates" does not exist') ||
+    message.includes("could not find the table 'printops_templates'") ||
+    message.includes('could not find the table "printops_templates"')
+  );
+}
+
+function formatSupabaseError(error: { code?: string; details?: string; hint?: string; message?: string }, fallback: string) {
+  const parts = [error.message, error.details, error.hint, error.code ? `code: ${error.code}` : null].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" · ") : fallback;
+}
+
+async function clearExistingDefaultTemplates(input: {
+  appKey: string;
+  defaultRows: Array<{
+    default_language: string | null;
+    document_type: string | null;
+  }>;
+  instanceId: string;
+  platform: "wix";
+  supabase: ReturnType<typeof getSupabaseAdmin>;
+}) {
+  const defaultScopes = new Map<string, { defaultLanguage: string | null; documentType: string | null }>();
+
+  for (const row of input.defaultRows) {
+    const documentType = row.document_type ?? null;
+    const defaultLanguage = row.default_language ?? null;
+    defaultScopes.set(`${documentType ?? ""}::${defaultLanguage ?? ""}`, {
+      defaultLanguage,
+      documentType,
+    });
+  }
+
+  for (const scope of defaultScopes.values()) {
+    let query = input.supabase
+      .from("printops_templates")
+      .update({
+        is_default: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("app_key", input.appKey)
+      .eq("platform", input.platform)
+      .eq("instance_id", input.instanceId)
+      .eq("is_default", true);
+
+    query = scope.documentType ? query.eq("document_type", scope.documentType) : query.is("document_type", null);
+    query = scope.defaultLanguage ? query.eq("default_language", scope.defaultLanguage) : query.is("default_language", null);
+
+    const { error } = await query;
+
+    if (error) {
+      return error;
+    }
+  }
+
+  return null;
 }
 
 function readString(value: unknown) {
