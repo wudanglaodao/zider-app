@@ -6156,8 +6156,11 @@ function getOrderBatchFileName(orders: Order[]) {
   return `printops-invoices-${orders.length || "selected"}-orders.pdf`;
 }
 
-function getTemplatePreviewNode() {
-  const previewNode = document.querySelector<HTMLElement>('[data-template-print-preview="true"]');
+function getTemplatePreviewNode(root: ParentNode = document) {
+  const previewNode =
+    root instanceof HTMLElement && root.matches('[data-template-print-preview="true"]')
+      ? root
+      : root.querySelector<HTMLElement>('[data-template-print-preview="true"]');
   const paperNode = previewNode?.querySelector<HTMLElement>('[class*="templatePaper"]');
 
   return paperNode ?? previewNode;
@@ -6487,8 +6490,8 @@ function openOrderPrintWindow(sourceNodes: HTMLElement[], title: string) {
   printWindow.document.close();
 }
 
-async function createTemplatePdfBlob(templateRecord: TemplateRecord) {
-  const sourceNode = getTemplatePreviewNode();
+async function createTemplatePdfBlob(templateRecord: TemplateRecord, previewRoot?: ParentNode | null) {
+  const sourceNode = getTemplatePreviewNode(previewRoot ?? document);
 
   if (!sourceNode) {
     return null;
@@ -6539,8 +6542,8 @@ async function createTemplatePdfBlob(templateRecord: TemplateRecord) {
   }
 }
 
-function openTemplatePrintWindow(templateRecord: TemplateRecord) {
-  const previewNode = getTemplatePreviewNode();
+function openTemplatePrintWindow(templateRecord: TemplateRecord, previewRoot?: ParentNode | null) {
+  const previewNode = getTemplatePreviewNode(previewRoot ?? document);
   const printWindow = window.open("", "_blank", "width=980,height=1200");
 
   if (!previewNode || !printWindow) {
@@ -6694,68 +6697,36 @@ function TemplatePreviewModal({
   onOpenChange: (open: boolean) => void;
   templateRecord: TemplateRecord | null;
 }) {
-  const [pdfDownloadUrl, setPdfDownloadUrl] = useState<string | null>(null);
   const [isPreparingPdf, setIsPreparingPdf] = useState(false);
+  const previewStageRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!templateRecord) {
-      setPdfDownloadUrl(null);
       setIsPreparingPdf(false);
-      return;
     }
-
-    let isActive = true;
-    let objectUrl: string | null = null;
-
-    setPdfDownloadUrl(null);
-    setIsPreparingPdf(true);
-
-    const timer = window.setTimeout(() => {
-      void createTemplatePdfBlob(templateRecord)
-        .then((pdfBlob) => {
-          if (!pdfBlob) {
-            return;
-          }
-
-          const nextUrl = URL.createObjectURL(pdfBlob);
-
-          if (isActive) {
-            objectUrl = nextUrl;
-            setPdfDownloadUrl(nextUrl);
-            return;
-          }
-
-          URL.revokeObjectURL(nextUrl);
-        })
-        .catch(() => {
-          if (isActive) {
-            setPdfDownloadUrl(null);
-          }
-        })
-        .finally(() => {
-          if (isActive) {
-            setIsPreparingPdf(false);
-          }
-        });
-    }, 250);
-
-    return () => {
-      isActive = false;
-      window.clearTimeout(timer);
-
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
   }, [templateRecord]);
 
   if (!templateRecord) {
     return null;
   }
 
-  const isBuiltIn = templateRecord.source === "Built-in";
-  const localizedTemplate = getLocalizedTemplateRecord(templateRecord, messages);
-  const pdfFileName = getTemplateFileName(templateRecord);
+  const activeTemplate = templateRecord;
+  const isBuiltIn = activeTemplate.source === "Built-in";
+  const localizedTemplate = getLocalizedTemplateRecord(activeTemplate, messages);
+
+  async function handleDownloadPdf() {
+    setIsPreparingPdf(true);
+
+    try {
+      const pdfBlob = await createTemplatePdfBlob(activeTemplate, previewStageRef.current);
+
+      if (pdfBlob) {
+        downloadPdfBlob(pdfBlob, getTemplateFileName(activeTemplate));
+      }
+    } finally {
+      setIsPreparingPdf(false);
+    }
+  }
 
   return (
     <Drawer.Root open={Boolean(templateRecord)} onOpenChange={onOpenChange}>
@@ -6770,19 +6741,12 @@ function TemplatePreviewModal({
                 <Drawer.Description className={styles.previewModalDescription}>{localizedTemplate.description}</Drawer.Description>
               </div>
               <div className={styles.previewModalActions}>
-                {templateRecord.isDefault ? <strong className={styles.defaultBadge}>{messages.templates.default}</strong> : null}
-                {pdfDownloadUrl ? (
-                  <a className={styles.secondaryButton} download={pdfFileName} href={pdfDownloadUrl}>
-                    <Download size={17} aria-hidden />
-                    {messages.templates.downloadPdf}
-                  </a>
-                ) : (
-                  <button className={styles.secondaryButton} type="button" disabled aria-busy={isPreparingPdf}>
-                    <Download size={17} aria-hidden />
-                    {messages.templates.downloadPdf}
-                  </button>
-                )}
-                <button className={styles.secondaryButton} type="button" onClick={() => openTemplatePrintWindow(templateRecord)}>
+                {activeTemplate.isDefault ? <strong className={styles.defaultBadge}>{messages.templates.default}</strong> : null}
+                <button className={styles.secondaryButton} type="button" disabled={isPreparingPdf} aria-busy={isPreparingPdf} onClick={handleDownloadPdf}>
+                  <Download size={17} aria-hidden />
+                  {messages.templates.downloadPdf}
+                </button>
+                <button className={styles.secondaryButton} type="button" onClick={() => openTemplatePrintWindow(activeTemplate, previewStageRef.current)}>
                   <Printer size={17} aria-hidden />
                   {messages.templates.printPreview}
                 </button>
@@ -6790,7 +6754,7 @@ function TemplatePreviewModal({
                   className={styles.primaryButton}
                   type="button"
                   onClick={() => {
-                    onEditTemplate(templateRecord);
+                    onEditTemplate(activeTemplate);
                     onOpenChange(false);
                   }}
                 >
@@ -6803,7 +6767,7 @@ function TemplatePreviewModal({
               </div>
             </div>
 
-            <div className={styles.previewModalStage} data-template-print-preview="true">
+            <div ref={previewStageRef} className={styles.previewModalStage} data-template-print-preview="true">
               <TemplatePaperPreview
                 accentColor={templateRecord.accentColor}
                 addressFormat={templateRecord.addressFormat}
@@ -8984,6 +8948,7 @@ function OrderPaperPreview({
       ) : null}
     </span>
   ) : null;
+  const hasFooterContent = showThankYou || hasContactFooter || hasSocialFooter;
 
   if (visualStyle === "atelier") {
     return (
@@ -9011,7 +8976,9 @@ function OrderPaperPreview({
                 ) : null}
                 {orderBarcode}
               </span>
-            ) : null}
+            ) : (
+              <span aria-hidden="true" className={styles.orderHeroMeta} data-placeholder="true" />
+            )}
             {showLogoText ? (
               <span className={styles.orderHeroLogoSlot}>
                 <BrandLogoAsset
@@ -9023,7 +8990,9 @@ function OrderPaperPreview({
                   wordmark={displayWordmark}
                 />
               </span>
-            ) : null}
+            ) : (
+              <span aria-hidden="true" className={styles.orderHeroLogoSlot} data-placeholder="true" />
+            )}
           </span>
         ) : null}
 
@@ -9088,6 +9057,7 @@ function OrderPaperPreview({
           </span>
         ) : null}
 
+        {hasFooterContent ? <span aria-hidden="true" className={styles.orderFooterDivider} /> : null}
         {showThankYou ? (
           <span className={styles.orderHeroThanks}>
             <span>{displayContactPrompt}</span>
@@ -9114,12 +9084,16 @@ function OrderPaperPreview({
                 {showShippingMethod ? <small>{labels.shipping} {orderDetails.deliveryMethod}</small> : null}
                 {orderBarcode}
               </span>
-            ) : null}
+            ) : (
+              <span aria-hidden="true" data-placeholder="true" />
+            )}
             {showLogoText ? (
               <span className={styles.orderClassicLogo}>
                 <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} wordmark={displayWordmark} />
               </span>
-            ) : null}
+            ) : (
+              <span aria-hidden="true" className={styles.orderClassicLogo} data-placeholder="true" />
+            )}
           </span>
         ) : null}
 
@@ -9184,6 +9158,7 @@ function OrderPaperPreview({
             </span>
         ) : null}
 
+        {hasFooterContent ? <span aria-hidden="true" className={styles.orderFooterDivider} /> : null}
         {showThankYou ? (
           <span className={styles.orderCenteredFooter}>
             <span>{displayContactPrompt}</span>
@@ -9212,12 +9187,16 @@ function OrderPaperPreview({
               <small>{labels.totalItems} {orderDetails.lineItems.reduce((total, lineItem) => total + lineItem.quantity, 0)}</small>
               {orderBarcode}
             </span>
-          ) : null}
+          ) : (
+            <span aria-hidden="true" data-placeholder="true" />
+          )}
           {showLogoText ? (
             <span className={styles.orderClassicLogo}>
               <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} wordmark={displayWordmark} />
             </span>
-          ) : null}
+          ) : (
+            <span aria-hidden="true" className={styles.orderClassicLogo} data-placeholder="true" />
+          )}
         </span>
       ) : null}
 
@@ -9264,6 +9243,7 @@ function OrderPaperPreview({
 
       {hasOrderDetails ? <span className={styles.orderSlipNotes}>{orderNotesBlock}</span> : null}
 
+      {hasFooterContent ? <span aria-hidden="true" className={styles.orderFooterDivider} /> : null}
       {showThankYou || showContactFooter ? (
         <span className={styles.orderSlipThanks}>
           {showThankYou ? (

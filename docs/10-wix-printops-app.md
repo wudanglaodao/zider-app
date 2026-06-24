@@ -29,6 +29,24 @@ npm run dev
 
 The CLI dashboard page is a lightweight PrintOps entry point that links to the hosted workspace dashboard. The full order sync and template UI still lives in `apps/workspace`.
 
+## Route Boundaries
+
+Keep the product route and the Wix embedded route separate:
+
+- `https://workspace.zider.ink/apps/printops` is the future ZIDER Workspace
+  PrintOps workbench. It should become the platform-neutral entry for PrintOps,
+  workspace overview, connected stores, multi-store selection, and cross-platform
+  order/template management.
+- `https://workspace.zider.ink/apps/printops/wix` is the Wix dashboard embedded
+  entry. It owns Wix-specific context such as signed `instance`, `instanceId`,
+  Wix owner email, Wix order sync, Wix plan upgrade, and Wix event/cache state.
+
+During the first Wix App Market release, `/apps/printops/wix` remains the only
+Wix-configured dashboard URL. `/apps/printops` can stay reserved or redirect to
+the current Wix store while there is only one connected store, but its product
+meaning should remain platform-neutral so future Shopify/WooCommerce/multi-Wix
+store flows do not inherit Wix-only assumptions.
+
 ## Wix Developer Setup
 
 Create a self-hosted Wix dashboard app and configure:

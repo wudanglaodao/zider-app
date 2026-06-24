@@ -50,6 +50,23 @@ Production smoke target:
 https://workspace.zider.ink/apps/printops/wix
 ```
 
+Workspace product target:
+
+```text
+https://workspace.zider.ink/apps/printops
+```
+
+Route ownership:
+
+- `/apps/printops/wix` is the Wix dashboard embedded route. Use it for Wix App
+  Market smoke tests, signed `instance` handling, Wix owner email binding, Wix
+  order sync, and Wix billing/upgrade behavior.
+- `/apps/printops` is reserved for the ZIDER Workspace PrintOps workbench. It is
+  the future platform-neutral entry for connected stores, multi-store switching,
+  and cross-platform PrintOps management.
+- Do not move the Wix app dashboard URL from `/apps/printops/wix` until the Wix
+  embed flow is explicitly migrated.
+
 Event receiver:
 
 ```text

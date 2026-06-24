@@ -111,7 +111,7 @@ Out of scope permissions:
 - CRM,
 - products,
 - payments,
-- visitor analytics.
+- Wix visitor analytics permissions.
 
 If any broader scope becomes technically required, document the reason before
 adding it. Wix review checks whether requested permissions are necessary.
@@ -215,7 +215,8 @@ Listing copy must match the product exactly:
 - do not claim AI API integration,
 - do not claim page body scraping,
 - do not claim automatic translation,
-- do not claim analytics, A/B testing, or conversion tracking,
+- do not claim analytics, A/B testing, or conversion tracking until those
+  features are implemented and reviewed,
 - do not claim official partnership with AI providers.
 
 Recommended positioning:
@@ -305,6 +306,16 @@ Required:
 - third-party AI disclosure,
 - GDPR readiness if available in EU regions,
 - cookie/consent compliance if any tracking or cookies are added later.
+
+Future click reports:
+
+- only active Plus subscribers can view reports,
+- collect click analytics only for active Plus installations with reports
+  enabled,
+- reports must be aggregate, not visitor-level,
+- update privacy policy and review notes before enabling reports,
+- do not store Prompt text, AI responses, visitor IDs, IP addresses, user agents,
+  page bodies, or full page URLs for click reports.
 
 Privacy claims must match implementation:
 

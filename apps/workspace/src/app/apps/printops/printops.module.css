@@ -3582,8 +3582,8 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 1em;
   align-items: center;
-  border-top: 0.18em solid var(--order-ink);
-  padding-top: 0.86em;
+  border-top: 0;
+  padding-top: 0;
 }
 
 .orderSocialFooter > span:first-child {
@@ -3690,6 +3690,14 @@
 
 .orderHeroLogoSlot .orderClassicLogoImage {
   object-position: right center;
+}
+
+.orderHeroMeta[data-placeholder="true"],
+.orderHeroLogoSlot[data-placeholder="true"],
+.orderClassicHeader > span[data-placeholder="true"],
+.orderSlipHeader > span[data-placeholder="true"] {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .orderHeroMeta {
@@ -3948,10 +3956,14 @@
   display: grid;
   justify-items: center;
   gap: 0.6em;
-  border-top: 0.2em solid #151817;
-  margin-top: 1.25em;
   padding-top: 1.3em;
   text-align: center;
+}
+
+.orderFooterDivider {
+  display: block;
+  border-top: 0.2em solid #151817;
+  margin-top: 1.25em;
 }
 
 .orderHeroThanks strong,
@@ -4107,7 +4119,7 @@
 
 .orderSlipThanks {
   border-top: 0;
-  margin-top: 1.6em;
+  margin-top: 0;
 }
 
 .orderSocialFooter {

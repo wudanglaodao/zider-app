@@ -107,7 +107,8 @@ Included:
 - language-specific custom AI providers,
 - fallback profile selection,
 - duplicate Language Profile,
-- advanced styling.
+- advanced styling,
+- future click reports by day, language / locale, and provider.
 
 Plus should be described as:
 
@@ -134,6 +135,7 @@ Build a different AI action entry point for every audience your Wix site serves.
 | Delivery mode | Built-in defaults | Editable per provider and profile |
 | Wix multilingual behavior | Same config on every language page | Match current Wix language / locale |
 | Fallback profile | Not needed | Supported |
+| Reports | Not available | Future click reports for subscribers |
 | Branding | No forced Zider branding | No forced Zider branding |
 | Styling | Basic | Advanced |
 
@@ -147,6 +149,7 @@ Show an upgrade prompt when a Free user tries to:
 - configure AI providers by language,
 - edit provider URLs,
 - edit provider delivery mode,
+- view click reports,
 - use advanced styling.
 
 Upgrade copy:
@@ -233,5 +236,6 @@ Plus = separate AI action setups for every language and audience.
 - Final Wix billing plan IDs.
 - Whether App Market copy should call the paid plan `Plus`, `Pro`, or
   `Premium`. Current requirements use `Plus`.
-- Whether future higher tiers are needed for analytics, A/B testing, or
-  per-page profiles. These are out of scope for V1.1.
+- Whether future higher tiers are needed for advanced analytics, A/B testing,
+  or per-page profiles. Basic click reports are planned as a future Plus
+  feature; advanced analytics remain out of scope for V1.1.

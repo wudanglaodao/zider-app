@@ -748,6 +748,112 @@ External links must:
 - use `noreferrer`,
 - pass HTTPS validation.
 
+## Future Plus Analytics
+
+Click analytics is a post-V1.1 feature. It should be designed now so the data
+boundary is clear, but it is not required for the first App Market submission.
+
+Report access:
+
+- only active Plus subscribers can view click reports,
+- Free users cannot view reports,
+- Free dashboards may show a locked Reports entry with an upgrade CTA,
+- public site visitors never see reports or analytics notices in the widget UI.
+
+Minimum report metrics:
+
+- total AI action clicks by day,
+- AI action clicks by Wix language / locale,
+- AI action clicks by provider,
+- AI action clicks by language and provider.
+
+Default report date ranges:
+
+- last 7 days,
+- last 30 days,
+- last 90 days.
+
+Date grouping should use the Wix site timezone when available. If unavailable,
+use UTC and show that timezone in the report UI.
+
+Click event collection:
+
+- collect click analytics only when the installation has active Plus and the
+  reports feature is enabled,
+- Free installations do not collect click analytics by default,
+- record a click only after a visitor intentionally selects an AI provider,
+- count the visitor action once even if the delivery mode falls back,
+- never block opening the AI provider if analytics recording fails,
+- prefer `sendBeacon` or `fetch` with keepalive for front-site recording,
+- use an event ID for deduplication, not a visitor ID.
+
+Allowed analytics fields:
+
+```text
+app_key
+platform
+instance_id
+event_id
+clicked_at
+event_date
+provider_id
+provider_type
+profile_locale
+effective_locale
+delivery_mode
+plan_at_click
+```
+
+Analytics must not store:
+
+- final Prompt text,
+- configured Prompt text,
+- AI response content,
+- visitor name,
+- visitor email,
+- visitor account,
+- visitor ID,
+- IP address,
+- user agent,
+- page body,
+- full page URL.
+
+Suggested aggregate table:
+
+```text
+app_key
+platform
+instance_id
+event_date
+profile_locale
+provider_id
+delivery_mode
+click_count
+updated_at
+```
+
+Suggested unique aggregate key:
+
+```text
+app_key + platform + instance_id + event_date + profile_locale + provider_id + delivery_mode
+```
+
+Raw minimal click events, if stored for deduplication or replay, should be
+retained for no more than 30 days. Aggregated daily counts may be retained while
+the app is installed.
+
+Report UI requirements for Plus:
+
+- daily clicks chart,
+- language / locale breakdown table,
+- provider breakdown table,
+- empty state when no clicks exist,
+- clear timezone label,
+- no visitor-level drilldown.
+
+If click analytics becomes part of a submitted App Market listing, update the
+privacy policy, review notes, and listing copy before claiming analytics.
+
 ## Out Of Scope For V1.1
 
 - AI-generated prompts
@@ -759,7 +865,7 @@ External links must:
 - in-site AI chatbot
 - AI API keys
 - token credits
-- click analytics
+- click report dashboard
 - conversion analytics
 - A/B testing
 - per-page profiles
@@ -768,6 +874,8 @@ External links must:
 - automatic provider URL sync
 - storing final generated prompts for analytics
 - tracking visitor-level AI provider clicks
+- visitor-level analytics
+- page-level click analytics
 
 Plus Language Profiles are driven by Wix language / locale, not visitor IP.
 
@@ -829,6 +937,15 @@ Common:
 - upgrade keeps Free configuration,
 - downgrade preserves Plus configuration.
 
+Future Plus analytics:
+
+- Free users cannot view reports,
+- active Plus users can view daily clicks,
+- active Plus users can view clicks by language / locale,
+- active Plus users can view clicks by provider,
+- analytics never stores Prompt text or visitor identifiers,
+- analytics recording failure does not block opening the AI provider.
+
 ## Implementation Backlog
 
 | ID | Feature | Plan | Priority |
@@ -870,6 +987,10 @@ Common:
 | ZAA-035 | Manual copy modal fallback | All | P0 |
 | ZAA-036 | Accessibility baseline | All | P0 |
 | ZAA-037 | Uninstall retention and runtime disable behavior | All | P0 |
+| ZAA-038 | Plus-only daily click reports | Plus | Future |
+| ZAA-039 | Plus-only click reports by language / locale | Plus | Future |
+| ZAA-040 | Plus-only click reports by provider | Plus | Future |
+| ZAA-041 | Anonymous aggregate click event collection | Plus | Future |
 
 ## Open Implementation Questions
 
