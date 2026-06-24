@@ -706,12 +706,14 @@ function getTemplateAddressFormatOptions(locale: SiteLocale) {
 
 const printOpsSystemBrandName = "ZIDER";
 const printOpsSystemSiteUrl = "https://www.zider.ink/";
-const printOpsSystemFooterContact = "";
+const printOpsSystemSupportEmail = "support@zider.ink";
+const printOpsSystemFooterAddress = "150 Elgin Street, 8th Floor";
+const printOpsSystemFooterContact = `${printOpsSystemFooterAddress} / ${printOpsSystemSupportEmail}`;
 const printOpsBarcodeFeatureEnabled = false;
 
 const legacyTemplateDefaults = {
   brandName: "Green Studio",
-  footerContact: "150 Elgin Street, 8th Floor / support@zider.ink",
+  footerContact: printOpsSystemFooterContact,
   footerWebsite: "Zider.ink",
   logoText: "Hello",
   socialUsername: "greenstudio",
@@ -1041,6 +1043,8 @@ function normalizeStoredTemplateRecord(templateRecord: TemplateRecord): Template
     showShippingTotal: templateRecord.showShippingTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showShippingTotal,
     showTaxTotal: templateRecord.showTaxTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showTaxTotal,
     showGrandTotal: templateRecord.showGrandTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showGrandTotal,
+    footerContact: normalizeStoredTemplateFooterContact(templateRecord.footerContact),
+    footerWebsite: normalizeStoredTemplateFooterWebsite(templateRecord.footerWebsite),
   };
 
   if (
@@ -1200,17 +1204,23 @@ function applyStoreProfileDefaultsToTemplates(
   options: { includeNewDrafts?: boolean } = {},
 ) {
   const businessName = cleanProfileString(profile?.businessName) ?? printOpsSystemBrandName;
-  const siteUrl = cleanProfileString(profile?.siteUrl) ?? printOpsSystemSiteUrl;
-  const siteDisplay = getWebsiteDisplay(siteUrl) ?? siteUrl;
-  const footerContact = profile ? createStoreContactLine(profile) : printOpsSystemFooterContact || null;
+  const profileSiteUrl = normalizeProfileSiteUrl(profile?.siteUrl);
+  const siteDisplay = profileSiteUrl ? (getWebsiteDisplay(profileSiteUrl) ?? profileSiteUrl) : defaultTemplateBrandSettings.footerWebsite;
+  const footerContact = profile ? createStoreContactLine(profile) : null;
   const brandSamples = [defaultTemplateBrandSettings.brandName, legacyTemplateDefaults.brandName];
-  const footerContactSamples = [defaultTemplateBrandSettings.footerContact, legacyTemplateDefaults.footerContact];
-  const footerWebsiteSamples = [defaultTemplateBrandSettings.footerWebsite, legacyTemplateDefaults.footerWebsite];
+  const footerContactSamples = [
+    defaultTemplateBrandSettings.footerContact,
+    legacyTemplateDefaults.footerContact,
+    printOpsSystemFooterAddress,
+    printOpsSystemSupportEmail,
+  ];
+  const footerWebsiteSamples = [defaultTemplateBrandSettings.footerWebsite, legacyTemplateDefaults.footerWebsite, printOpsSystemSupportEmail];
   const logoTextSamples = [defaultTemplateBrandSettings.logoText, legacyTemplateDefaults.logoText];
   const websiteProfileSamples = [
     defaultTemplateSocialProfiles.website?.url ?? "",
     legacyTemplateDefaults.websiteUrl,
     legacyTemplateDefaults.footerWebsite,
+    printOpsSystemSupportEmail,
   ];
 
   return templates.map((templateRecord) => {
@@ -1220,8 +1230,8 @@ function applyStoreProfileDefaultsToTemplates(
 
     const nextSocialProfiles = normalizeSocialProfiles(templateRecord.socialProfiles, templateRecord.socialLinks);
 
-    if (siteUrl && shouldReplaceProfileValue(nextSocialProfiles.website?.url, websiteProfileSamples)) {
-      nextSocialProfiles.website = createSocialProfile("website", "url", siteUrl);
+    if (profileSiteUrl && shouldReplaceProfileValue(nextSocialProfiles.website?.url, websiteProfileSamples)) {
+      nextSocialProfiles.website = createSocialProfile("website", "url", profileSiteUrl);
     }
 
     const profileLogoUrl = cleanProfileString(profile?.logoUrl);
@@ -1241,7 +1251,7 @@ function applyStoreProfileDefaultsToTemplates(
       ...logoPatch,
       brandName: patchProfileText(templateRecord.brandName, businessName, brandSamples),
       defaultLanguage: templateRecord.defaultLanguage,
-      footerContact: patchProfileText(templateRecord.footerContact, footerContact, footerContactSamples),
+      footerContact: patchProfileText(templateRecord.footerContact, footerContact ?? defaultTemplateBrandSettings.footerContact, footerContactSamples),
       footerWebsite: patchProfileText(templateRecord.footerWebsite, siteDisplay, footerWebsiteSamples),
       logoText: patchProfileText(templateRecord.logoText, createProfileWordmark(businessName), logoTextSamples),
       socialProfiles: nextSocialProfiles,
@@ -1277,6 +1287,36 @@ function cleanProfileString(value: string | null | undefined) {
   return trimmed || null;
 }
 
+function normalizeProfileSiteUrl(value: string | null | undefined) {
+  const siteUrl = cleanProfileString(value);
+
+  if (!siteUrl || siteUrl.includes("@")) {
+    return null;
+  }
+
+  return siteUrl;
+}
+
+function normalizeStoredTemplateFooterContact(value: string | null | undefined) {
+  const cleanValue = cleanProfileString(value);
+
+  if (!cleanValue || cleanValue === printOpsSystemFooterAddress || cleanValue === printOpsSystemSupportEmail) {
+    return defaultTemplateBrandSettings.footerContact;
+  }
+
+  return cleanValue;
+}
+
+function normalizeStoredTemplateFooterWebsite(value: string | null | undefined) {
+  const cleanValue = cleanProfileString(value);
+
+  if (!cleanValue || cleanValue.includes("@")) {
+    return defaultTemplateBrandSettings.footerWebsite;
+  }
+
+  return cleanValue;
+}
+
 function patchProfileText(currentValue: string, nextValue: string | null, sampleValues: Array<string | null | undefined>) {
   if (!shouldReplaceProfileValue(currentValue, sampleValues)) {
     return currentValue;
@@ -1308,8 +1348,15 @@ function createProfileWordmark(businessName: string | null) {
 }
 
 function createStoreContactLine(profile: PrintOpsStoreProfileSummary) {
+  const businessEmail = cleanProfileString(profile.businessEmail);
+  const phone = cleanProfileString(profile.phone);
+
+  if (!businessEmail && !phone) {
+    return null;
+  }
+
   const addressLine = formatStoreAddress(profile.address);
-  const segments = [addressLine, cleanProfileString(profile.businessEmail), cleanProfileString(profile.phone)].filter(Boolean);
+  const segments = [addressLine, businessEmail, phone].filter(Boolean);
 
   return segments.join(" / ") || null;
 }

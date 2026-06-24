@@ -69,7 +69,8 @@ export async function readPrintOpsSettings(input: {
 
   if (isMissingTableError(error)) {
     return {
-      reason: "Missing printops_settings table. Run supabase/migrations/20260621_add_printops_settings.sql first.",
+      reason:
+        "Missing printops_settings table. Run supabase/migrations/20260624_repair_printops_template_persistence.sql first.",
       settings: null,
       status: "skipped",
     };
@@ -125,7 +126,8 @@ export async function persistPrintOpsSettings(input: {
 
   if (isMissingTableError(error)) {
     return {
-      reason: "Missing printops_settings table. Run supabase/migrations/20260621_add_printops_settings.sql first.",
+      reason:
+        "Missing printops_settings table. Run supabase/migrations/20260624_repair_printops_template_persistence.sql first.",
       status: "skipped",
     };
   }

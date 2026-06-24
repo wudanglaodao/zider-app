@@ -112,7 +112,8 @@ export async function readPrintOpsTemplates(input: {
 
   if (isMissingTableError(error)) {
     return {
-      reason: "Missing printops_templates table. Run supabase/migrations/20260621_add_printops_templates.sql first.",
+      reason:
+        "Missing printops_templates table. Run supabase/migrations/20260624_repair_printops_template_persistence.sql first.",
       selectedTemplateId: null,
       status: "skipped",
       templates: [],
@@ -216,7 +217,8 @@ export async function persistPrintOpsTemplates(input: PersistPrintOpsTemplatesIn
   if (isMissingTableError(error)) {
     return {
       persistedCount: 0,
-      reason: "Missing printops_templates table. Run supabase/migrations/20260621_add_printops_templates.sql first.",
+      reason:
+        "Missing printops_templates table. Run supabase/migrations/20260624_repair_printops_template_persistence.sql first.",
       status: "skipped",
     };
   }
