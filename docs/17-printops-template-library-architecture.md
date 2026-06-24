@@ -15,6 +15,9 @@ The current implementation is intentionally simple:
 - Reads and writes are scoped by `app_key + platform + instance_id`.
 - The API accepts and saves a full template array at once.
 - The renderer is React-component driven and tied to the workbench UI.
+- `printops_templates` also stores lightweight metadata columns for lookup:
+  `base_template_key`, `base_template_version`, `template_schema_version`,
+  `renderer_version`, `paper_size`, `layout_key`, and `status`.
 
 This works for the current Wix-first PrintOps app, but it is not yet a durable
 template library. The next architecture should separate official template
@@ -64,6 +67,15 @@ future blank template.
 
 User templates hold merchant configuration only. They should not duplicate
 unchanged blueprint defaults unless needed for compatibility.
+
+For the current transition period, the full merchant-edited template snapshot
+continues to live in `printops_templates.template_record`. This JSON snapshot
+is the source of truth for visual settings such as logo text, logo source,
+font family, font size, title/body/thank-you sizes, colors, density, footer
+copy, social links, financial row visibility, SKU barcode behavior, language,
+and label overrides. Metadata columns exist for querying, assignment,
+constraints, and future migrations; they are not a replacement for the full
+template config.
 
 ### Renderer
 
@@ -361,12 +373,17 @@ Renderer output must be deterministic across:
 ## Compatibility Rules
 
 - Existing `printops_templates` rows remain readable.
+- Full template visual config stays in `template_record`; only searchable
+  metadata is duplicated into columns.
 - Merchant-edited fields must always win over store profile refreshes.
 - Default template selection should never depend on localStorage.
 - localStorage may be a UI cache only, never the source of truth.
 - Built-in blueprint updates should not silently overwrite merchant templates.
 - If a blueprint is archived, existing user templates that reference it must
   continue to render through their saved `renderer_key`.
+- Within one scope, only one template can be default for a
+  `document_type + language` pair. Prefer store scope first, then workspace
+  scope, then legacy `instance_id` scope for compatibility.
 
 ## Open Decisions
 
@@ -387,3 +404,14 @@ large database migration immediately:
 2. Add schema/version fields and migration helpers.
 3. Introduce a blueprint registry for the two current invoice templates.
 4. Keep current UI behavior while making saved data future-proof.
+
+The immediate pre-release migration is intentionally smaller than the target
+architecture:
+
+1. Add metadata columns to `printops_templates`.
+2. Backfill those columns from existing `template_record` JSON.
+3. Add default-template unique indexes for store, workspace, and legacy
+   instance scopes.
+4. Keep all edit fields saved as the full JSON snapshot.
+5. Add `printops_template_versions` later, before the visual editor, so every
+   save can be restored.

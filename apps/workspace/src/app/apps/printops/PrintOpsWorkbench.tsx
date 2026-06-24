@@ -707,6 +707,7 @@ function getTemplateAddressFormatOptions(locale: SiteLocale) {
 const printOpsSystemBrandName = "ZIDER";
 const printOpsSystemSiteUrl = "https://www.zider.ink/";
 const printOpsSystemFooterContact = "";
+const printOpsBarcodeFeatureEnabled = false;
 
 const legacyTemplateDefaults = {
   brandName: "Green Studio",
@@ -961,7 +962,7 @@ const defaultTemplateBrandSettings = {
   showLogoText: true,
   showStoreName: true,
   showInvoiceMeta: true,
-  showOrderBarcode: true,
+  showOrderBarcode: false,
   showBillTo: true,
   showShipTo: true,
   showProductImages: true,
@@ -2192,7 +2193,9 @@ const templateFixedLabelDefinitions: TemplateLabelDefinition[] = [
   { key: "template.order_date", group: "Template", label: fixedTemplateLabels.orderDate, helper: "Order date label for compact layouts." },
   { key: "template.payment", group: "Template", label: fixedTemplateLabels.payment, helper: "Payment method label." },
   { key: "template.shipping", group: "Template", label: fixedTemplateLabels.shipping, helper: "Shipping method label." },
-  { key: "template.order_barcode", group: "Order", label: fixedTemplateLabels.orderBarcode, helper: "Order barcode label." },
+  ...(printOpsBarcodeFeatureEnabled
+    ? [{ key: "template.order_barcode", group: "Order" as const, label: fixedTemplateLabels.orderBarcode, helper: "Order barcode label." }]
+    : []),
   { key: "template.bill_to", group: "Address", label: fixedTemplateLabels.billTo, helper: "Billing address heading." },
   { key: "template.ship_to", group: "Address", label: fixedTemplateLabels.shipTo, helper: "Shipping address heading." },
   { key: "template.item_description", group: "Items", label: fixedTemplateLabels.itemDescription, helper: "Line-item table heading." },
@@ -2250,7 +2253,9 @@ function getVisibleFieldGroups(editorCopy: PrintOpsMessages["templateEditor"]): 
         { key: "showLogoText", label: editorCopy.visibleHeroWordmark, description: editorCopy.visibleHeroWordmarkDescription },
         { key: "showStoreName", label: editorCopy.visibleStoreName, description: editorCopy.visibleStoreNameDescription },
         { key: "showInvoiceMeta", label: editorCopy.visibleInvoiceMetadata, description: editorCopy.visibleInvoiceMetadataDescription },
-        { key: "showOrderBarcode", label: editorCopy.visibleOrderBarcode, description: editorCopy.visibleOrderBarcodeDescription },
+        ...(printOpsBarcodeFeatureEnabled
+          ? [{ key: "showOrderBarcode" as const, label: editorCopy.visibleOrderBarcode, description: editorCopy.visibleOrderBarcodeDescription }]
+          : []),
         { key: "showPaymentMethod", label: editorCopy.visiblePaymentMethod, description: editorCopy.visiblePaymentMethodDescription },
         { key: "showShippingMethod", label: editorCopy.visibleShippingMethod, description: editorCopy.visibleShippingMethodDescription },
       ],
@@ -2324,7 +2329,7 @@ const initialTemplateRecords: TemplateRecord[] = [
     showSocialFooter: true,
     isDefault: true,
     updatedAt: "Today, 11:38",
-    dataRequirements: ["order_number", "order_barcode", "customer_contact", "line_items", "sku", "item_options", "totals", "payment", "delivery_address", "billing_address", "delivery_method", "store_contact"],
+    dataRequirements: ["order_number", "customer_contact", "line_items", "sku", "item_options", "totals", "payment", "delivery_address", "billing_address", "delivery_method", "store_contact"],
     validation: { tone: "ok", label: "Ready to print" },
   },
   {
@@ -2356,7 +2361,7 @@ const initialTemplateRecords: TemplateRecord[] = [
     showProductImages: true,
     showSocialFooter: true,
     updatedAt: "Today, 10:24",
-    dataRequirements: ["order_number", "order_barcode", "customer_contact", "line_items", "sku", "item_options", "totals", "delivery_method"],
+    dataRequirements: ["order_number", "customer_contact", "line_items", "sku", "item_options", "totals", "delivery_method"],
     validation: { tone: "ok", label: "Ready to print" },
   },
   {
@@ -2388,7 +2393,7 @@ const initialTemplateRecords: TemplateRecord[] = [
     showProductImages: true,
     showSocialFooter: true,
     updatedAt: "May 25",
-    dataRequirements: ["order_number", "order_barcode", "payment_status", "payment_method", "totals", "tax", "product_image", "sku", "store_social_links"],
+    dataRequirements: ["order_number", "payment_status", "payment_method", "totals", "tax", "product_image", "sku", "store_social_links"],
     validation: { tone: "ok", label: "Ready to print" },
   },
   {
@@ -2418,7 +2423,7 @@ const initialTemplateRecords: TemplateRecord[] = [
     showProductImages: true,
     showSocialFooter: true,
     updatedAt: "Built-in",
-    dataRequirements: ["order_number", "order_barcode", "customer_contact", "line_items", "sku", "item_options", "totals", "store_contact"],
+    dataRequirements: ["order_number", "customer_contact", "line_items", "sku", "item_options", "totals", "store_contact"],
     validation: { tone: "ok", label: "Built-in template" },
   },
   {
@@ -2450,7 +2455,7 @@ const initialTemplateRecords: TemplateRecord[] = [
     showProductImages: true,
     showSocialFooter: true,
     updatedAt: "Built-in",
-    dataRequirements: ["order_number", "order_barcode", "customer_contact", "line_items", "sku", "totals", "payment"],
+    dataRequirements: ["order_number", "customer_contact", "line_items", "sku", "totals", "payment"],
     validation: { tone: "ok", label: "Built-in template" },
   },
 ];
@@ -2635,7 +2640,7 @@ function createBlankTemplateDraft(): TemplateDraft {
     showLogoText: true,
     showStoreName: true,
     showInvoiceMeta: true,
-    showOrderBarcode: true,
+    showOrderBarcode: printOpsBarcodeFeatureEnabled,
     showBillTo: true,
     showShipTo: true,
     showProductImages: true,
@@ -2652,7 +2657,7 @@ function createBlankTemplateDraft(): TemplateDraft {
     showThankYou: true,
     showContactFooter: true,
     showSocialFooter: true,
-    dataRequirements: "order_number, order_barcode, customer_contact, line_items, sku, item_options, totals, payment, delivery_address, billing_address, delivery_method, store_contact",
+    dataRequirements: "order_number, customer_contact, line_items, sku, item_options, totals, payment, delivery_address, billing_address, delivery_method, store_contact",
   };
 }
 
@@ -2699,7 +2704,7 @@ function createDraftFromTemplate(templateRecord: TemplateRecord, mode: TemplateE
     showLogoText: templateRecord.showLogoText ?? true,
     showStoreName: templateRecord.showStoreName ?? true,
     showInvoiceMeta: templateRecord.showInvoiceMeta ?? true,
-    showOrderBarcode: templateRecord.showOrderBarcode ?? true,
+    showOrderBarcode: printOpsBarcodeFeatureEnabled ? (templateRecord.showOrderBarcode ?? false) : false,
     showBillTo: templateRecord.showBillTo ?? true,
     showShipTo: templateRecord.showShipTo ?? true,
     showProductImages: templateRecord.showProductImages ?? true,
@@ -2902,7 +2907,7 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
     showLogoText: draft.showLogoText,
     showStoreName: draft.showStoreName,
     showInvoiceMeta: draft.showInvoiceMeta,
-    showOrderBarcode: draft.showOrderBarcode,
+    showOrderBarcode: printOpsBarcodeFeatureEnabled && draft.showOrderBarcode,
     showBillTo: draft.showBillTo,
     showShipTo: draft.showShipTo,
     showProductImages: draft.showProductImages,
@@ -3058,7 +3063,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
         items: [
           { icon: Settings, label: messages.nav.settings, href: viewLinks.settings, view: "settings", count: "" },
           { icon: BookOpen, label: messages.nav.help, href: "https://zider.ink/forum/apps/printops", view: "help", count: "" },
-          { icon: Mail, label: "Support", href: "https://www.zider.ink/contact", view: "support", count: "" },
+          { icon: Mail, label: messages.nav.support, href: "https://www.zider.ink/contact", view: "support", count: "" },
         ],
       },
     ],
@@ -4500,7 +4505,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                                 onClick={() => requestOrderExport("download", [order])}
                               >
                                 <Download size={15} aria-hidden />
-                                <span>{messages.orderPanel.pdfAction}</span>
                               </button>
                               <button
                                 aria-label={`${messages.orderPanel.printPreview}: ${order.number}`}
@@ -4510,7 +4514,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                                 onClick={() => requestOrderExport("print", [order])}
                               >
                                 <Printer size={15} aria-hidden />
-                                <span>{messages.orderPanel.printAction}</span>
                               </button>
                               <button
                                 aria-label={`${messages.orderPanel.openPreview}: ${order.number}`}
@@ -4679,9 +4682,9 @@ function SettingsCenter({
       }
     : isAccountSettings
       ? {
-          description: "Bind this Wix installation to a verified ZIDER member and workspace.",
+          description: messages.settings.accountBindingDescription,
           icon: <UserRound size={20} aria-hidden />,
-          title: "Account binding",
+          title: messages.settings.accountBinding,
         }
       : {
           description: messages.settings.preferencesDescription,
@@ -4717,7 +4720,7 @@ function SettingsCenter({
           type="button"
         >
           <UserRound size={18} aria-hidden />
-          <strong>Account binding</strong>
+          <strong>{messages.settings.accountBinding}</strong>
         </button>
       </aside>
 
@@ -4738,6 +4741,7 @@ function SettingsCenter({
               error={accountBindingError}
               onRequestCode={onRequestAccountBindingCode}
               onVerifyCode={onVerifyAccountBindingCode}
+              messages={messages}
               status={accountBindingStatus}
             />
           ) : isAppearanceSettings ? (
@@ -4820,6 +4824,7 @@ function AccountBindingSettings({
   binding,
   bindingAvailable,
   error,
+  messages,
   onRequestCode,
   onVerifyCode,
   status,
@@ -4827,6 +4832,7 @@ function AccountBindingSettings({
   binding: AccountBindingSnapshot | null;
   bindingAvailable: boolean;
   error: string | null;
+  messages: PrintOpsMessages;
   onRequestCode: (email: string) => void | Promise<void>;
   onVerifyCode: (email: string, code: string) => void | Promise<void>;
   status: "idle" | "loading" | "sending" | "code_sent" | "verifying" | "loaded" | "bound" | "error";
@@ -4845,32 +4851,32 @@ function AccountBindingSettings({
   return (
     <div className={styles.settingsSection}>
       <div className={styles.settingsSectionHeader}>
-        <strong>ZIDER member</strong>
-        <span>Verify the Wix owner email before this installation becomes a ZIDER member.</span>
+        <strong>{messages.settings.ziderMember}</strong>
+        <span>{messages.settings.accountBindingMemberDescription}</span>
       </div>
 
       <div className={styles.accountBindingCard}>
         <div>
           <span className={styles.accountBindingStatus} data-status={isVerified ? "verified" : "pending"}>
-            {isVerified ? "Verified" : status === "loading" ? "Checking" : "Pending"}
+            {isVerified ? messages.settings.verified : status === "loading" ? messages.settings.checking : messages.settings.pending}
           </span>
-          <strong>{displayEmail || "No owner email detected"}</strong>
+          <strong>{displayEmail || messages.settings.noOwnerEmailDetected}</strong>
           <small>
             {isVerified
-              ? `${binding?.workspaceName ?? "Workspace"} is linked to this Wix installation.`
+              ? `${binding?.workspaceName ?? "Workspace"} ${messages.settings.accountBindingVerifiedDescription}`
               : isCodeSent
-                ? "Enter the 6-digit code sent to this email to finish member and workspace binding."
-                : "Use the Wix owner email as the default account identity, then verify it before binding this installation."}
+                ? messages.settings.accountBindingCodeSentDescription
+                : messages.settings.accountBindingPendingDescription}
           </small>
         </div>
       </div>
 
       {!bindingAvailable ? (
-        <p className={styles.helperText}>Open PrintOps from Wix to bind this installation.</p>
+        <p className={styles.helperText}>{messages.settings.accountBindingOpenFromWix}</p>
       ) : isVerified ? null : (
         <div className={styles.accountBindingForm}>
           <label>
-            <span>Owner email</span>
+            <span>{messages.settings.ownerEmail}</span>
             <input
               className={styles.textInput}
               disabled={status === "sending" || status === "verifying"}
@@ -4886,12 +4892,12 @@ function AccountBindingSettings({
             onClick={() => onRequestCode(email)}
             type="button"
           >
-            {status === "sending" ? "Sending..." : isCodeSent ? "Resend code" : "Send code"}
+            {status === "sending" ? messages.settings.sending : isCodeSent ? messages.settings.resendCode : messages.settings.sendCode}
           </button>
           {isCodeSent ? (
             <>
               <label>
-                <span>Verification code</span>
+                <span>{messages.settings.verificationCode}</span>
                 <input
                   className={styles.textInput}
                   inputMode="numeric"
@@ -4907,7 +4913,7 @@ function AccountBindingSettings({
                 onClick={() => onVerifyCode(email, code)}
                 type="button"
               >
-                {status === "verifying" ? "Verifying..." : "Verify and bind"}
+                {status === "verifying" ? messages.settings.verifying : messages.settings.verifyAndBind}
               </button>
             </>
           ) : null}
@@ -4915,7 +4921,11 @@ function AccountBindingSettings({
       )}
 
       {error ? <p className={styles.accountBindingError}>{error}</p> : null}
-      {binding?.developmentCode ? <p className={styles.helperText}>Development code: {binding.developmentCode}</p> : null}
+      {binding?.developmentCode ? (
+        <p className={styles.helperText}>
+          {messages.settings.developmentCode}: {binding.developmentCode}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -6854,13 +6864,6 @@ function TemplatePreviewModal({
                 <Spec label={messages.templates.audience} value={localizedTemplate.audience} />
                 <Spec label={messages.templates.scenario} value={templateRecord.scenario} />
               </div>
-              <div className={styles.validationBox} data-tone={templateRecord.validation.tone}>
-                <div>
-                  {templateRecord.validation.tone === "ok" ? <CheckCircle2 size={18} aria-hidden /> : <AlertTriangle size={18} aria-hidden />}
-                  <strong>{localizedTemplate.validationLabel}</strong>
-                </div>
-                <p>{templateRecord.validation.tone === "ok" ? messages.templates.canPrint : messages.templates.needsMapping}</p>
-              </div>
             </div>
           </Drawer.Popup>
         </Drawer.Viewport>
@@ -7796,7 +7799,7 @@ function TemplatePaperPreview({
   showItemOptions = true,
   showLogoText = true,
   showNotes = true,
-  showOrderBarcode = true,
+  showOrderBarcode = false,
   showPaymentMethod = true,
   showProductImages = true,
   showShipTo = true,
@@ -8889,13 +8892,15 @@ function OrderPaperPreview({
     showSku && lineItem.sku ? (
       <span className={styles.orderSkuBarcodeBlock}>
         <small>{labels.sku}</small>
-        <BarcodeGraphic className={styles.orderSkuBarcodeGraphic} value={lineItem.sku} />
+        {printOpsBarcodeFeatureEnabled ? <BarcodeGraphic className={styles.orderSkuBarcodeGraphic} value={lineItem.sku} /> : null}
         <em>{lineItem.sku}</em>
       </span>
     ) : null;
   const renderOptionsLine = (lineItem: OrderPrintLineItem) => (showItemOptions && lineItem.optionsText ? <small>{lineItem.optionsText}</small> : null);
-  const orderBarcodeValue = orderDetails.lineItems.find((lineItem) => lineItem.barcode)?.barcode ?? orderDetails.number;
-  const orderBarcode = showOrderBarcode ? (
+  const orderBarcodeValue = printOpsBarcodeFeatureEnabled
+    ? (orderDetails.lineItems.find((lineItem) => lineItem.barcode)?.barcode ?? orderDetails.number)
+    : "";
+  const orderBarcode = printOpsBarcodeFeatureEnabled && showOrderBarcode ? (
     <span className={styles.orderBarcodeBlock}>
       <small>{labels.orderBarcode}</small>
       <BarcodeGraphic className={styles.orderBarcodeGraphic} value={orderBarcodeValue} />

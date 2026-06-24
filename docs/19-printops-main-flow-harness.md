@@ -129,6 +129,13 @@ select
   document_type,
   default_language,
   is_default,
+  base_template_key,
+  base_template_version,
+  template_schema_version,
+  renderer_version,
+  paper_size,
+  layout_key,
+  status,
   updated_at
 from public.printops_templates
 where app_key = 'zider_printops'

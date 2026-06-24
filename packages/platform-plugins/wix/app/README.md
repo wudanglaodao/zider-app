@@ -141,12 +141,6 @@ The first dashboard test can work without order webhooks because the workspace h
 Forwarded Wix backend extension events require a shared secret on both sides:
 
 ```text
-ZIDER_WIX_EVENT_FORWARD_SECRETS=replace-with-random-forward-secret
-```
-
-For multiple Wix apps, the same environment variable can also use a JSON map:
-
-```text
 ZIDER_WIX_EVENT_FORWARD_SECRETS={"zider_printops":"...","future_app_key":"..."}
 ```
 

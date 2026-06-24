@@ -389,6 +389,13 @@ create table if not exists public.printops_templates (
   template_name text,
   default_language text,
   is_default boolean not null default false,
+  base_template_key text,
+  base_template_version integer,
+  template_schema_version integer,
+  renderer_version text,
+  paper_size text,
+  layout_key text,
+  status text not null default 'ready',
   template_record jsonb not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -562,11 +569,51 @@ create index if not exists idx_printops_templates_default
   on public.printops_templates(app_key, platform, instance_id, document_type, is_default)
   where is_default = true;
 
+create unique index if not exists idx_printops_templates_default_store_scope
+  on public.printops_templates(
+    app_key,
+    platform,
+    workspace_id,
+    platform_store_profile_id,
+    coalesce(document_type, ''),
+    coalesce(default_language, '')
+  )
+  where is_default = true
+    and workspace_id is not null
+    and platform_store_profile_id is not null;
+
+create unique index if not exists idx_printops_templates_default_workspace_scope
+  on public.printops_templates(
+    app_key,
+    platform,
+    workspace_id,
+    coalesce(document_type, ''),
+    coalesce(default_language, '')
+  )
+  where is_default = true
+    and workspace_id is not null
+    and platform_store_profile_id is null;
+
+create unique index if not exists idx_printops_templates_default_instance_scope
+  on public.printops_templates(
+    app_key,
+    platform,
+    instance_id,
+    coalesce(document_type, ''),
+    coalesce(default_language, '')
+  )
+  where is_default = true
+    and workspace_id is null
+    and platform_store_profile_id is null;
+
 create index if not exists idx_printops_templates_installation
   on public.printops_templates(installation_id, updated_at desc);
 
 create index if not exists idx_printops_templates_store_profile
   on public.printops_templates(platform_store_profile_id, updated_at desc);
+
+create index if not exists idx_printops_templates_metadata
+  on public.printops_templates(app_key, platform, paper_size, layout_key, status);
 
 create index if not exists idx_printops_templates_record_gin
   on public.printops_templates using gin(template_record);

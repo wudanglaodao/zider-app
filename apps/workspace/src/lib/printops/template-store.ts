@@ -2,11 +2,22 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { readAppInstallationContext } from "@/lib/platform/app-installation";
 
 export type PrintOpsTemplateRecord = Record<string, unknown> & {
+  baseBlueprintKey?: unknown;
+  baseBlueprintVersion?: unknown;
+  baseTemplateKey?: unknown;
+  baseTemplateVersion?: unknown;
   defaultLanguage?: unknown;
   documentType?: unknown;
   id?: unknown;
   isDefault?: unknown;
+  layoutKey?: unknown;
+  layoutPreset?: unknown;
   name?: unknown;
+  paperSize?: unknown;
+  rendererKey?: unknown;
+  rendererVersion?: unknown;
+  schemaVersion?: unknown;
+  status?: unknown;
 };
 
 export type PrintOpsTemplateReadResult =
@@ -147,14 +158,21 @@ export async function persistPrintOpsTemplates(input: PersistPrintOpsTemplatesIn
 
     return {
       app_key: input.appKey,
+      base_template_key: readString(template.baseTemplateKey) ?? readString(template.baseBlueprintKey),
+      base_template_version: readNumber(template.baseTemplateVersion) ?? readNumber(template.baseBlueprintVersion),
       default_language: readString(template.defaultLanguage),
       document_type: readString(template.documentType),
       instance_id: input.instanceId,
       installation_id: installationContext?.id ?? null,
       is_default: isDefault,
+      layout_key: readString(template.layoutKey) ?? readString(template.layoutPreset),
       member_id: installationContext?.memberId ?? null,
+      paper_size: readString(template.paperSize),
       platform: input.platform,
       platform_store_profile_id: installationContext?.platformStoreProfileId ?? null,
+      renderer_version: readString(template.rendererVersion) ?? readString(template.rendererKey),
+      status: normalizeTemplateStatus(readString(template.status)),
+      template_schema_version: readNumber(template.schemaVersion),
       template_id: templateId,
       template_name: readString(template.name),
       template_record: {
@@ -222,6 +240,26 @@ function isMissingTableError(error: { code?: string; message?: string }) {
 
 function readString(value: unknown) {
   return typeof value === "string" && value.trim() ? value : null;
+}
+
+function readNumber(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsedValue = Number(value);
+
+    return Number.isFinite(parsedValue) ? parsedValue : null;
+  }
+
+  return null;
+}
+
+function normalizeTemplateStatus(value: string | null) {
+  const normalizedValue = value?.trim().toLowerCase();
+
+  return normalizedValue === "draft" || normalizedValue === "archived" || normalizedValue === "ready" ? normalizedValue : "ready";
 }
 
 function isPersistedUserTemplate(templateId: string, template: PrintOpsTemplateRecord) {
