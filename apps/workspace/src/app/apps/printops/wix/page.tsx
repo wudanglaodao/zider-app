@@ -40,6 +40,7 @@ export default async function PrintOpsWixPage({ searchParams }: PrintOpsWixPageP
         appKey: PRINTOPS_APP_KEY,
         appName: "PrintOps",
         accountBindingEndpoint,
+        dashboardHref: "/",
         instanceId: instanceContext.instanceId,
         ordersEndpoint,
         platform: "wix",

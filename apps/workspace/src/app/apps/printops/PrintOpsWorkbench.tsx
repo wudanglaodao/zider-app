@@ -165,6 +165,7 @@ type PrintOpsPluginContext = {
   accountBindingEndpoint?: string;
   appKey: string;
   appName: string;
+  dashboardHref?: string;
   instanceId: string | null;
   ordersEndpoint: string;
   platform: "wix";
@@ -3055,6 +3056,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     workspaceAccent,
   });
   const messages = getPrintOpsMessages(siteLocale);
+  const dashboardHref = pluginContext?.dashboardHref ?? "/";
   const printLanguageOptions = useMemo(() => getPrintLocaleOptions(siteLocale), [siteLocale]);
   const defaultOrderTemplate =
     templateRecords.find((templateRecord) => templateRecord.isDefault && templateRecord.documentType === "Invoice") ??
@@ -4258,7 +4260,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     >
       <aside className={styles.sidebar} aria-label="PrintOps">
         <div className={styles.brandRow}>
-          <a className={styles.logo} href="/" aria-label="PrintOps workspace">
+          <a className={styles.logo} href={dashboardHref} aria-label="Open workspace dashboard" title="Dashboard">
             <Printer size={19} strokeWidth={2.15} aria-hidden />
           </a>
           <div className={styles.brandCopy}>
