@@ -12,6 +12,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Download,
   Eye,
@@ -95,6 +96,8 @@ type OrderActionRequest = {
   id: number;
   orders: Order[];
 };
+
+type OrderPrintStatusUpdate = "printed" | "unprinted";
 
 type OrderPrintLineItem = {
   barcode?: string | null;
@@ -570,6 +573,7 @@ const workspaceAccentStorageKey = "printops-accent-v1";
 const initialOrderSyncStorageKey = "printops-initial-order-sync-v1";
 const lastOrderSyncStorageKey = "printops-last-order-sync-v1";
 const orderAutoRefreshIntervalMs = 3 * 60 * 1000;
+const orderPageSize = 10;
 const deprecatedTemplateIds = new Set(["library-order-field-map"]);
 const legacyDefaultLogoFontSize = 68;
 const printOpsTemplateSchemaVersion = 1;
@@ -2992,6 +2996,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   const [activeView, setActiveView] = useState<PrintOpsView>(initialView);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [cachedOrders, setCachedOrders] = useState<Order[]>([]);
+  const [orderPage, setOrderPage] = useState(1);
   const [orderSearch, setOrderSearch] = useState("");
   const [orderFilters, setOrderFilters] = useState({
     printed: false,
@@ -3088,6 +3093,16 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
       return matchesSearch && matchesPrint;
     });
   }, [cachedOrders, defaultOrderTemplateDisplay.name, defaultOrderTemplateLanguageLabel, orderFilters.printed, orderFilters.unprinted, orderSearch]);
+  const orderPageCount = Math.max(1, Math.ceil(displayOrders.length / orderPageSize));
+  const currentOrderPage = Math.min(orderPage, orderPageCount);
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentOrderPage - 1) * orderPageSize;
+    return displayOrders.slice(startIndex, startIndex + orderPageSize);
+  }, [currentOrderPage, displayOrders]);
+  const paginatedOrderIds = useMemo(() => paginatedOrders.map((order) => order.id), [paginatedOrders]);
+  const selectedPageCount = paginatedOrders.filter((order) => selectedIds.includes(order.id)).length;
+  const orderRangeStart = displayOrders.length === 0 ? 0 : (currentOrderPage - 1) * orderPageSize + 1;
+  const orderRangeEnd = Math.min(currentOrderPage * orderPageSize, displayOrders.length);
   const selectedOrders = useMemo(() => displayOrders.filter((order) => selectedIds.includes(order.id)), [displayOrders, selectedIds]);
   const selectedCount = selectedOrders.length;
   const orderMetrics = useMemo(
@@ -3449,6 +3464,16 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   }, [activeView, pluginContext?.instanceId, pluginContext?.ordersEndpoint]);
 
   useEffect(() => {
+    setOrderPage(1);
+  }, [orderFilters.printed, orderFilters.unprinted, orderSearch]);
+
+  useEffect(() => {
+    if (orderPage > orderPageCount) {
+      setOrderPage(orderPageCount);
+    }
+  }, [orderPage, orderPageCount]);
+
+  useEffect(() => {
     if (displayOrders.length === 0) {
       if (selectedIds.length > 0) {
         setSelectedIds([]);
@@ -3469,7 +3494,8 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
   }
 
   function toggleAll(checked: boolean) {
-    setSelectedIds(checked ? displayOrders.map((order) => order.id) : []);
+    const visibleIds = new Set(paginatedOrderIds);
+    setSelectedIds((currentIds) => (checked ? [...new Set([...currentIds, ...paginatedOrderIds])] : currentIds.filter((orderId) => !visibleIds.has(orderId))));
   }
 
   function toggleOrderFilter(filter: keyof typeof orderFilters) {
@@ -3496,14 +3522,15 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     setDrawerOpen(true);
   }
 
-  async function markOrdersAsPrinted(orderIds: string[]) {
+  async function setOrdersPrintStatus(orderIds: string[], printStatus: OrderPrintStatusUpdate) {
     if (orderIds.length === 0) {
       return;
     }
 
     const sourceOrderIds = [...new Set(orderIds)];
     const printableIds = new Set(sourceOrderIds);
-    setCachedOrders((currentOrders) => currentOrders.map((order) => (printableIds.has(order.id) ? { ...order, print: "Printed" } : order)));
+    const nextPrintStatus = printStatus === "printed" ? "Printed" : "Unprinted";
+    setCachedOrders((currentOrders) => currentOrders.map((order) => (printableIds.has(order.id) ? { ...order, print: nextPrintStatus } : order)));
 
     if (!pluginContext?.ordersEndpoint) {
       return;
@@ -3512,7 +3539,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     try {
       const response = await fetch(pluginContext.ordersEndpoint, {
         body: JSON.stringify({
-          printStatus: "printed",
+          printStatus,
           sourceOrderIds,
         }),
         headers: {
@@ -4457,11 +4484,11 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
                 <div className={styles.tableToolbar}>
               <div className={styles.bulkState}>
-                {displayOrders.length > 0 ? (
+                {paginatedOrders.length > 0 ? (
                   <BaseCheckbox
-                    checked={selectedCount === displayOrders.length}
-                    indeterminate={selectedCount > 0 && selectedCount < displayOrders.length}
-                    label={messages.orderPanel.selectAll}
+                    checked={selectedPageCount === paginatedOrders.length}
+                    indeterminate={selectedPageCount > 0 && selectedPageCount < paginatedOrders.length}
+                    label={messages.orderPanel.selectPage}
                     onCheckedChange={toggleAll}
                   />
                 ) : null}
@@ -4478,7 +4505,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                   <Printer size={16} aria-hidden />
                   {messages.orderPanel.printPreview}
                 </button>
-                <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => void markOrdersAsPrinted(selectedOrders.map((order) => order.id))}>
+                <button className={styles.secondaryButton} type="button" disabled={selectedOrders.length === 0} onClick={() => void setOrdersPrintStatus(selectedOrders.map((order) => order.id), "printed")}>
                   <CheckCircle2 size={16} aria-hidden />
                   {messages.orderPanel.markAsPrinted}
                 </button>
@@ -4502,7 +4529,7 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                 </thead>
                 <tbody>
                   {displayOrders.length > 0 ? (
-                    displayOrders.map((order) => {
+                    paginatedOrders.map((order) => {
                       const isSelected = selectedIds.includes(order.id);
 
                       return (
@@ -4582,8 +4609,10 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                                 <Eye size={16} aria-hidden />
                               </button>
                               <OrderMenu
+                                isPrinted={order.print === "Printed"}
                                 messages={messages}
-                                onMarkPrinted={() => void markOrdersAsPrinted([order.id])}
+                                onMarkPrinted={() => void setOrdersPrintStatus([order.id], "printed")}
+                                onMarkUnprinted={() => void setOrdersPrintStatus([order.id], "unprinted")}
                               />
                             </div>
                           </td>
@@ -4609,11 +4638,42 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
                 </tbody>
               </table>
             </div>
+            {displayOrders.length > 0 ? (
+              <div className={styles.paginationBar}>
+                <span className={styles.paginationSummary}>
+                  {orderRangeStart}-{orderRangeEnd} {messages.orderPanel.paginationOf} {displayOrders.length} {messages.orderPanel.paginationOrders}
+                </span>
+                <div className={styles.paginationActions}>
+                  <span className={styles.paginationPage}>
+                    {messages.orderPanel.paginationPage} {currentOrderPage} / {orderPageCount}
+                  </span>
+                  <button
+                    className={styles.paginationButton}
+                    type="button"
+                    disabled={currentOrderPage <= 1}
+                    onClick={() => setOrderPage((page) => Math.max(1, page - 1))}
+                  >
+                    <ChevronLeft size={16} aria-hidden />
+                    {messages.orderPanel.paginationPrevious}
+                  </button>
+                  <button
+                    className={styles.paginationButton}
+                    type="button"
+                    disabled={currentOrderPage >= orderPageCount}
+                    onClick={() => setOrderPage((page) => Math.min(orderPageCount, page + 1))}
+                  >
+                    {messages.orderPanel.paginationNext}
+                    <ChevronRight size={16} aria-hidden />
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </section>
         </div>
             <OrderExportController
               actionRequest={orderActionRequest}
               onActionHandled={() => setOrderActionRequest(null)}
+              onPrintStarted={(orders) => void setOrdersPrintStatus(orders.map((order) => order.id), "printed")}
               printLocale={defaultOrderTemplateLanguage}
               selectedOrders={selectedOrders}
               templateRecord={defaultOrderTemplate}
@@ -4656,7 +4716,13 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
 
               <div className={styles.drawerGrid}>
                 <section className={styles.drawerPreview}>
-                  <PrintPreview previewId="drawer" printLocale={defaultOrderTemplateLanguage} selectedOrders={selectedOrders} templateRecord={defaultOrderTemplate} />
+                  <PrintPreview
+                    onPrintStarted={(orders) => void setOrdersPrintStatus(orders.map((order) => order.id), "printed")}
+                    previewId="drawer"
+                    printLocale={defaultOrderTemplateLanguage}
+                    selectedOrders={selectedOrders}
+                    templateRecord={defaultOrderTemplate}
+                  />
                 </section>
               </div>
             </Drawer.Popup>
@@ -5917,11 +5983,15 @@ function StatusPill({ value, label }: { value: string; label?: string }) {
 }
 
 function OrderMenu({
+  isPrinted,
   messages,
   onMarkPrinted,
+  onMarkUnprinted,
 }: {
+  isPrinted: boolean;
   messages: PrintOpsMessages;
   onMarkPrinted: () => void;
+  onMarkUnprinted: () => void;
 }) {
   return (
     <Menu.Root>
@@ -5937,8 +6007,8 @@ function OrderMenu({
           sideOffset={8}
         >
           <Menu.Popup className={styles.menuPopup}>
-            <Menu.Item className={styles.menuItem} onClick={onMarkPrinted}>
-              {messages.orderPanel.markAsPrinted}
+            <Menu.Item className={styles.menuItem} onClick={isPrinted ? onMarkUnprinted : onMarkPrinted}>
+              {isPrinted ? messages.orderPanel.markAsUnprinted : messages.orderPanel.markAsPrinted}
             </Menu.Item>
           </Menu.Popup>
         </Menu.Positioner>
@@ -6397,7 +6467,7 @@ function openOrderPrintWindow(sourceNodes: HTMLElement[], title: string) {
   const printWindow = window.open("", "_blank", "width=980,height=1200");
 
   if (!printWindow || sourceNodes.length === 0) {
-    return;
+    return false;
   }
 
   const pagesMarkup = sourceNodes
@@ -6543,6 +6613,7 @@ function openOrderPrintWindow(sourceNodes: HTMLElement[], title: string) {
   </body>
 </html>`);
   printWindow.document.close();
+  return true;
 }
 
 async function createTemplatePdfBlob(templateRecord: TemplateRecord, previewRoot?: ParentNode | null) {
@@ -9474,12 +9545,14 @@ function OrderTemplatePrintDocument({
 }
 
 function PrintPreview({
+  onPrintStarted,
   selectedOrders,
   compact,
   previewId,
   printLocale,
   templateRecord,
 }: {
+  onPrintStarted?: (orders: Order[]) => void;
   selectedOrders: Order[];
   compact?: boolean;
   previewId: string;
@@ -9517,7 +9590,11 @@ function PrintPreview({
       return;
     }
 
-    openOrderPrintWindow(paperNodes, selectedOrders.length > 1 ? `${copy.title} batch - ${selectedOrders.length} orders` : `${copy.title} ${firstOrder.number}`);
+    const printWindowOpened = openOrderPrintWindow(paperNodes, selectedOrders.length > 1 ? `${copy.title} batch - ${selectedOrders.length} orders` : `${copy.title} ${firstOrder.number}`);
+
+    if (printWindowOpened) {
+      onPrintStarted?.(selectedOrders);
+    }
   };
 
   if (!firstOrder) {
@@ -9573,12 +9650,14 @@ function PrintPreview({
 function OrderExportController({
   actionRequest,
   onActionHandled,
+  onPrintStarted,
   printLocale,
   selectedOrders,
   templateRecord,
 }: {
   actionRequest?: OrderActionRequest | null;
   onActionHandled?: () => void;
+  onPrintStarted?: (orders: Order[]) => void;
   printLocale: PrintLocale;
   selectedOrders: Order[];
   templateRecord: TemplateRecord;
@@ -9615,7 +9694,11 @@ function OrderExportController({
       return;
     }
 
-    openOrderPrintWindow(paperNodes, activeOrders.length > 1 ? `${copy.title} batch - ${activeOrders.length} orders` : `${copy.title} ${firstOrder.number}`);
+    const printWindowOpened = openOrderPrintWindow(paperNodes, activeOrders.length > 1 ? `${copy.title} batch - ${activeOrders.length} orders` : `${copy.title} ${firstOrder.number}`);
+
+    if (printWindowOpened) {
+      onPrintStarted?.(activeOrders);
+    }
   };
 
   useEffect(() => {

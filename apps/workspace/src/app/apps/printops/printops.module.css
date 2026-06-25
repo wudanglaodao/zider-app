@@ -1790,6 +1790,54 @@
   overflow-x: auto;
 }
 
+.paginationBar {
+  min-height: 58px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-top: 1px solid var(--line);
+  padding: 10px 14px;
+}
+
+.paginationSummary,
+.paginationPage {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.paginationActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.paginationButton {
+  min-width: 96px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--button-border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.paginationButton:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
 .ordersTable {
   width: 100%;
   min-width: 1200px;
