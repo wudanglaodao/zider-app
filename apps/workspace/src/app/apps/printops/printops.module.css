@@ -4055,7 +4055,7 @@
   max-width: 100%;
   align-items: flex-start;
   justify-content: flex-end;
-  color: #151817;
+  color: var(--order-logo-color, #151817);
   font-weight: 920;
   letter-spacing: 0;
   line-height: 0.92;
@@ -4294,6 +4294,10 @@
 
 .templatePaper[data-document="order"] .orderHeroLogoText,
 .templatePaper[data-document="order"] .orderHeroLogoSlot,
+.templatePaper[data-document="order"] .orderClassicLogoText {
+  color: var(--order-logo-color, var(--order-accent-2));
+}
+
 .templatePaper[data-document="order"] .orderHeroMeta,
 .templatePaper[data-document="order"] .orderHeroThanks strong,
 .templatePaper[data-document="order"] .orderHeroSocialFooter > span:first-child strong {

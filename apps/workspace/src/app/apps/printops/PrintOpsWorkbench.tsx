@@ -3056,7 +3056,6 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     workspaceAccent,
   });
   const messages = getPrintOpsMessages(siteLocale);
-  const dashboardHref = pluginContext?.dashboardHref ?? "/";
   const printLanguageOptions = useMemo(() => getPrintLocaleOptions(siteLocale), [siteLocale]);
   const defaultOrderTemplate =
     templateRecords.find((templateRecord) => templateRecord.isDefault && templateRecord.documentType === "Invoice") ??
@@ -4260,9 +4259,9 @@ export function PrintOpsWorkbench({ initialView = "orders", pluginContext }: { i
     >
       <aside className={styles.sidebar} aria-label="PrintOps">
         <div className={styles.brandRow}>
-          <a className={styles.logo} href={dashboardHref} aria-label="Open workspace dashboard" title="Dashboard">
+          <div className={styles.logo} aria-hidden="true">
             <Printer size={19} strokeWidth={2.15} aria-hidden />
-          </a>
+          </div>
           <div className={styles.brandCopy}>
             <strong>{messages.app.name}</strong>
           </div>
@@ -7056,6 +7055,8 @@ function TemplateEditorDrawer({
   const isBigBrandDraft = draftBlueprintKey === "invoice_big_brand";
   const supportsLogoTextColor = draftBlueprintKey === "invoice_big_brand" || draftBlueprintKey === "invoice_minimal";
   const draftAccentHexColor = getOrderTemplateAccentHex(draft.accentColor, draft.customAccentColor);
+  const draftLogoHexColor = getOrderTemplateLogoTextColor(draft.accentColor, draft.customAccentColor);
+  const draftLogoColorTextValue = draft.accentColor === "custom" ? draft.customAccentColor : draftLogoHexColor;
   const showMissingLogoHint = storeProfileStatus.status === "loaded" && !storeProfile?.logoUrl && draft.logoSource !== "uploaded-image";
   const showMissingEmailHint = storeProfileStatus.status === "loaded" && !storeProfile?.businessEmail;
 
@@ -7217,13 +7218,13 @@ function TemplateEditorDrawer({
                       aria-label={editorCopy.logoColor}
                       className={styles.colorInput}
                       type="color"
-                      value={draftAccentHexColor}
+                      value={draftLogoHexColor}
                       onChange={(event) => onDraftChange({ accentColor: "custom", customAccentColor: event.target.value })}
                     />
                     <input
                       className={styles.textInput}
                       placeholder="#087A46"
-                      value={draft.accentColor === "custom" ? draft.customAccentColor : draftAccentHexColor}
+                      value={draftLogoColorTextValue}
                       onChange={(event) => onDraftChange({ accentColor: "custom", customAccentColor: event.target.value })}
                     />
                   </span>
@@ -8202,6 +8203,15 @@ function getOrderTemplateAccentHex(accentColor: OrderTemplateAccent, customAccen
   return accentStyle["--order-accent"] ?? defaultTemplateBrandSettings.customAccentColor;
 }
 
+function getOrderTemplateLogoTextColor(accentColor: OrderTemplateAccent, customAccentColor = defaultTemplateBrandSettings.customAccentColor) {
+  const customLogoColor = customAccentColor.trim();
+  if (isValidHexColor(customLogoColor)) {
+    return customLogoColor;
+  }
+
+  return getOrderTemplateAccentHex(accentColor, customAccentColor);
+}
+
 function formatTemplateDate(format: TemplateDateFormat, locale: PrintLocale | SiteLocale) {
   const month = "05";
   const day = "30";
@@ -8714,6 +8724,7 @@ function BarcodeGraphic({ className, value }: { className: string; value: string
 
 function BrandLogoAsset({
   brandName,
+  color,
   font,
   fontSize,
   logoImageUrl,
@@ -8721,6 +8732,7 @@ function BrandLogoAsset({
   wordmark,
 }: {
   brandName: string;
+  color?: string;
   font?: OrderTemplateLogoFont;
   fontSize?: number;
   logoImageUrl: string;
@@ -8732,6 +8744,7 @@ function BrandLogoAsset({
   const uploadedLogo = logoImageUrl.trim();
   const logoFontFamily = getTemplateFontFamily(font);
   const logoFontSize = Math.min(Math.max(fontSize ?? defaultTemplateBrandSettings.logoFontSize, 28), 96);
+  const logoTextColor = color && isValidHexColor(color) ? color : undefined;
 
   if (logoSource === "uploaded-image" && uploadedLogo) {
     return <img className={styles.orderClassicLogoImage} alt={`${displayBrandName} logo`} src={uploadedLogo} />;
@@ -8745,6 +8758,7 @@ function BrandLogoAsset({
       style={{
         fontFamily: logoFontFamily,
         fontSize: `${logoFontSize}px`,
+        ...(logoTextColor ? { color: logoTextColor } : {}),
       }}
     >
       {displayWordmark}
@@ -8907,6 +8921,7 @@ function OrderPaperPreview({
   };
   const displayContactPrompt = resolveDefaultTemplateText(contactPromptText, defaultTemplateBrandSettings.contactPromptText, labels.questions);
   const displayThankYou = resolveDefaultTemplateText(thankYouText, defaultTemplateBrandSettings.thankYouText, resolveLocalizedText(fixedTemplateThankYouText, defaultLanguage));
+  const logoTextColor = getOrderTemplateLogoTextColor(accentColor, customAccentColor);
 
   const paperProps = {
     className: styles.templatePaper,
@@ -8922,6 +8937,7 @@ function OrderPaperPreview({
     lang: defaultLanguage,
     style: {
       ...getOrderTemplateAccentStyle(accentColor, customAccentColor),
+      "--order-logo-color": logoTextColor,
       ...getOrderTemplateTypographyStyle({
         bodyFont,
         bodyFontSize,
@@ -8929,7 +8945,7 @@ function OrderPaperPreview({
         documentTitleFontSize,
         thankYouFontSize,
       }),
-    },
+    } as CSSProperties,
   };
   const renderProductImage = (lineItem: OrderPrintLineItem) =>
     showProductImages ? (
@@ -9076,6 +9092,7 @@ function OrderPaperPreview({
               <span className={styles.orderHeroLogoSlot}>
                 <BrandLogoAsset
                   brandName={displayBrandName}
+                  color={logoTextColor}
                   font={logoFont}
                   fontSize={logoFontSize}
                   logoImageUrl={logoImageUrl}
@@ -9182,7 +9199,15 @@ function OrderPaperPreview({
             )}
             {showLogoText ? (
               <span className={styles.orderClassicLogo}>
-                <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} wordmark={displayWordmark} />
+                <BrandLogoAsset
+                  brandName={displayBrandName}
+                  color={logoTextColor}
+                  font={logoFont}
+                  fontSize={logoFontSize}
+                  logoImageUrl={logoImageUrl}
+                  logoSource={logoSource}
+                  wordmark={displayWordmark}
+                />
               </span>
             ) : (
               <span aria-hidden="true" className={styles.orderClassicLogo} data-placeholder="true" />
@@ -9285,7 +9310,15 @@ function OrderPaperPreview({
           )}
           {showLogoText ? (
             <span className={styles.orderClassicLogo}>
-              <BrandLogoAsset brandName={displayBrandName} font={logoFont} fontSize={logoFontSize} logoImageUrl={logoImageUrl} logoSource={logoSource} wordmark={displayWordmark} />
+              <BrandLogoAsset
+                brandName={displayBrandName}
+                color={logoTextColor}
+                font={logoFont}
+                fontSize={logoFontSize}
+                logoImageUrl={logoImageUrl}
+                logoSource={logoSource}
+                wordmark={displayWordmark}
+              />
             </span>
           ) : (
             <span aria-hidden="true" className={styles.orderClassicLogo} data-placeholder="true" />
