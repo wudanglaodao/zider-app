@@ -448,6 +448,7 @@ type TemplateRecord = {
   logoText: string;
   logoFont: OrderTemplateLogoFont;
   logoFontSize: number;
+  logoTextColor: string;
   logoSource: OrderTemplateLogoSource;
   logoImageUrl: string;
   documentTitleFont: OrderTemplateLogoFont;
@@ -520,6 +521,7 @@ type TemplateDraft = {
   logoText: string;
   logoFont: OrderTemplateLogoFont;
   logoFontSize: number;
+  logoTextColor: string;
   logoSource: OrderTemplateLogoSource;
   logoImageUrl: string;
   documentTitleFont: OrderTemplateLogoFont;
@@ -572,6 +574,7 @@ const deprecatedTemplateIds = new Set(["library-order-field-map"]);
 const legacyDefaultLogoFontSize = 68;
 const printOpsTemplateSchemaVersion = 1;
 const printOpsTemplateBlueprintVersion = 1;
+const defaultTemplateLogoTextColor = "#000000";
 const systemTemplateIds = new Set([
   "store-order-clean",
   "store-order-compact",
@@ -580,8 +583,8 @@ const systemTemplateIds = new Set([
   "library-order-minimal",
 ]);
 const templateLibraryPreviewImages: Record<string, string> = {
-  "library-order-modern": "/printops/template-previews/invoice-big-brand.jpg",
-  "library-order-minimal": "/printops/template-previews/invoice-minimal.jpg",
+  "library-order-modern": "/printops/templates/invoice-big-brand.webp",
+  "library-order-minimal": "/printops/templates/invoice-minimal.webp",
 };
 const templateBlueprintRegistry: Record<
   PrintOpsTemplateBlueprintKey,
@@ -946,6 +949,7 @@ const defaultTemplateBrandSettings = {
   logoText: printOpsSystemBrandName,
   logoFont: "sans",
   logoFontSize: 56,
+  logoTextColor: defaultTemplateLogoTextColor,
   logoSource: "generated-svg",
   logoImageUrl: "",
   documentTitleFont: "sans",
@@ -1001,6 +1005,7 @@ const defaultTemplateBrandSettings = {
   | "logoImageUrl"
   | "logoFont"
   | "logoFontSize"
+  | "logoTextColor"
   | "logoSource"
   | "logoText"
   | "customAccentColor"
@@ -1040,6 +1045,7 @@ function normalizeStoredTemplateRecord(templateRecord: TemplateRecord): Template
     baseBlueprintVersion: templateRecord.baseBlueprintVersion ?? printOpsTemplateBlueprintVersion,
     source: isBuiltInTemplateRecord(templateRecord) ? ("Built-in" as const) : ("Store copy" as const),
     contactPromptText: templateRecord.contactPromptText ?? defaultTemplateBrandSettings.contactPromptText,
+    logoTextColor: isValidHexColor(templateRecord.logoTextColor ?? "") ? templateRecord.logoTextColor : defaultTemplateBrandSettings.logoTextColor,
     showItemsTotal: templateRecord.showItemsTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showItemsTotal,
     showShippingTotal: templateRecord.showShippingTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showShippingTotal,
     showTaxTotal: templateRecord.showTaxTotal ?? templateRecord.showTotals ?? defaultTemplateBrandSettings.showTaxTotal,
@@ -2669,6 +2675,7 @@ function createBlankTemplateDraft(): TemplateDraft {
     logoText: defaultTemplateBrandSettings.logoText,
     logoFont: defaultTemplateBrandSettings.logoFont,
     logoFontSize: defaultTemplateBrandSettings.logoFontSize,
+    logoTextColor: defaultTemplateBrandSettings.logoTextColor,
     logoSource: defaultTemplateBrandSettings.logoSource,
     logoImageUrl: defaultTemplateBrandSettings.logoImageUrl,
     documentTitleFont: defaultTemplateBrandSettings.documentTitleFont,
@@ -2733,6 +2740,7 @@ function createDraftFromTemplate(templateRecord: TemplateRecord, mode: TemplateE
     logoText: templateRecord.logoText ?? defaultTemplateBrandSettings.logoText,
     logoFont: templateRecord.logoFont ?? defaultTemplateBrandSettings.logoFont,
     logoFontSize: templateRecord.logoFontSize ?? defaultTemplateBrandSettings.logoFontSize,
+    logoTextColor: isValidHexColor(templateRecord.logoTextColor ?? "") ? templateRecord.logoTextColor : defaultTemplateBrandSettings.logoTextColor,
     logoSource: templateRecord.logoSource ?? defaultTemplateBrandSettings.logoSource,
     logoImageUrl: templateRecord.logoImageUrl ?? defaultTemplateBrandSettings.logoImageUrl,
     documentTitleFont: templateRecord.documentTitleFont ?? defaultTemplateBrandSettings.documentTitleFont,
@@ -2936,6 +2944,7 @@ function createTemplateRecordFromDraft(draft: TemplateDraft, existing?: Template
     logoText: draft.logoText.trim() || defaultTemplateBrandSettings.logoText,
     logoFont: draft.logoFont,
     logoFontSize: clampTemplateNumber(Number(draft.logoFontSize), 28, 96, defaultTemplateBrandSettings.logoFontSize),
+    logoTextColor: isValidHexColor(draft.logoTextColor) ? draft.logoTextColor : defaultTemplateBrandSettings.logoTextColor,
     logoSource: draft.logoSource,
     logoImageUrl: draft.logoImageUrl.trim(),
     documentTitleFont: draft.documentTitleFont,
@@ -6838,6 +6847,7 @@ function TemplatePreviewModal({
                 logoImageUrl={templateRecord.logoImageUrl}
                 logoFont={templateRecord.logoFont}
                 logoFontSize={templateRecord.logoFontSize}
+                logoTextColor={templateRecord.logoTextColor}
                 logoSource={templateRecord.logoSource}
                 logoText={templateRecord.logoText}
                 paperSize={templateRecord.paperSize}
@@ -7055,8 +7065,7 @@ function TemplateEditorDrawer({
   const isBigBrandDraft = draftBlueprintKey === "invoice_big_brand";
   const supportsLogoTextColor = draftBlueprintKey === "invoice_big_brand" || draftBlueprintKey === "invoice_minimal";
   const draftAccentHexColor = getOrderTemplateAccentHex(draft.accentColor, draft.customAccentColor);
-  const draftLogoHexColor = getOrderTemplateLogoTextColor(draft.accentColor, draft.customAccentColor);
-  const draftLogoColorTextValue = draft.accentColor === "custom" ? draft.customAccentColor : draftLogoHexColor;
+  const draftLogoHexColor = getOrderTemplateLogoTextColor(draft.logoTextColor);
   const showMissingLogoHint = storeProfileStatus.status === "loaded" && !storeProfile?.logoUrl && draft.logoSource !== "uploaded-image";
   const showMissingEmailHint = storeProfileStatus.status === "loaded" && !storeProfile?.businessEmail;
 
@@ -7219,13 +7228,13 @@ function TemplateEditorDrawer({
                       className={styles.colorInput}
                       type="color"
                       value={draftLogoHexColor}
-                      onChange={(event) => onDraftChange({ accentColor: "custom", customAccentColor: event.target.value })}
+                      onChange={(event) => onDraftChange({ logoTextColor: event.target.value })}
                     />
                     <input
                       className={styles.textInput}
-                      placeholder="#087A46"
-                      value={draftLogoColorTextValue}
-                      onChange={(event) => onDraftChange({ accentColor: "custom", customAccentColor: event.target.value })}
+                      placeholder={defaultTemplateLogoTextColor}
+                      value={draft.logoTextColor}
+                      onChange={(event) => onDraftChange({ logoTextColor: event.target.value })}
                     />
                   </span>
                 </label>
@@ -7777,6 +7786,7 @@ function TemplateEditorDrawer({
                     logoImageUrl={draft.logoImageUrl}
                     logoFont={draft.logoFont}
                     logoFontSize={draft.logoFontSize}
+                    logoTextColor={draft.logoTextColor}
                     logoSource={draft.logoSource}
                     logoText={draft.logoText}
                     paperSize={draft.paperSize}
@@ -7838,6 +7848,7 @@ function TemplatePaperPreview({
   logoImageUrl = defaultTemplateBrandSettings.logoImageUrl,
   logoFont = defaultTemplateBrandSettings.logoFont,
   logoFontSize = defaultTemplateBrandSettings.logoFontSize,
+  logoTextColor = defaultTemplateBrandSettings.logoTextColor,
   logoSource = defaultTemplateBrandSettings.logoSource,
   logoText = defaultTemplateBrandSettings.logoText,
   order,
@@ -7889,6 +7900,7 @@ function TemplatePaperPreview({
   logoImageUrl?: string;
   logoFont?: OrderTemplateLogoFont;
   logoFontSize?: number;
+  logoTextColor?: string;
   logoSource?: OrderTemplateLogoSource;
   logoText?: string;
   order?: Order | null;
@@ -7978,6 +7990,7 @@ function TemplatePaperPreview({
         logoImageUrl={logoImageUrl}
         logoFont={logoFont}
         logoFontSize={logoFontSize}
+        logoTextColor={logoTextColor}
         logoSource={logoSource}
         logoText={logoText}
         order={order}
@@ -8203,13 +8216,9 @@ function getOrderTemplateAccentHex(accentColor: OrderTemplateAccent, customAccen
   return accentStyle["--order-accent"] ?? defaultTemplateBrandSettings.customAccentColor;
 }
 
-function getOrderTemplateLogoTextColor(accentColor: OrderTemplateAccent, customAccentColor = defaultTemplateBrandSettings.customAccentColor) {
-  const customLogoColor = customAccentColor.trim();
-  if (isValidHexColor(customLogoColor)) {
-    return customLogoColor;
-  }
-
-  return getOrderTemplateAccentHex(accentColor, customAccentColor);
+function getOrderTemplateLogoTextColor(logoTextColor = defaultTemplateBrandSettings.logoTextColor) {
+  const normalizedLogoTextColor = logoTextColor.trim();
+  return isValidHexColor(normalizedLogoTextColor) ? normalizedLogoTextColor : defaultTemplateLogoTextColor;
 }
 
 function formatTemplateDate(format: TemplateDateFormat, locale: PrintLocale | SiteLocale) {
@@ -8785,6 +8794,7 @@ function OrderPaperPreview({
   logoImageUrl,
   logoFont,
   logoFontSize,
+  logoTextColor,
   logoSource,
   logoText,
   order,
@@ -8835,6 +8845,7 @@ function OrderPaperPreview({
   logoImageUrl: string;
   logoFont: OrderTemplateLogoFont;
   logoFontSize: number;
+  logoTextColor: string;
   logoSource: OrderTemplateLogoSource;
   logoText: string;
   order?: Order | null;
@@ -8921,7 +8932,7 @@ function OrderPaperPreview({
   };
   const displayContactPrompt = resolveDefaultTemplateText(contactPromptText, defaultTemplateBrandSettings.contactPromptText, labels.questions);
   const displayThankYou = resolveDefaultTemplateText(thankYouText, defaultTemplateBrandSettings.thankYouText, resolveLocalizedText(fixedTemplateThankYouText, defaultLanguage));
-  const logoTextColor = getOrderTemplateLogoTextColor(accentColor, customAccentColor);
+  const resolvedLogoTextColor = getOrderTemplateLogoTextColor(logoTextColor);
 
   const paperProps = {
     className: styles.templatePaper,
@@ -8937,7 +8948,7 @@ function OrderPaperPreview({
     lang: defaultLanguage,
     style: {
       ...getOrderTemplateAccentStyle(accentColor, customAccentColor),
-      "--order-logo-color": logoTextColor,
+      "--order-logo-color": resolvedLogoTextColor,
       ...getOrderTemplateTypographyStyle({
         bodyFont,
         bodyFontSize,
@@ -9092,7 +9103,7 @@ function OrderPaperPreview({
               <span className={styles.orderHeroLogoSlot}>
                 <BrandLogoAsset
                   brandName={displayBrandName}
-                  color={logoTextColor}
+                  color={resolvedLogoTextColor}
                   font={logoFont}
                   fontSize={logoFontSize}
                   logoImageUrl={logoImageUrl}
@@ -9201,7 +9212,7 @@ function OrderPaperPreview({
               <span className={styles.orderClassicLogo}>
                 <BrandLogoAsset
                   brandName={displayBrandName}
-                  color={logoTextColor}
+                  color={resolvedLogoTextColor}
                   font={logoFont}
                   fontSize={logoFontSize}
                   logoImageUrl={logoImageUrl}
@@ -9312,7 +9323,7 @@ function OrderPaperPreview({
             <span className={styles.orderClassicLogo}>
               <BrandLogoAsset
                 brandName={displayBrandName}
-                color={logoTextColor}
+                color={resolvedLogoTextColor}
                 font={logoFont}
                 fontSize={logoFontSize}
                 logoImageUrl={logoImageUrl}
@@ -9426,6 +9437,7 @@ function OrderTemplatePrintDocument({
       logoImageUrl={templateRecord.logoImageUrl}
       logoFont={templateRecord.logoFont}
       logoFontSize={templateRecord.logoFontSize}
+      logoTextColor={templateRecord.logoTextColor}
       logoSource={templateRecord.logoSource}
       logoText={templateRecord.logoText}
       order={order}

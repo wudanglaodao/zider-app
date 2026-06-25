@@ -4055,7 +4055,7 @@
   max-width: 100%;
   align-items: flex-start;
   justify-content: flex-end;
-  color: var(--order-logo-color, #151817);
+  color: var(--order-logo-color, #000000);
   font-weight: 920;
   letter-spacing: 0;
   line-height: 0.92;
@@ -4295,7 +4295,7 @@
 .templatePaper[data-document="order"] .orderHeroLogoText,
 .templatePaper[data-document="order"] .orderHeroLogoSlot,
 .templatePaper[data-document="order"] .orderClassicLogoText {
-  color: var(--order-logo-color, var(--order-accent-2));
+  color: var(--order-logo-color, #000000);
 }
 
 .templatePaper[data-document="order"] .orderHeroMeta,
